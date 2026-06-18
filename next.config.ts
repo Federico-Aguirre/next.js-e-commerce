@@ -1,8 +1,10 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  reactCompiler: true,
+  // Obligamos al compilador a incrustar la variable directamente en el servidor de desarrollo
+  env: {
+    DATABASE_URL: process.env.DATABASE_URL || "",
+  },
 };
 
 export default nextConfig;

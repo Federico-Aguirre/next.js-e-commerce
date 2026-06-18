@@ -1,65 +1,81 @@
-import Image from "next/image";
+import React, { Suspense } from 'react';
+import { Product } from '@/types/product';
+import GoogleLoginAlert from '@/components/GoogleLoginAlert';
+import ProductCatalog from '@/components/ProductCatalog';
+import CatalogSkeleton from '@/components/CatalogSkeleton'; // <-- Importamos el nuevo esqueleto
 
-export default function Home() {
+async function getProducts(): Promise<Product[]> {
+  try {
+    const query = `
+      query GetSeniorCatalog {
+        products {
+          id
+          title
+          price
+          category
+          image
+        }
+      }
+    `;
+
+    const res = await fetch('http://localhost:3000/api/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+      cache: 'no-store', 
+    });
+
+    // 🛡️ Si el servidor de GraphQL devolvió un error (500, 404, etc), frenamos acá limpiamente
+    if (!res.ok) {
+      // eslint-disable-next-line no-console
+      console.error(`GraphQL Server responded with status: ${res.status}`);
+      return [];
+    }
+
+    const json = await res.json();
+    
+    if (json.errors) {
+      console.error('GraphQL Errors:', json.errors);
+      return [];
+    }
+
+    return json.data.products;
+  } catch (error) {
+    console.error("Error fetching from GraphQL:", error);
+    return [];
+  }
+}
+
+export default async function HomePage() {
+  const products = await getProducts();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <GoogleLoginAlert />
+
+      <div className="max-w-7xl mx-auto">
+        
+        <header className="mb-12 text-center">
+          <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+            Nuestra Colección
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-4 text-lg text-gray-500">
+            Ropa exclusiva diseñada para durar.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        </header>
+
+        {products.length === 0 ? (
+          <p className="text-center text-gray-500">No se encontraron productos en el servidor.</p>
+        ) : (
+          /* 🚀 REEMPLAZADO: Ahora el fallback renderiza la silueta parpadeante premium */
+          <Suspense fallback={<CatalogSkeleton />}>
+            <ProductCatalog initialProducts={products} />
+          </Suspense>
+        )}
+        
+      </div>
+    </main>
   );
 }
