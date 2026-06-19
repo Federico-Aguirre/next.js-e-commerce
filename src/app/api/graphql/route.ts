@@ -53,6 +53,7 @@ const typeDefs = `
 
   type Mutation {
     mergeCart(userId: String!, localCart: [LocalCartItemInput!]!, isInitial: Boolean): [CartItem!]!
+    syncWishlist(userId: String!, productIds: [Int!]!): [Product!]! # 🌟 CORREGIDO: Cambiado de [Int!]! a [Product!]!
   }
 `;
 
@@ -72,52 +73,129 @@ const resolvers = {
     }
   },
 
-Mutation: {
-  mergeCart: async (_root: unknown, args: { userId: string; localCart: any[]; isInitial?: boolean }) => {
-    try {
-      const { userId, localCart, isInitial = false } = args;
-      if (!userId) throw new Error("userId requerido");
+  Mutation: {
+    mergeCart: async (_root: unknown, args: { userId: string; localCart: any[]; isInitial?: boolean }) => {
+      try {
+        const { userId, localCart, isInitial = false } = args;
+        if (!userId) throw new Error("userId requerido");
 
-      // 1. SI ES FUSIÓN: Traemos lo que hay en DB y sumamos lo nuevo
-      if (isInitial) {
-        const dbItems = await prisma.cartItem.findMany({ where: { userId } });
-        const map = new Map();
-        
-        // Cargar DB
-        dbItems.forEach(i => map.set(`${i.productId}-${i.size}`, i));
-        // Sumar local
-        localCart.forEach(i => {
-          const key = `${i.productId}-${i.size}`;
-          const existing = map.get(key);
-          if (existing) existing.quantity += i.quantity;
-          else map.set(key, { ...i, userId });
-        });
-        
-        // Borrar TODO de la cuenta antes de insertar lo nuevo (Limpieza profunda)
-        await prisma.cartItem.deleteMany({ where: { userId } });
-        await prisma.cartItem.createMany({ data: Array.from(map.values()).map(i => ({
+        if (isInitial) {
+          const dbItems = await prisma.cartItem.findMany({ where: { userId } });
+          const map = new Map();
+          
+          dbItems.forEach(i => map.set(`${i.productId}-${i.size}`, i));
+          localCart.forEach(i => {
+            const key = `${i.productId}-${i.size}`;
+            const existing = map.get(key);
+            if (existing) existing.quantity += i.quantity;
+            else map.set(key, { ...i, userId });
+          });
+          
+          await prisma.cartItem.deleteMany({ where: { userId } });
+          await prisma.cartItem.createMany({ data: Array.from(map.values()).map(i => ({
             userId, productId: i.productId, title: i.title, price: i.price, image: i.image, size: i.size, quantity: i.quantity
-        }))});
-      } 
-      // 2. SI ES SINCRONIZACIÓN NORMAL: Reemplazo total (El front manda la verdad)
-      else {
-        await prisma.cartItem.deleteMany({ where: { userId } });
-        if (localCart.length > 0) {
-          await prisma.cartItem.createMany({ data: localCart.map(i => ({
-              userId, productId: i.productId, title: i.title, price: i.price, image: i.image, size: i.size, quantity: i.quantity
           }))});
+        } 
+        else {
+          await prisma.cartItem.deleteMany({ where: { userId } });
+          if (localCart.length > 0) {
+            await prisma.cartItem.createMany({ data: localCart.map(i => ({
+                userId, productId: i.productId, title: i.title, price: i.price, image: i.image, size: i.size, quantity: i.quantity
+            }))});
+          }
         }
-      }
 
-      return await prisma.cartItem.findMany({ where: { userId } });
-    } catch (err) {
-      console.error(err);
-      throw new Error("Error al sincronizar");
+        return await prisma.cartItem.findMany({ where: { userId } });
+      } catch (err) {
+        console.error(err);
+        throw new Error("Error al sincronizar");
+      }
+    },
+
+    syncWishlist: async (_root: unknown, args: any) => {
+      try {
+        const userId = args?.userId;
+        const productIds = args?.productIds;
+
+        if (!userId) {
+          console.error("❌ [BACKEND WISHLIST] Error: userId es nulo.");
+          throw new Error("userId requerido");
+        }
+
+        console.log(`\n📥 [BACKEND WISHLIST] ID procesando: ${userId}`);
+
+        const db = (prisma as any).wishlistItem || (prisma as any).wishlist || (prisma as any).wishListItem;
+
+        if (!db) {
+          console.error("❌ [PRISMA CONFIG] El modelo de tu Wishlist no se encuentra en el objeto prisma. Revisá tu schema.prisma");
+          return [];
+        }
+
+        try {
+          let finalProductIds: number[] = [];
+
+          // MODO A: LOGIN / CARGA INICIAL
+          if (!productIds || productIds.length === 0) {
+            const existingItems = await db.findMany({
+              where: { userId: String(userId) },
+              select: { productId: true }
+            });
+            finalProductIds = existingItems.map((item: any) => item.productId);
+          } 
+          // MODO B: GUARDADO EN CALIENTE
+          else {
+            await db.deleteMany({
+              where: { userId: String(userId) }
+            });
+
+            if (productIds.length > 0) {
+              const dataToInsert = productIds.map((pId: number) => ({
+                userId: String(userId),
+                productId: Number(pId)
+              }));
+              
+              await db.createMany({
+                data: dataToInsert
+              });
+            }
+
+            const updatedItems = await db.findMany({
+              where: { userId: String(userId) },
+              select: { productId: true }
+            });
+
+            finalProductIds = updatedItems.map((item: any) => item.productId);
+          }
+          
+          // 🌟 CORREGIDO: Mapeamos los IDs numéricos recolectados a objetos del catálogo real 'productsData'
+          return finalProductIds
+            .map(id => productsData.find((product) => product.id === id))
+            .filter(Boolean);
+
+        } catch (dbError: any) {
+          console.error("⚠️ [PRISMA DETECTED ERROR] Falló la operación en la tabla:", dbError.message);
+          return [];
+        }
+
+      } catch (err: any) {
+        console.error("🚨 [CRÍTICO YOGA]:", err.message);
+        throw new Error("Error interno.");
+      }
     }
   }
-}
 };
 
 const schema = createSchema({ typeDefs, resolvers });
-const { handleRequest } = createYoga({ schema, graphqlEndpoint: '/api/graphql' });
-export { handleRequest as GET, handleRequest as POST };
+
+// Forzamos a Next.js a no cachear la ruta bajo ningún concepto
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: Request) {
+  const { handleRequest } = createYoga({ schema, graphqlEndpoint: '/api/graphql' });
+  return handleRequest(request, {});
+}
+
+export async function POST(request: Request) {
+  const { handleRequest } = createYoga({ schema, graphqlEndpoint: '/api/graphql' });
+  return handleRequest(request, {});
+}

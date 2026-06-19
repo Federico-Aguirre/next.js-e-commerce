@@ -12,13 +12,16 @@ interface ProductCatalogProps {
   initialProducts: Product[];
 }
 
-export default function ProductCatalog({ initialProducts }: ProductCatalogProps) {
+// 🌟 SOLUCIÓN: Asignamos = [] por si initialProducts llega undefined o nulo
+export default function ProductCatalog({ initialProducts = [] }: ProductCatalogProps) {
   const searchParams = useSearchParams();
   const queryBusqueda = searchParams.get('search') || '';
 
-  // Filtramos los productos en tiempo real basándonos en la URL
-  const productosFiltrados = initialProducts.filter((product) =>
-    product.title.toLowerCase().includes(queryBusqueda.toLowerCase())
+  // 🛡️ Doble protección: Nos aseguramos de que sea un array real antes de filtrar
+  const productosSeguros = Array.isArray(initialProducts) ? initialProducts : [];
+
+  const productosFiltrados = productosSeguros.filter((product) =>
+    product?.title?.toLowerCase().includes(queryBusqueda.toLowerCase())
   );
 
   return (
@@ -51,8 +54,14 @@ export default function ProductCatalog({ initialProducts }: ProductCatalogProps)
                   className="object-center object-contain p-6 mix-blend-multiply transform group-hover:scale-105 transition-transform duration-500 ease-out"
                 />
                 
-                {/* 🤍 Evitamos que el click del corazón active el Link usando el z-index de la capa */}
-                <div className="absolute top-3 right-3 z-30">
+                {/* 🤍 Evitamos que el click del corazón active el Link usando detención de propagación */}
+                <div 
+                  className="absolute top-3 right-3 z-30"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                >
                   <WishlistButton product={{
                     id: String(product.id),
                     title: product.title,

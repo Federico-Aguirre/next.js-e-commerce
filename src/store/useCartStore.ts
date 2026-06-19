@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// Tipado estricto del elemento del carrito (Se mantiene intacto)
+// Tipado estricto del elemento del carrito (Actualizado con category opcional)
 export interface CartItem {
   id: number;          // ID del producto raíz
   articleId: number;   // ID específico de la variante de color
@@ -11,6 +11,7 @@ export interface CartItem {
   size: string;
   image: string;
   quantity: number;    // Cantidad de unidades
+  category?: string;   // 🌟 AGREGADO: Opcional para que no rompa nada de lo existente
 }
 
 interface CartState {
@@ -20,7 +21,7 @@ interface CartState {
   clearCart: () => void;
   getCartCount: () => number;
   getCartTotal: () => number;
-  setCart: (items: CartItem[]) => void; // 👈 AGREGADO: Acción crítica para inyectar el carrito tras el merge
+  setCart: (items: CartItem[]) => void; // Acción crítica para inyectar el carrito tras el merge
 }
 
 // Creamos la store global con persistencia automática en LocalStorage
@@ -62,7 +63,7 @@ export const useCartStore = create<CartState>()(
       getCartCount: () => get().cart.reduce((total, item) => total + item.quantity, 0),
       getCartTotal: () => get().cart.reduce((total, item) => total + (item.price * item.quantity), 0),
       
-      setCart: (items) => set({ cart: items }), // 👈 AGREGADO: Setea el estado global de forma reactiva
+      setCart: (items) => set({ cart: items }), // Setea el estado global de forma reactiva
     }),
     {
       name: 'senior-cart-storage', // Nombre de la llave dentro de LocalStorage

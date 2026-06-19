@@ -4,6 +4,7 @@ import "./globals.css";
 import Providers from "@/components/Providers"; // Importamos el proveedor
 import Navbar from "@/components/Navbar"; // O donde tengas tu Navbar instalado
 import CartSynchronizer from '@/components/CartSynchronizer';
+import WishlistSynchronizer from '@/components/WishlistSynchronizer';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,6 +26,7 @@ export default function RootLayout({
           <Navbar />
           {children}
           <CartSynchronizer />
+          <WishlistSynchronizer />
         </Providers>
       </body>
     </html>

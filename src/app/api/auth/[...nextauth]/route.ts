@@ -1,10 +1,9 @@
 import NextAuth, { NextAuthOptions, DefaultSession } from "next-auth";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import GoogleProvider from "next-auth/providers/google";
 import FacebookProvider from "next-auth/providers/facebook";
 import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs"; // Para comparar la contraseña encriptada
+import bcrypt from "bcryptjs"; 
 
 declare module "next-auth" {
   interface Session {
@@ -15,7 +14,8 @@ declare module "next-auth" {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  // 🌟 SOLUCIÓN: Removemos 'adapter: PrismaAdapter(prisma)'
+  // Al usar la estrategia "jwt", el adaptador interfiere y rompe las peticiones internas de fetch de sesión.
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
@@ -25,7 +25,6 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.FACEBOOK_CLIENT_ID || "",
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET || "",
     }),
-    // NUEVO: Agregamos el login clásico adentro de NextAuth
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -57,7 +56,6 @@ export const authOptions: NextAuthOptions = {
       }
     })
   ],
-  // Importante: Cambiamos la estrategia a JWT para que convivan Credentials y Google perfectamente
   session: {
     strategy: "jwt",
   },

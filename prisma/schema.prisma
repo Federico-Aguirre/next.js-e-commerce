@@ -48,6 +48,17 @@ model User {
   cartItems     CartItem[]
 }
 
+model WishlistItem {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  productId Int      // Cambiado a Int (o String, según uses en tu BD para los productos)
+  createdAt DateTime @default(now())
+
+  // Esto crea una clave compuesta para que un usuario no pueda 
+  // agregar el mismo producto dos veces a su lista
+  @@unique([userId, productId]) 
+}
+
 // 🛒 NUEVO MODELO: Para guardar los carritos persistidos en Aiven
 model CartItem {
   id        String   @id @default(cuid())

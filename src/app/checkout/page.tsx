@@ -17,6 +17,24 @@ function CheckoutContent() {
   const shipping = subtotal > 0 ? 15.0 : 0.0;
   const total = subtotal + shipping;
 
+  // CONTROLADOR CENTRAL INTERNACIONAL PARA PASARELAS DE PAGO
+  const handleProcessPayment = async (
+    event: React.MouseEvent<HTMLButtonElement>, 
+    paymentMethod: 'mercadopago' | 'stripe'
+  ) => {
+    event.preventDefault();
+    setIsProcessing(true);
+    setCheckoutError(null);
+    try {
+      console.log(`Iniciando pago con ${paymentMethod}...`);
+      // Tu lógica de pasarela de pago va acá
+    } catch (error: any) {
+      setCheckoutError(error.message || 'Error al procesar el pago.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleDecreaseQuantity = (item: CartItem) => {
     // Detectamos el ID real que tenga el producto (local o de DB)
     const currentId = item.articleId || (item as any).productId || item.id;
@@ -73,11 +91,14 @@ function CheckoutContent() {
               className="flex py-6 border-b border-gray-100 last:border-0 last:pb-0 first:pt-0"
             >
               <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-gray-50 border border-gray-100 p-2">
+                {/* 🌟 SOLUCIÓN AL STRING VACÍO Y FALTA DE SIZES PROP */}
                 <Image
-                  src={item.image}
-                  alt={item.title}
+                  src={item.image && item.image.trim() !== "" ? item.image : "https://placehold.co/150x150?text=No+Image"}
+                  alt={item.title || "Producto"}
                   fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   className="object-center object-contain mix-blend-multiply"
+                  priority={false}
                 />
               </div>
 
@@ -180,11 +201,6 @@ function CheckoutContent() {
     </div>
   );
 }
-
-// CONTROLADOR CENTRAL INTERNACIONAL PARA PASARELAS DE PAGO
-const handleProcessPayment = async (event: React.MouseEvent<HTMLButtonElement>, paymentMethod: 'mercadopago' | 'stripe') => {
-  // ... (Tu función handleProcessPayment se mantiene igual abajo)
-};
 
 const DynamicCheckoutContent = dynamic(() => Promise.resolve(CheckoutContent), {
   ssr: false, 

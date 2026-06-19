@@ -1,48 +1,103 @@
 'use client';
 
 import React from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
+import SearchBar from '@/components/SearchBar';
+import WishlistButton from '@/components/WishlistButton';
+import { Product } from '@/types/product';
 
-export default function CatalogSkeleton() {
-  // Array de 4 elementos para dibujar 4 tarjetas falsas en la grilla
-  const esqueletoTarjetas = Array.from({ length: 4 });
+interface ProductCatalogProps {
+  initialProducts?: Product[]; // 🌟 Lo hacemos opcional por seguridad
+}
+
+export default function ProductCatalog({ initialProducts = [] }: ProductCatalogProps) {
+  const searchParams = useSearchParams();
+  const queryBusqueda = searchParams.get('search') || '';
+
+  // 🛡️ Filtramos asegurando de que 'initialProducts' sea siempre un array y no de 'undefined'
+  const productosSeguros = Array.isArray(initialProducts) ? initialProducts : [];
+
+  const productosFiltrados = productosSeguros.filter((product) =>
+    product?.title?.toLowerCase().includes(queryBusqueda.toLowerCase())
+  );
 
   return (
-    <div className="w-full">
-      {/* 🔍 Esqueleto falso para la barra de búsqueda */}
-      <div className="max-w-md mx-auto mb-10">
-        <div className="h-12 w-full bg-gray-200 rounded-xl animate-pulse" />
-      </div>
+    <>
+      {/* 🔍 Ponemos la barra aquí adentro */}
+      <SearchBar />
 
-      {/* 📦 Grilla de tarjetas falsas */}
-      <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
-        {esqueletoTarjetas.map((_, index) => (
-          <div 
-            key={index} 
-            className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm h-[480px] flex flex-col justify-between p-5"
-          >
-            {/* Contenedor de la foto falsa */}
-            <div className="w-full h-72 bg-gray-100 rounded-lg animate-pulse" />
-            
-            {/* Textos falsos */}
-            <div className="space-y-3 mt-4 flex-1">
-              {/* Título linea 1 */}
-              <div className="h-4 bg-gray-200 rounded animate-pulse w-5/6" />
-              {/* Título linea 2 */}
-              <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2" />
-              {/* Categoría */}
-              <div className="h-3 bg-gray-100 rounded animate-pulse w-1/3 mt-2" />
-            </div>
-
-            {/* Precio y botón falsos */}
-            <div className="mt-5 flex items-center justify-between">
-              {/* Precio */}
-              <div className="h-6 bg-gray-200 rounded animate-pulse w-1/4" />
-              {/* Botón */}
-              <div className="h-8 bg-gray-200 rounded-lg animate-pulse w-1/3" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+      {productosFiltrados.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 p-8 max-w-sm mx-auto shadow-sm">
+          <p className="text-gray-400 text-3xl mb-2">🔍</p>
+          <h3 className="text-sm font-bold text-gray-800">No encontramos resultados</h3>
+          <p className="text-xs text-gray-500 mt-1">Probá escribiendo otra palabra o limpiando el buscador.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
+          {productosFiltrados.map((product) => {
+            if (!product) return null; // Resguardo individual
+            return (
+              <Link 
+                key={product.id} 
+                href={`/product/${product.id}`}
+                className="group relative flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-500 ease-out cursor-pointer h-full"
+              >
+                {/* Contenedor de la Imagen */}
+                <div className="relative w-full h-80 bg-gray-50/50 border-b border-gray-100 overflow-hidden">
+                  <Image
+                    src={product.image}
+                    alt={product.title}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                    priority={Number(product.id) <= 4}
+                    className="object-center object-contain p-6 mix-blend-multiply transform group-hover:scale-105 transition-transform duration-500 ease-out"
+                  />
+                  
+                  {/* 🤍 Capturamos el evento y detenemos la propagación hacia el Link */}
+                  <div 
+                    className="absolute top-3 right-3 z-30"
+                    onClick={(e) => {
+                      e.preventDefault(); 
+                      e.stopPropagation(); 
+                    }}
+                  >
+                    <WishlistButton product={{
+                      id: String(product.id),
+                      title: product.title,
+                      price: Number(product.price),
+                      image: product.image,
+                      category: product.category
+                    }} />
+                  </div>
+                </div>
+                
+                {/* Información del producto */}
+                <div className="flex-1 p-5 flex flex-col justify-between bg-white">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-indigo-600 transition-colors duration-300">
+                      {product.title}
+                    </h3>
+                    <p className="mt-1.5 text-[10px] text-gray-400 font-bold uppercase tracking-widest bg-gray-50 inline-block px-2 py-0.5 rounded">
+                      {product.category}
+                    </p>
+                  </div>
+                  
+                  <div className="mt-5 flex items-center justify-between">
+                    <p className="text-xl font-black text-gray-900">
+                      ${product.price.toFixed(2)}
+                    </p>
+                    <span className="rounded-lg bg-gray-900 px-3.5 py-2 text-xs font-bold text-white shadow-sm group-hover:bg-indigo-600 transition-colors duration-300">
+                      Ver detalle
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </>
   );
 }
