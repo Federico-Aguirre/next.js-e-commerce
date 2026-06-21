@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { Product, ProductVariant } from '@/types/product';
+import { Product, ProductVariant, ProductSku } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
 import WishlistButton from '@/components/WishlistButton';
 
@@ -12,27 +12,28 @@ interface ProductViewerProps {
 
 export default function ProductViewer({ product }: ProductViewerProps) {
   const addToCart = useCartStore((state) => state.addToCart);
+  // 🌟 Leemos el estado actual del carrito para validar el stock acumulado
+  const cart = useCartStore((state) => state.cart);
   
-  // Inicializamos la variante por defecto con la primera disponible del catálogo
+  // Inicializamos con la primera variante de color
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant>(
-    product.variants[0] || { articleId: 0, colorName: 'Default', sizes: [], images: [] }
+    product.variants[0] || { id: '', colorName: 'Default', skus: [], images: [] }
   );
   
-  // Controlamos cuál de las múltiples imágenes de la variante se está visualizando en grande
+  // La imagen principal inicial es la primera foto de ese color
   const [activeImageUrl, setActiveImageUrl] = useState<string>(
-    selectedVariant.images[0]?.url || product.image
+    selectedVariant.images[0]?.url || ''
   );
 
-  const [selectedSize, setSelectedSize] = useState<string>('');
-
-  // NUEVO ESTADO SENIOR: Control de cantidad local tipado implícitamente como número
+  // Ahora guardamos el objeto SKU completo seleccionado en lugar de solo un string
+  const [selectedSku, setSelectedSku] = useState<ProductSku | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
 
-  // Manejador Senior: Cuando cambia el color, actualiza la variante, las fotos y resetea el talle elegido
   const handleVariantChange = (variant: ProductVariant) => {
     setSelectedVariant(variant);
-    setActiveImageUrl(variant.images[0]?.url || product.image);
-    setSelectedSize(''); // Reseteamos el talle para evitar inconsistencias
+    setActiveImageUrl(variant.images[0]?.url || '');
+    setSelectedSku(null); // Reseteamos el talle seleccionado al cambiar de color
+    setQuantity(1);
   };
 
   const handleDecrease = () => {
@@ -40,15 +41,17 @@ export default function ProductViewer({ product }: ProductViewerProps) {
   };
 
   const handleIncrease = () => {
-    setQuantity(quantity + 1);
+    // Candado para que el contador no supere el stock máximo real disponible
+    if (selectedSku && quantity < selectedSku.stock) {
+      setQuantity(quantity + 1);
+    }
   };
 
   return (
     <div className="lg:grid lg:grid-cols-2 lg:gap-x-8 lg:items-start">
       
-      {/* BLOQUE IZQUIERDO: Galería de Imágenes Dinámica */}
+      {/* BLOQUE IZQUIERDO: Galería de Imágenes */}
       <div className="flex flex-col-reverse">
-        {/* Lista de miniaturas (ángulos disponibles) */}
         {selectedVariant.images.length > 1 && (
           <div className="mt-6 w-full max-w-2xl mx-auto sm:block lg:max-w-none">
             <div className="grid grid-cols-4 gap-6" aria-label="Images gallery">
@@ -72,30 +75,32 @@ export default function ProductViewer({ product }: ProductViewerProps) {
           </div>
         )}
 
-        {/* Visor de Imagen Principal */}
+        {/* Visor Principal */}
         <div className="w-full aspect-w-1 aspect-h-1 bg-gray-50 rounded-lg overflow-hidden relative h-125 border border-gray-100">
-          <Image
-            src={activeImageUrl}
-            alt={product.title}
-            fill
-            priority
-            className="w-full h-full object-center object-contain p-8 mix-blend-multiply"
-          />
+          {activeImageUrl && (
+            <Image
+              src={activeImageUrl}
+              alt={product.name}
+              fill
+              priority
+              className="w-full h-full object-center object-contain p-8 mix-blend-multiply"
+            />
+          )}
           <div className="absolute top-3 right-3 z-10">
             <WishlistButton product={{
               id: String(product.id),
-              title: product.title,
+              title: product.name,
               price: Number(product.price),
-              image: product.image,
-              category: product.category // opcional
+              image: selectedVariant.images[0]?.url || '',
+              category: product.category 
             }} />
           </div>
         </div>
       </div>
 
-      {/* BLOQUE DERECHO: Información y Selectores Dinámicos */}
+      {/* BLOQUE DERECHO: Info y Selectores */}
       <div className="mt-10 px-4 sm:px-0 sm:mt-16 lg:mt-0">
-        <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">{product.title}</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">{product.name}</h1>
         
         <div className="mt-3">
           <p className="text-3xl text-gray-900 font-bold">${product.price.toFixed(2)}</p>
@@ -106,16 +111,18 @@ export default function ProductViewer({ product }: ProductViewerProps) {
           <p className="mt-2 text-base text-gray-500 leading-relaxed">{product.description}</p>
         </div>
 
-        {/* Selector de Colores (Variantes) */}
+        {/* Selector de Colores */}
         <div className="mt-8">
-          <h3 className="text-sm font-semibold text-gray-900">Color: <span className="font-normal text-gray-500">{selectedVariant.colorName}</span></h3>
-          <div className="mt-3 flex items-center gap-x-3">
+          <h3 className="text-sm font-semibold text-gray-900">
+            Color: <span className="font-normal text-gray-500">{selectedVariant.colorName}</span>
+          </h3>
+          <div className="mt-3 flex flex-wrap gap-3">
             {product.variants.map((variant) => (
               <button
-                key={variant.articleId}
+                key={variant.id}
                 onClick={() => handleVariantChange(variant)}
                 className={`px-4 py-2 text-sm font-medium rounded-md border transition-all ${
-                  selectedVariant.articleId === variant.articleId
+                  selectedVariant.id === variant.id
                     ? 'border-indigo-600 bg-indigo-50 text-indigo-600 ring-1 ring-indigo-600'
                     : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                 }`}
@@ -126,32 +133,47 @@ export default function ProductViewer({ product }: ProductViewerProps) {
           </div>
         </div>
 
-        {/* Selector de Talles */}
+        {/* Selector de Talles con Validación de Stock Real 🚀 */}
         <div className="mt-8">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Talles Disponibles</h3>
-          </div>
+          <h3 className="text-sm font-semibold text-gray-900">Talles Disponibles</h3>
           <div className="mt-3 grid grid-cols-4 gap-4 sm:grid-cols-6 lg:grid-cols-4">
-            {selectedVariant.sizes.map((size) => (
-              <button
-                key={size}
-                onClick={() => setSelectedSize(size)}
-                className={`py-3 px-4 flex items-center justify-center text-sm font-medium uppercase rounded-md border transition-all ${
-                  selectedSize === size
-                    ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                {size}
-              </button>
-            ))}
+            {selectedVariant.skus.map((sku) => {
+              const hasStock = sku.stock > 0;
+              const isSelected = selectedSku?.id === sku.id;
+
+              return (
+                <button
+                  key={sku.id}
+                  disabled={!hasStock} // 🛡️ Evita clics si no hay stock
+                  onClick={() => {
+                    setSelectedSku(sku);
+                    setQuantity(1); // Reseteamos cantidad a 1
+                  }}
+                  className={`py-3 px-4 flex flex-col items-center justify-center text-sm font-medium uppercase rounded-md border transition-all relative ${
+                    !hasStock
+                      ? 'bg-gray-100 border-gray-200 text-gray-400 line-through cursor-not-allowed'
+                      : isSelected
+                      ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                      : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <span>{sku.size}</span>
+                </button>
+              );
+            })}
           </div>
+          
+          {/* Indicador Numérico de Stock dinámico */}
+          {selectedSku && (
+            <p className="mt-3 text-sm font-medium text-emerald-600">
+              ✓ ¡Disponible! Quedan {selectedSku.stock} unidades en stock.
+            </p>
+          )}
         </div>
 
-        {/* SECCIÓN INTERACTIVA PREMIUM: CONTROL DE CANTIDAD Y AÑADIR */}
+        {/* CONTROLES DE COMPRA */}
         <div className="mt-10 flex flex-col sm:flex-row gap-4 items-end sm:items-center">
           
-          {/* Selector numérico de cantidad */}
           <div className="flex flex-col w-full sm:w-auto">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Cantidad</span>
             <div className="flex items-center border border-gray-200 rounded-lg bg-gray-50 h-14 justify-between px-4 min-w-35">
@@ -167,43 +189,61 @@ export default function ProductViewer({ product }: ProductViewerProps) {
               </span>
               <button
                 type="button"
+                disabled={!selectedSku || quantity >= selectedSku.stock}
                 onClick={handleIncrease}
-                className="text-gray-500 hover:text-indigo-600 font-black text-xl p-1 transition-colors select-none"
+                className={`font-black text-xl p-1 transition-colors select-none ${
+                  !selectedSku || quantity >= selectedSku.stock
+                    ? 'text-gray-300 cursor-not-allowed'
+                    : 'text-gray-500 hover:text-indigo-600'
+                }`}
               >
                 +
               </button>
             </div>
           </div>
 
-          {/* Botón de acción principal conectado en bucle */}
           <div className="flex-1 w-full">
             <button
               type="button"
+              disabled={!selectedSku}
               onClick={() => {
-                if (!selectedSize) {
-                  alert('Por favor, selecciona un talle antes de añadir al carrito.');
+                if (!selectedSku) return;
+
+                // 🌟 Buscamos si este producto ya está en el carrito para saber cuántos tiene acumulados
+                const itemEnCarrito = cart.find(
+                  (item) => item.articleId === selectedSku.articleId && item.size === selectedSku.size
+                );
+                const cantidadActual = itemEnCarrito ? itemEnCarrito.quantity : 0;
+
+                // 🛡️ Candado definitivo: si lo que ya tiene + lo que quiere agregar supera el stock real, frena la operación
+                if (cantidadActual + quantity > selectedSku.stock) {
+                  alert(`No podés agregar más unidades. Ya tenés ${cantidadActual} en el carrito y el stock máximo es de ${selectedSku.stock}.`);
                   return;
                 }
 
-                // Inyectamos N veces según la cantidad elegida
                 for (let i = 0; i < quantity; i++) {
                   addToCart({
                     id: product.id,
-                    articleId: selectedVariant.articleId,
-                    title: product.title,
+                    articleId: selectedSku.articleId, 
+                    title: product.name,
                     price: product.price,
                     colorName: selectedVariant.colorName,
-                    size: selectedSize,
-                    image: product.image, // FIX SENIOR: Siempre guarda la foto principal frontal
+                    size: selectedSku.size,
+                    image: selectedVariant.images[0]?.url || '', 
+                    category: product.category,
                   });
                 }
 
-                alert(`¡Se añadieron ${quantity} unidad(es) al carrito con éxito!`);
-                setQuantity(1); // Reseteamos el contador local
+                alert(`¡Se añadieron ${quantity} unidad(es) al carrito!`);
+                setQuantity(1);
               }}
-              className="w-full h-14 bg-indigo-600 border border-transparent rounded-lg flex items-center justify-center text-base font-bold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors shadow-lg shadow-indigo-600/10"
+              className={`w-full h-14 border border-transparent rounded-lg flex items-center justify-center text-base font-bold text-white transition-colors shadow-lg ${
+                !selectedSku
+                  ? 'bg-gray-400 cursor-not-allowed shadow-none'
+                  : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/10'
+              }`}
             >
-              Añadir al carrito
+              {!selectedSku ? 'Selecciona un talle' : 'Añadir al carrito'}
             </button>
           </div>
 

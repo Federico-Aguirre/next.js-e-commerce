@@ -11,12 +11,13 @@ export interface CartItem {
   size: string;
   image: string;
   quantity: number;    // Cantidad de unidades
-  category?: string;   // 🌟 AGREGADO: Opcional para que no rompa nada de lo existente
+  category?: string;   // Opcional para que no rompa nada de lo existente
 }
 
 interface CartState {
   cart: CartItem[];
-  addToCart: (item: Omit<CartItem, 'quantity'>) => void;
+  // 🌟 AGREGADO: stockMaximo ahora es un segundo parámetro opcional
+  addToCart: (item: Omit<CartItem, 'quantity'>, stockMaximo?: number) => void;
   removeFromCart: (articleId: number, size: string) => void;
   clearCart: () => void;
   getCartCount: () => number;
@@ -30,7 +31,7 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       cart: [],
 
-      addToCart: (newItem) => {
+      addToCart: (newItem, stockMaximo) => {
         const currentCart = get().cart;
         
         // Buscamos si ya existe exactamente el mismo artículo con el mismo talle
@@ -38,13 +39,30 @@ export const useCartStore = create<CartState>()(
           (item) => item.articleId === newItem.articleId && item.size === newItem.size
         );
 
+        // Si nos pasan un stockMaximo, lo usamos como techo. Si no viene, permitimos hasta 99 por las dudas.
+        const limiteStock = stockMaximo !== undefined ? stockMaximo : 99;
+
         if (existingIndex > -1) {
-          // Si existe, clonamos el array y sumamos 1 a la cantidad (Inmutabilidad Senior)
           const updatedCart = [...currentCart];
-          updatedCart[existingIndex].quantity += 1;
+          const itemExistente = updatedCart[existingIndex];
+
+          // 🛡️ CONTROL DE INVENTARIO: Si ya llegó al límite de la base de datos, frenamos acá
+          if (itemExistente.quantity >= limiteStock) {
+            console.warn(`[STOCK LIMITADO]: No puedes agregar más de ${limiteStock} unidades de este talle.`);
+            return; // Retorna sin actualizar el estado, bloqueando el clic
+          }
+
+          // Si pasó el filtro, sumamos 1 de forma inmutable
+          itemExistente.quantity += 1;
           set({ cart: updatedCart });
         } else {
-          // Si es nuevo, lo agregamos al array con cantidad inicial de 1
+          // Si es nuevo, primero verificamos que haya stock mínimo para agregar la primera unidad
+          if (limiteStock <= 0) {
+            console.warn(`[STOCK AGOTADO]: No queda stock disponible para este producto.`);
+            return;
+          }
+          
+          // Si hay stock, lo agregamos al array con cantidad inicial de 1
           set({ cart: [...currentCart, { ...newItem, quantity: 1 }] });
         }
       },

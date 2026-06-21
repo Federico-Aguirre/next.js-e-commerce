@@ -6,6 +6,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 model Account {
   id                String  @id @default(uuid())
   userId            String
@@ -34,14 +40,14 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(uuid())
+  id            String     @id @default(uuid())
   name          String?
-  email         String?   @unique
+  email         String?    @unique
   emailVerified DateTime?
   image         String?
-  password      String?   // es opcional porque los de Google no tienen contraseña
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  password      String? // es opcional porque los de Google no tienen contraseña
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
   accounts      Account[]
   sessions      Session[]
   orders        Order[]
@@ -51,12 +57,12 @@ model User {
 model WishlistItem {
   id        Int      @id @default(autoincrement())
   userId    String
-  productId Int      // Cambiado a Int (o String, según uses en tu BD para los productos)
+  productId Int // Cambiado a Int (o String, según uses en tu BD para los productos)
   createdAt DateTime @default(now())
 
   // Esto crea una clave compuesta para que un usuario no pueda 
   // agregar el mismo producto dos veces a su lista
-  @@unique([userId, productId]) 
+  @@unique([userId, productId])
 }
 
 // 🛒 NUEVO MODELO: Para guardar los carritos persistidos en Aiven
@@ -64,12 +70,12 @@ model CartItem {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId Int      // Uso Int porque GraphQL expone los IDs como Int
+  productId Int // Uso Int porque GraphQL expone los IDs como Int
   title     String
   price     Float
   quantity  Int
   image     String
-  size      String   // Esencial para diferenciar si agregaron talle 39 o 42
+  size      String // Esencial para diferenciar si agregaron talle 39 o 42
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -85,37 +91,73 @@ model VerificationToken {
 }
 
 model Product {
-  id          String   @id @default(uuid())
+  id          Int              @id
   name        String
-  description String
+  description String           @db.Text
   price       Float
-  image       String
-  colors      String[]
-  sizes       String[]
-  stock       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  category    String
+  variants    ProductVariant[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model ProductVariant {
+  id        String         @id @default(uuid())
+  colorName String
+  productId Int
+  product   Product        @relation(fields: [productId], references: [id], onDelete: Cascade) // 🌟 Corregido: [id]
+  skus      ProductSku[]
+  images    VariantImage[]
+}
+
+model VariantImage {
+  id        String         @id @default(uuid())
+  url       String
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade) // 🌟 Corregido: [id]
+}
+
+model ProductSku {
+  id        String         @id @default(uuid())
+  articleId Int            @unique
+  size      String
+  stock     Int            @default(10)
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade) // 🌟 Corregido: [id]
 }
 
 model Order {
-  id          String      @id @default(cuid())
-  userId      String
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  total       Float
-  status      String      // "PENDING", "PAID", "FAILED"
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  items       OrderItem[]
+  id        String      @id @default(uuid())
+  userId    String
+  total     Float
+  status    String // "PENDING", "PAID", "EXPIRED"
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  expiresAt DateTime
+  user      User        @relation(fields: [userId], references: [id])
+  items     OrderItem[]
 }
 
 // 🛒 items comprados, es el historial
 model OrderItem {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   orderId   String
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId String   
-  title     String   
-  price     Float    
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  title     String
+  price     Float
   quantity  Int
+  size      String
   image     String
+}
+
+model OrderOrReservation {
+  id        String   @id @default(uuid())
+  userId    String
+  productId Int
+  size      String
+  quantity  Int
+  status    String // "PENDING_PAYMENT", "PAID", "EXPIRED"
+  createdAt DateTime @default(now())
+  expiresAt DateTime // 🌟 La clave: createdAt + 10 minutos
 }

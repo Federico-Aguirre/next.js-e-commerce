@@ -6,7 +6,7 @@ import { useWishlistStore } from '@/store/useWishlistStore';
 
 interface WishlistButtonProps {
   product: {
-    id: string;
+    id: string | number; // 🌟 Flexibilizamos para que acepte los IDs numéricos de Postgres
     title: string;
     price: number;
     image: string;
@@ -17,7 +17,9 @@ interface WishlistButtonProps {
 function WishlistButtonContent({ product }: WishlistButtonProps) {
   const { toggleWishlist, isInWishlist } = useWishlistStore();
   
-  const favoriteado = isInWishlist(product.id);
+  // 🌟 Normalizamos a string acá para que coincida exactamente con las llaves de Zustand
+  const productIdStr = String(product.id);
+  const favoriteado = isInWishlist(productIdStr);
 
   return (
     <button
@@ -25,7 +27,12 @@ function WishlistButtonContent({ product }: WishlistButtonProps) {
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        toggleWishlist(product);
+        
+        // Pasamos el producto asegurando que Zustand reciba el ID como string
+        toggleWishlist({
+          ...product,
+          id: productIdStr
+        });
       }}
       className={`p-2 rounded-full transition-all duration-300 shadow-sm border border-gray-100 backdrop-blur-sm hover:scale-110 cursor-pointer ${
         favoriteado 
@@ -52,8 +59,6 @@ function WishlistButtonContent({ product }: WishlistButtonProps) {
   );
 }
 
-// 🚀 Exportamos dinámicamente el botón desactivando SSR (Server-Side Rendering).
-// Mientras carga en el cliente, muestra el esqueleto gris del corazón para que no rompa el diseño.
 export default dynamic(() => Promise.resolve(WishlistButtonContent), {
   ssr: false,
   loading: () => (

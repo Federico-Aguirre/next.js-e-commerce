@@ -9,11 +9,13 @@ export default function WishlistSynchronizer() {
   const wishlist = useWishlistStore((state) => state.wishlist);
   const _hasHydrated = useWishlistStore((state) => (state as any)._hasHydrated);
   
+  const isInitialMergeDone = useWishlistStore((state) => (state as any).isInitialMergeDone);
+  const setInitialMergeDone = useWishlistStore((state) => (state as any).setInitialMergeDone);
+  
   const currentUserId = (session?.user as any)?.id || session?.user?.email || '';
   
   const isClientMountedRef = useRef(false);
   const lastUserIdRef = useRef<string>('');
-  const isInitialMergeDone = useRef<boolean>(false);
   const isProcessing = useRef<boolean>(false);
   const lastSyncedJson = useRef<string>('');
   const activeAbortControllerRef = useRef<AbortController | null>(null);
@@ -31,9 +33,9 @@ export default function WishlistSynchronizer() {
     if (status === 'unauthenticated') {
       if (activeAbortControllerRef.current) activeAbortControllerRef.current.abort();
       if (lastUserIdRef.current !== '') {
-        console.log('🚪 [FRONTEND WISHLIST] Usuario deslogueado. Reseteando banderas internas.');
+        console.log('🚪 [FRONTEND WISHLIST] Usuario deslogueado. Limpiando Zustand.');
+        useWishlistStore.getState().clearWishlist();
         lastUserIdRef.current = '';
-        isInitialMergeDone.current = false;
         lastSyncedJson.current = '';
       }
       return;
@@ -42,18 +44,21 @@ export default function WishlistSynchronizer() {
     if (status === 'loading' || !currentUserId) return;
     lastUserIdRef.current = currentUserId;
 
-    async function syncWithBackend(productIds: number[], signal: AbortSignal) {
+    // 🚀 ACTUALIZADO: Ahora acepta el parámetro booleano isInitial y lo inyecta en GraphQL
+    async function syncWithBackend(productIds: number[], signal: AbortSignal, isInitial: boolean = false) {
       try {
-        console.log(`🚀 [FRONTEND WISHLIST] Enviando fetch a /api/graphql... IDs del payload:`, productIds);
-        
         const query = `
-          mutation SyncWishlist($userId: String!, $productIds: [Int!]!) {
-            syncWishlist(userId: $userId, productIds: $productIds) {
+          mutation SyncWishlist($userId: String!, $productIds: [Int!]!, $isInitial: Boolean) {
+            syncWishlist(userId: $userId, productIds: $productIds, isInitial: $isInitial) {
               id
-              title
+              name
               price
-              image
               category
+              variants {
+                images {
+                  url
+                }
+              }
             }
           }
         `;
@@ -61,26 +66,20 @@ export default function WishlistSynchronizer() {
         const response = await fetch('/api/graphql', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, variables: { userId: currentUserId, productIds } }),
+          body: JSON.stringify({ 
+            query, 
+            variables: { userId: currentUserId, productIds, isInitial } 
+          }),
           signal
         });
 
-        if (!response.ok) {
-          console.error(`❌ [FRONTEND WISHLIST] Respuesta HTTP no exitosa: ${response.status}`);
-          return null;
-        }
-        
+        if (!response.ok) return null;
         const result = await response.json();
-        
-        if (result.errors) {
-          console.error('❌ [FRONTEND WISHLIST] Errores devueltos por GraphQL:', result.errors);
-          return null;
-        }
+        if (result.errors) return null;
 
-        console.log('📥 [FRONTEND WISHLIST] GraphQL respondió exitosamente.');
         return result.data?.syncWishlist || null;
       } catch (error: any) {
-        if (error.name !== 'AbortError') console.error('🚨 [FRONTEND WISHLIST] Fallo crítico de red:', error.message);
+        if (error.name !== 'AbortError') console.error('🚨 [FRONTEND WISHLIST] Fallo de red:', error.message);
         return 'NET_ERROR';
       }
     }
@@ -95,10 +94,11 @@ export default function WishlistSynchronizer() {
 
       const currentLocalItems = [...wishlist];
 
-      // 🌟 FASE 1: COMBINACIÓN INICIAL AL LOGUEARSE (LOGIN)
-      if (!isInitialMergeDone.current) {
-        console.log('🔄 [FRONTEND WISHLIST] Ejecutando sincronización de Login. Solicitando historial de base de datos...');
-        const serverProducts = await syncWithBackend([], controller.signal);
+      // FASE 1: LOGIN / MERGE INICIAL
+      if (!isInitialMergeDone) {
+        console.log('🔄 [FRONTEND WISHLIST] Merge Inicial de sesión con flag isInitial: true');
+        // Pasamos 'true' para avisarle al backend que solo queremos consultar lo que tiene Postgres
+        const serverProducts = await syncWithBackend([], controller.signal, true);
         
         if (controller.signal.aborted || status === 'unauthenticated' || serverProducts === 'NET_ERROR') {
           isProcessing.current = false;
@@ -108,73 +108,65 @@ export default function WishlistSynchronizer() {
         if (serverProducts && Array.isArray(serverProducts)) {
           const combinedMap = new Map();
           
-          // 1. Agregamos lo que viene del servidor forzando ID a STRING para el Catálogo
           serverProducts.forEach((prod: any) => {
             if (prod && prod.id) {
+              const coverImage = prod.variants?.[0]?.images?.[0]?.url || '';
               combinedMap.set(String(prod.id), {
-                ...prod,
-                id: String(prod.id)
+                id: String(prod.id),
+                title: prod.name, 
+                price: Number(prod.price),
+                category: prod.category,
+                image: coverImage
               });
             }
           });
 
-          // 2. Agregamos lo local (si hay solapamiento, conserva lo local pero normaliza a STRING)
           currentLocalItems.forEach((prod: any) => {
-            if (prod && prod.id) {
-              combinedMap.set(String(prod.id), {
-                ...prod,
-                id: String(prod.id)
-              });
-            }
+            if (prod && prod.id) combinedMap.set(String(prod.id), { ...prod, id: String(prod.id) });
           });
 
           const finalMergedList = Array.from(combinedMap.values());
-
-          console.log('✨ [FRONTEND WISHLIST] Lista consolidada post-merge (DB + Local):', finalMergedList);
           
           lastSyncedJson.current = JSON.stringify(finalMergedList);
           
-          // Guardamos en Zustand garantizando que las llaves sean strings idénticas
+          setInitialMergeDone(true);
           useWishlistStore.setState({ wishlist: finalMergedList });
 
-          // Si tras juntar ambos estados hay novedades, guardamos la lista unificada en la DB
+          // Si había productos locales agregados como invitado, los subimos de inmediato desactivando el modo inicial
           if (finalMergedList.length !== serverProducts.length) {
-            console.log('📤 [FRONTEND WISHLIST] El merge local detectó nuevos items ausentes en la DB. Guardando de inmediato...');
             const numericIds = finalMergedList.map(item => parseInt(item.id, 10)).filter(Boolean);
-            await syncWithBackend(numericIds, controller.signal);
+            await syncWithBackend(numericIds, controller.signal, false);
           }
-
-          isInitialMergeDone.current = true;
-        } else {
-          isInitialMergeDone.current = true;
         }
         isProcessing.current = false;
         return;
       }
 
-      // 🌟 FASE 2: GUARDADO EN CALIENTE EN LA INTERFAZ (ZUSTAND A DB)
+      // FASE 2: GUARDADO EN CALIENTE
       const currentLocalJson = JSON.stringify(currentLocalItems);
-      if (isInitialMergeDone.current && currentLocalJson !== lastSyncedJson.current) {
-        console.log('⚡ [FRONTEND WISHLIST] Cambio detectado en el estado local de Zustand. Guardando cambios en caliente...');
+      
+      if (isInitialMergeDone && currentLocalJson !== lastSyncedJson.current) {
+        console.log('⚡ [FRONTEND WISHLIST] Sincronizando cambio manual en caliente con flag isInitial: false');
         
-        // Garantizamos mapear strings de Zustand a los enteros que espera la BD
+        lastSyncedJson.current = currentLocalJson;
+
         const numericIds = currentLocalItems.map(item => parseInt(item.id, 10)).filter(Boolean);
-        const response = await syncWithBackend(numericIds, controller.signal);
-        if (response !== 'NET_ERROR') {
-          lastSyncedJson.current = currentLocalJson;
-        }
+        // Pasamos 'false' (o por defecto) para que el backend limpie y reemplace en Postgres
+        await syncWithBackend(numericIds, controller.signal, false);
       }
 
-      isProcessing.current = false;
+      setTimeout(() => {
+        isProcessing.current = false;
+      }, 100);
     }
 
     const timer = setTimeout(() => {
       handleSync();
-    }, 1000);
+    }, 500); 
 
     return () => clearTimeout(timer);
 
-  }, [status, currentUserId, wishlist, _hasHydrated]);
+  }, [status, currentUserId, wishlist, _hasHydrated, isInitialMergeDone, setInitialMergeDone]);
 
   return null;
 }

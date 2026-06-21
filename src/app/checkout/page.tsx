@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic'; 
+import { useSearchParams } from 'next/navigation';
 import { useCartStore, CartItem } from '@/store/useCartStore';
 
 function CheckoutContent() {
   const { cart, addToCart, removeFromCart, getCartTotal } = useCartStore();
+  const searchParams = useSearchParams();
   
   // Estados para controlar el flujo de la API de Pago
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -17,26 +19,106 @@ function CheckoutContent() {
   const shipping = subtotal > 0 ? 15.0 : 0.0;
   const total = subtotal + shipping;
 
+  // 🧹 LIBERACIÓN ACTIVA: Si el usuario vuelve porque canceló el pago, limpiamos el stock al instante
+  // 🧹 LIBERACIÓN ACTIVA: Si el usuario vuelve al carrito tras intentar pagar, liberamos el stock al instante
+useEffect(() => {
+  const savedOrderId = localStorage.getItem('last_pending_order_id');
+
+  // Si existe un ID guardado, significa que el usuario salió hacia la pasarela y regresó
+  if (savedOrderId) {
+    console.log("🔄 Detectado retorno al checkout. Liberando stock de la orden activa:", savedOrderId);
+    
+    // Liberamos el escudo global de sincronización
+    if (typeof window !== 'undefined') {
+      (window as any).isPaymentInProgress = false;
+    }
+
+    fetch('/api/checkout', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: savedOrderId })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        console.log("✅ Stock devuelto exitosamente por retorno del usuario.");
+        // Borramos el ID para que no se ejecute infinitamente al recargar
+        localStorage.removeItem('last_pending_order_id');
+      }
+    })
+    .catch(err => console.error("Error al solicitar liberación activa de stock:", err));
+  }
+}, [searchParams]); // Reacciona ante cualquier cambio de navegación
+
   // CONTROLADOR CENTRAL INTERNACIONAL PARA PASARELAS DE PAGO
   const handleProcessPayment = async (
     event: React.MouseEvent<HTMLButtonElement>, 
     paymentMethod: 'mercadopago' | 'stripe'
   ) => {
     event.preventDefault();
+    
+    // 🌟 SEÑAL GLOBAL: Avisamos que el pago está en curso para congelar el CartSynchronizer
+    if (typeof window !== 'undefined') {
+      (window as any).isPaymentInProgress = true;
+    }
+
     setIsProcessing(true);
     setCheckoutError(null);
+
     try {
-      console.log(`Iniciando pago con ${paymentMethod}...`);
-      // Tu lógica de pasarela de pago va acá
+      console.log(`Iniciando pasarela de pago para ${paymentMethod}...`);
+
+      const itemsPayload = cart.map((item) => ({
+        productId: String(item.articleId || (item as any).productId || item.id),
+        title: item.title,
+        price: Number(item.price),
+        quantity: Number(item.quantity),
+        image: item.image,
+        size: item.size
+      }));
+
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({
+          items: itemsPayload,
+          paymentMethod: paymentMethod
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Error al inicializar la pasarela con ${paymentMethod}.`);
+      }
+
+      // Guardamos el orderId en localStorage para poder cancelarlo si el usuario vuelve para atrás
+      if (data.orderId) {
+        localStorage.setItem('last_pending_order_id', data.orderId);
+      }
+
+      if (data.url) {
+        console.log("Redirigiendo usuario al entorno de pago seguro:", data.url);
+        window.location.href = data.url;
+      } else {
+        throw new Error("Respuesta inválida del servidor. Falta el enlace de redirección.");
+      }
+
     } catch (error: any) {
-      setCheckoutError(error.message || 'Error al procesar el pago.');
+      console.error("Fallo crítico en el pipeline de pago:", error);
+      setCheckoutError(error.message || 'Error de red inesperado al intentar pagar.');
+      
+      if (typeof window !== 'undefined') {
+        (window as any).isPaymentInProgress = false;
+      }
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleDecreaseQuantity = (item: CartItem) => {
-    // Detectamos el ID real que tenga el producto (local o de DB)
     const currentId = item.articleId || (item as any).productId || item.id;
 
     if (item.quantity > 1) {
@@ -73,7 +155,6 @@ function CheckoutContent() {
 
   return (
     <div className="lg:grid lg:grid-cols-12 lg:gap-x-12 lg:items-start animate-fade-in">
-      {/* COLUMNA IZQUIERDA: Lista de Productos */}
       <section className="lg:col-span-7 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-6 gap-y-6 flex flex-col">
         {checkoutError && (
           <div className="p-4 bg-red-50 text-red-700 text-sm font-semibold rounded-xl border-l-4 border-red-500 shadow-sm mb-4">
@@ -82,7 +163,6 @@ function CheckoutContent() {
         )}
 
         {cart.map((item) => {
-          // Normalizamos el ID para la Key y las acciones
           const itemRealId = item.articleId || (item as any).productId || item.id;
 
           return (
@@ -91,7 +171,6 @@ function CheckoutContent() {
               className="flex py-6 border-b border-gray-100 last:border-0 last:pb-0 first:pt-0"
             >
               <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-gray-50 border border-gray-100 p-2">
-                {/* 🌟 SOLUCIÓN AL STRING VACÍO Y FALTA DE SIZES PROP */}
                 <Image
                   src={item.image && item.image.trim() !== "" ? item.image : "https://placehold.co/150x150?text=No+Image"}
                   alt={item.title || "Producto"}
@@ -109,7 +188,7 @@ function CheckoutContent() {
                       {item.title}
                     </h3>
                     <p className="mt-1 text-xs text-gray-400 font-semibold">
-                      Color: <span className="text-gray-600 font-normal">{item.colorName}</span> | Talle: <span className="text-gray-600 font-normal uppercase">{item.size}</span>
+                      Talle: <span className="text-gray-600 font-normal uppercase">{item.size}</span>
                     </p>
                     <p className="mt-2 text-sm font-black text-gray-900 sm:hidden">
                       ${(item.price * item.quantity).toFixed(2)}
@@ -156,7 +235,6 @@ function CheckoutContent() {
         })}
       </section>
 
-      {/* COLUMNA DERECHA: Resumen del Pedido y Pasarelas de Pago */}
       <section className="mt-16 rounded-2xl bg-white border border-gray-100 p-6 shadow-sm lg:col-span-5 lg:mt-0">
         <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4">
           Resumen del pedido
@@ -177,7 +255,6 @@ function CheckoutContent() {
           </div>
         </div>
 
-        {/* BOTONES DUALES DE PASARELAS DE PAGO CONTROLADAS */}
         <div className="mt-6 space-y-3">
           <button
             type="button"
@@ -218,7 +295,10 @@ export default function CheckoutPage() {
         <h1 className="text-3xl font-black tracking-tight text-gray-900 sm:text-4xl mb-8">
           Tu Carrito de Compras
         </h1>
-        <DynamicCheckoutContent />
+        {/* Envolviendo con un Suspense nativo para poder usar useSearchParams() sin romper el build estático de Next.js */}
+        <React.Suspense fallback={null}>
+          <DynamicCheckoutContent />
+        </React.Suspense>
       </div>
     </main>
   );

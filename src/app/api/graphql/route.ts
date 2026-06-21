@@ -1,27 +1,33 @@
 import { createSchema, createYoga } from 'graphql-yoga';
-import { productsData } from '@/data/products';
 import { prisma } from '@/lib/prisma';
+import { processSecureCheckout } from '@/services/checkout';
 
 const typeDefs = `
-  type ProductImage {
+  type VariantImage {
     id: ID!
     url: String!
   }
 
-  type ProductVariant {
+  type ProductSku {
+    id: ID!
     articleId: Int!
+    size: String!
+    stock: Int!
+  }
+
+  type ProductVariant {
+    id: ID!
     colorName: String!
-    sizes: [String!]!
-    images: [ProductImage!]!
+    images: [VariantImage!]!
+    skus: [ProductSku!]!
   }
 
   type Product {
     id: Int!
-    title: String!
+    name: String!
     price: Float!
     description: String!
     category: String!
-    image: String!
     variants: [ProductVariant!]!
   }
 
@@ -45,6 +51,19 @@ const typeDefs = `
     quantity: Int!
   }
 
+  input CheckoutItemInput {
+    productId: String!
+    title: String!
+    price: Float!
+    quantity: Int!
+    image: String!
+  }
+
+  type CheckoutResult {
+    success: Boolean!
+    orderId: String
+  }
+
   type Query {
     products(category: String): [Product!]!
     product(id: Int!): Product
@@ -53,21 +72,44 @@ const typeDefs = `
 
   type Mutation {
     mergeCart(userId: String!, localCart: [LocalCartItemInput!]!, isInitial: Boolean): [CartItem!]!
-    syncWishlist(userId: String!, productIds: [Int!]!): [Product!]! # 🌟 CORREGIDO: Cambiado de [Int!]! a [Product!]!
+    # 🚀 ACTUALIZADO: Agregamos el argumento opcional isInitial para diferenciar la carga inicial del borrado en caliente
+    syncWishlist(userId: String!, productIds: [Int!]!, isInitial: Boolean): [Product!]!
+    checkout(userId: String!, items: [CheckoutItemInput!]!): CheckoutResult!
   }
 `;
 
 const resolvers = {
   Query: {
-    products: (_root: unknown, args: { category?: string }) => {
-      if (args.category) {
-        return productsData.filter((product) => product.category.toLowerCase() === args.category?.toLowerCase());
-      }
-      return productsData;
+    products: async (_root: unknown, args: { category?: string }) => {
+      return await prisma.product.findMany({
+        where: args.category 
+          ? { category: { equals: args.category, mode: 'insensitive' } }
+          : undefined,
+        include: {
+          variants: {
+            include: {
+              images: true,
+              skus: { orderBy: { size: 'asc' } }
+            }
+          }
+        }
+      });
     },
-    product: (_root: unknown, args: { id: number }) => {
-      return productsData.find((product) => product.id === args.id) || null;
+
+    product: async (_root: unknown, args: { id: number }) => {
+      return await prisma.product.findUnique({
+        where: { id: args.id },
+        include: {
+          variants: {
+            include: {
+              images: true,
+              skus: { orderBy: { size: 'asc' } }
+            }
+          }
+        }
+      });
     },
+
     getDbCart: async (_root: unknown, args: { userId: string }) => {
       return await prisma.cartItem.findMany({ where: { userId: args.userId } });
     }
@@ -112,74 +154,69 @@ const resolvers = {
       }
     },
 
-    syncWishlist: async (_root: unknown, args: any) => {
+    // 🌐 Sincronizar favoritos trayendo la info real de la base de datos relacional
+    syncWishlist: async (_root: unknown, args: { userId: string; productIds: number[]; isInitial?: boolean }) => {
       try {
-        const userId = args?.userId;
-        const productIds = args?.productIds;
-
-        if (!userId) {
-          console.error("❌ [BACKEND WISHLIST] Error: userId es nulo.");
-          throw new Error("userId requerido");
-        }
-
-        console.log(`\n📥 [BACKEND WISHLIST] ID procesando: ${userId}`);
+        const { userId, productIds, isInitial = false } = args;
+        if (!userId) throw new Error("userId requerido");
 
         const db = (prisma as any).wishlistItem || (prisma as any).wishlist || (prisma as any).wishListItem;
+        if (!db) return [];
 
-        if (!db) {
-          console.error("❌ [PRISMA CONFIG] El modelo de tu Wishlist no se encuentra en el objeto prisma. Revisá tu schema.prisma");
-          return [];
-        }
-
-        try {
-          let finalProductIds: number[] = [];
-
-          // MODO A: LOGIN / CARGA INICIAL
-          if (!productIds || productIds.length === 0) {
-            const existingItems = await db.findMany({
-              where: { userId: String(userId) },
-              select: { productId: true }
-            });
-            finalProductIds = existingItems.map((item: any) => item.productId);
-          } 
-          // MODO B: GUARDADO EN CALIENTE
-          else {
-            await db.deleteMany({
-              where: { userId: String(userId) }
-            });
-
-            if (productIds.length > 0) {
-              const dataToInsert = productIds.map((pId: number) => ({
-                userId: String(userId),
-                productId: Number(pId)
-              }));
-              
-              await db.createMany({
-                data: dataToInsert
-              });
-            }
-
-            const updatedItems = await db.findMany({
-              where: { userId: String(userId) },
-              select: { productId: true }
-            });
-
-            finalProductIds = updatedItems.map((item: any) => item.productId);
-          }
+        // 🚀 CORREGIDO PROFESIONALMENTE:
+        // Solo operamos si NO es la consulta inicial de login.
+        // Si no es el login, limpiamos Postgres por completo sin importar si viene un array vacío ([]).
+        if (!isInitial) {
+          console.log(`🧹 [BACKEND WISHLIST] Reemplazando favoritos para usuario ${userId}. Nuevos IDs:`, productIds);
           
-          // 🌟 CORREGIDO: Mapeamos los IDs numéricos recolectados a objetos del catálogo real 'productsData'
-          return finalProductIds
-            .map(id => productsData.find((product) => product.id === id))
-            .filter(Boolean);
-
-        } catch (dbError: any) {
-          console.error("⚠️ [PRISMA DETECTED ERROR] Falló la operación en la tabla:", dbError.message);
-          return [];
+          await db.deleteMany({ where: { userId: String(userId) } });
+          
+          if (productIds && productIds.length > 0) {
+            await db.createMany({
+              data: productIds.map(pId => ({ 
+                userId: String(userId), 
+                productId: Number(pId) 
+              }))
+            });
+          }
+        } else {
+          console.log(`📥 [BACKEND WISHLIST] Carga inicial detectada para usuario ${userId}. Conservando estado actual.`);
         }
+
+        // Buscamos lo que quedó guardado de manera definitiva
+        const updatedItems = await db.findMany({
+          where: { userId: String(userId) },
+          select: { productId: true }
+        });
+
+        const finalIds = updatedItems.map((item: any) => item.productId);
+
+        if (finalIds.length === 0) return [];
+
+        return await prisma.product.findMany({
+          where: { id: { in: finalIds } },
+          include: {
+            variants: {
+              include: {
+                images: true,
+                skus: true
+              }
+            }
+          }
+        });
 
       } catch (err: any) {
-        console.error("🚨 [CRÍTICO YOGA]:", err.message);
-        throw new Error("Error interno.");
+        console.error("🚨 [ERROR WISHLIST]:", err.message);
+        throw new Error("Error interno en favoritos.");
+      }
+    },
+
+    checkout: async (_root: unknown, args: { userId: string; items: any[] }) => {
+      try {
+        const result = await processSecureCheckout(args.userId, args.items);
+        return result; 
+      } catch (err: any) {
+        throw new Error(err.message);
       }
     }
   }
@@ -187,7 +224,6 @@ const resolvers = {
 
 const schema = createSchema({ typeDefs, resolvers });
 
-// Forzamos a Next.js a no cachear la ruta bajo ningún concepto
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {

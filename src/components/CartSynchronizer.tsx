@@ -19,6 +19,12 @@ export default function CartSynchronizer() {
   const lastSyncedJson = useRef<string>('');
 
   useEffect(() => {
+    // 🌟 ESCUDO PROTECTOR: Si se inició un flujo de pago, congelamos la sincronización
+    // para evitar colisiones de hilos de sesión (Error 401) y ralentizaciones.
+    if (typeof window !== 'undefined' && (window as any).isPaymentInProgress) {
+      return;
+    }
+
     // === 1. CONTROL DE SESIÓN Y LIMPIEZA ===
     if (status === 'unauthenticated') {
       if (lastUserIdRef.current !== '') {
@@ -100,17 +106,12 @@ export default function CartSynchronizer() {
 
       // MODO A: Fusión Inicial al loguearse
       if (!isInitialMergeDone.current) {
-        // Guardamos una copia de lo que el usuario acumuló de forma anónima en Zustand
         const anonymousLocalCart = [...cart];
 
-        // Hack Estratégico: Enviamos un array VACÍO con isInitial: true.
-        // Esto obliga a tu backend a no sumar nada y simplemente devolvernos el carrito real de la DB.
         const dbServerCart = await sendSyncRequest([], true);
         
-        // Creamos un mapa de consolidación usando "ID-TALLE" como clave única
         const consolidatedMap = new Map();
 
-        // 1. Inyectamos lo que devolvió el servidor (DB) en el mapa
         if (dbServerCart && Array.isArray(dbServerCart)) {
           dbServerCart.forEach((dbItem: any) => {
             const finalId = Number(dbItem.productId || dbItem.id);
@@ -128,18 +129,14 @@ export default function CartSynchronizer() {
           });
         }
 
-        // 2. Fusionamos inteligentemente lo que había en el carrito local anónimo
         anonymousLocalCart.forEach((localItem: any) => {
           const finalId = Number(localItem.articleId || localItem.productId || localItem.id);
           const key = `${finalId}-${localItem.size.toUpperCase()}`;
 
           if (consolidatedMap.has(key)) {
-            // Si el producto ya existía en la cuenta, evitamos la duplicación infinita:
-            // Usamos Math.max para quedarnos con la cantidad más alta, previniendo el (2 -> 4 -> 8...)
             const existing = consolidatedMap.get(key);
             existing.quantity = Math.max(existing.quantity, Number(localItem.quantity));
           } else {
-            // Si es un producto nuevo que no estaba en la base de datos, lo agregamos
             consolidatedMap.set(key, {
               id: finalId,
               productId: finalId,
@@ -153,13 +150,10 @@ export default function CartSynchronizer() {
           }
         });
 
-        // 3. Convertimos el mapa final consolidado en un array común
         const finalMergedCart = Array.from(consolidatedMap.values());
 
-        // 4. Se lo enviamos al servidor de forma "limpia" (isInitial: false) para que pise la DB con el merge real
         await sendSyncRequest(finalMergedCart, false);
 
-        // 5. Seteamos Zustand y el validador de cambios de estado de Next
         lastSyncedJson.current = JSON.stringify(finalMergedCart);
         setCart(finalMergedCart);
         isInitialMergeDone.current = true;

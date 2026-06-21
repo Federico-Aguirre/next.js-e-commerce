@@ -2,18 +2,33 @@ import React, { Suspense } from 'react';
 import { Product } from '@/types/product';
 import GoogleLoginAlert from '@/components/GoogleLoginAlert';
 import ProductCatalog from '@/components/ProductCatalog';
-import CatalogSkeleton from '@/components/CatalogSkeleton'; // <-- Importamos el nuevo esqueleto
+import CatalogSkeleton from '@/components/CatalogSkeleton'; 
 
 async function getProducts(): Promise<Product[]> {
   try {
+    // 🌟 QUERY ACTUALIZADA: Pedimos 'name' y navegamos relacionalmente para traer las fotos
     const query = `
       query GetSeniorCatalog {
         products {
           id
-          title
+          name
           price
           category
-          image
+          description
+          variants {
+            id
+            colorName
+            images {
+              id
+              url
+            }
+            skus {
+              id
+              articleId
+              size
+              stock
+            }
+          }
         }
       }
     `;
@@ -27,9 +42,7 @@ async function getProducts(): Promise<Product[]> {
       cache: 'no-store', 
     });
 
-    // 🛡️ Si el servidor de GraphQL devolvió un error (500, 404, etc), frenamos acá limpiamente
     if (!res.ok) {
-      // eslint-disable-next-line no-console
       console.error(`GraphQL Server responded with status: ${res.status}`);
       return [];
     }
@@ -37,7 +50,7 @@ async function getProducts(): Promise<Product[]> {
     const json = await res.json();
     
     if (json.errors) {
-      console.error('GraphQL Errors:', json.errors);
+      console.error('❌ [DETALLE GRAPHQL ERROR]:', JSON.stringify(json.errors, null, 2));
       return [];
     }
 
@@ -69,7 +82,6 @@ export default async function HomePage() {
         {products.length === 0 ? (
           <p className="text-center text-gray-500">No se encontraron productos en el servidor.</p>
         ) : (
-          /* 🚀 REEMPLAZADO: Ahora el fallback renderiza la silueta parpadeante premium */
           <Suspense fallback={<CatalogSkeleton />}>
             <ProductCatalog initialProducts={products} />
           </Suspense>

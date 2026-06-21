@@ -6,6 +6,10 @@ import Navbar from "@/components/Navbar"; // O donde tengas tu Navbar instalado
 import CartSynchronizer from '@/components/CartSynchronizer';
 import WishlistSynchronizer from '@/components/WishlistSynchronizer';
 
+// 🌟 Esto obliga a Next.js a tratar a TODAS las páginas de la app como dinámicas,
+// desactivando por completo la caché estática de datos en las peticiones.
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {

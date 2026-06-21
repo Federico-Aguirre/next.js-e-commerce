@@ -1,31 +1,35 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
 import { Product } from '@/types/product';
-import ProductViewer from './ProductViewer'; // Subcomponente interactivo
+import ProductViewer from './ProductViewer'; 
 
 interface ProductPageProps {
   params: Promise<{ id: string }>;
 }
 
-// Arquitectura Senior: Pide de forma aislada un único producto por su ID a GraphQL
 async function getProductById(id: number): Promise<Product | null> {
   try {
+    // 🌟 QUERY CORREGIDA: Pedimos 'name' y la estructura completa de skus con stock
     const query = `
       query GetSingleProduct($id: Int!) {
         product(id: $id) {
           id
-          title
+          name
           price
           description
           category
-          image
           variants {
-            articleId
+            id
             colorName
-            sizes
             images {
               id
               url
+            }
+            skus {
+              id
+              articleId
+              size
+              stock
             }
           }
         }
@@ -48,7 +52,6 @@ async function getProductById(id: number): Promise<Product | null> {
 }
 
 export default async function ProductDetailPage({ params }: ProductPageProps) {
-  // En Next.js 15+, params es una Promesa y debe ser resuelta con await
   const resolvedParams = await params;
   const productId = parseInt(resolvedParams.id, 10);
 
@@ -58,7 +61,6 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
 
   const product = await getProductById(productId);
 
-  // Si el usuario inventa un ID en la URL (ej: /product/99), disparamos la página 404 nativa
   if (!product) {
     notFound();
   }
@@ -66,7 +68,6 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
   return (
     <main className="min-h-screen bg-white py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Delegamos la interactividad (estados de color/talle) al componente especializado */}
         <ProductViewer product={product} />
       </div>
     </main>

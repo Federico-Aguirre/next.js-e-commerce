@@ -65,7 +65,7 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
                   >
                     <WishlistButton product={{
                       id: String(product.id),
-                      title: product.title,
+                      title: product.title || (product as any).name, // Compatibilidad de fallback de nombres
                       price: Number(product.price),
                       image: product.image,
                       category: product.category
