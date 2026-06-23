@@ -27,7 +27,7 @@ function WishlistContent() {
   const handleQuickAdd = (product: WishlistItem) => {
     // Adaptamos los datos al formato que espera tu carrito de Zustand
     addToCart({
-      id: product.id,
+      id: string,
       articleId: Number(product.id) || 0,
       title: product.title,
       price: product.price,
