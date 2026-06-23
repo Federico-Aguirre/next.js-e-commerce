@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react'; // 💡 Limpiado: sacamos 'useEffect' que no se usaba
+import React, { useState } from 'react'; 
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
@@ -8,7 +8,7 @@ import { useWishlistStore } from '@/store/useWishlistStore';
 import { useCartStore } from '@/store/useCartStore';
 import WishlistButton from '@/components/WishlistButton';
 
-// 🛡️ Creamos una interfaz clara para los productos de la Wishlist (Chau 'any')
+// 🛡️ Interfaz clara para los productos de la Wishlist
 interface WishlistItem {
   id: string;
   title: string;
@@ -21,13 +21,14 @@ function WishlistContent() {
   const wishlist = useWishlistStore((state) => state.wishlist);
   const addToCart = useCartStore((state) => state.addToCart);
   
-  // Tipamos el estado del aviso: puede ser el string del ID o null
+  // Tipamos el estado del aviso
   const [aviso, setAviso] = useState<string | null>(null);
 
   const handleQuickAdd = (product: WishlistItem) => {
     // Adaptamos los datos al formato que espera tu carrito de Zustand
     addToCart({
-      articleId: product.id,
+      // 🚀 ARREGLADO: Convertimos el id de string a number de manera segura
+      articleId: Number(product.id) || 0,
       title: product.title,
       price: product.price,
       image: product.image,
