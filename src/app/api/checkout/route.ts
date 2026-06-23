@@ -78,7 +78,7 @@ export async function POST(req: Request) {
     }
 
     // 🔒 TRANSACCIÓN PRINCIPAL
-    const order = await prisma.$transaction(async (tx) => {
+    const order = await prisma.$transaction(async (tx: any) => {
       for (const item of items) {
         const rawId = String(item.articleId || item.productId || item.id || "");
         if (!rawId) throw new Error(`Estructura de producto inválida.`);
@@ -197,7 +197,7 @@ export async function DELETE(req: Request) {
     }
 
     // Devolvemos el stock en una sola transacción
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       for (const item of orderToCancel.items) {
         const sku = await tx.productSku.findFirst({
           where: { articleId: Number(item.productId), size: item.size }
