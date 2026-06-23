@@ -32,7 +32,6 @@ function WishlistContent() {
       title: product.title,
       price: product.price,
       image: product.image,
-      quantity: 1,
       size: 'M', // Talle estándar para la compra rápida
       colorName: 'Único'
     });
