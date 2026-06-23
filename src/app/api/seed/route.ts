@@ -1,10 +1,7 @@
 // app/api/seed/route.ts
 import { NextResponse } from 'next/server';
-// 👈 Asegurate de importar TU instancia de prisma (puede ser @/lib/prisma, @/prisma, etc.)
-// Si no recordás dónde está, importá el cliente normal:
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+// 🔥 ARREGLADO: Usamos la instancia centralizada para evitar errores de compilación en CI/CD
+import { prisma } from '@/lib/prisma';
 
 const seedProducts = [
   {
