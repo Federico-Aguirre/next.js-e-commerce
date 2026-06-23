@@ -4,6 +4,8 @@ import "./globals.css";
 import Navbar from "@/components/Navbar"; // O donde tengas tu Navbar instalado
 import CartSynchronizer from '@/components/CartSynchronizer';
 import WishlistSynchronizer from '@/components/WishlistSynchronizer';
+import Providers from "@/providers";
+
 
 // 🌟 Esto obliga a Next.js a tratar a TODAS las páginas de la app como dinámicas,
 // desactivando por completo la caché estática de datos en las peticiones.
