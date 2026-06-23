@@ -72,7 +72,6 @@ const typeDefs = `
 
   type Mutation {
     mergeCart(userId: String!, localCart: [LocalCartItemInput!]!, isInitial: Boolean): [CartItem!]!
-    # 🚀 ACTUALIZADO: Agregamos el argumento opcional isInitial para diferenciar la carga inicial del borrado en caliente
     syncWishlist(userId: String!, productIds: [Int!]!, isInitial: Boolean): [Product!]!
     checkout(userId: String!, items: [CheckoutItemInput!]!): CheckoutResult!
   }
@@ -125,8 +124,9 @@ const resolvers = {
           const dbItems = await prisma.cartItem.findMany({ where: { userId } });
           const map = new Map();
           
-          dbItems.forEach(i => map.set(`${i.productId}-${i.size}`, i));
-          localCart.forEach(i => {
+          // 🔥 ARREGLADO: Se agregaron tipos explícitos : any para evitar que TS falle implícitamente
+          dbItems.forEach((i: any) => map.set(`${i.productId}-${i.size}`, i));
+          localCart.forEach((i: any) => {
             const key = `${i.productId}-${i.size}`;
             const existing = map.get(key);
             if (existing) existing.quantity += i.quantity;
@@ -134,14 +134,14 @@ const resolvers = {
           });
           
           await prisma.cartItem.deleteMany({ where: { userId } });
-          await prisma.cartItem.createMany({ data: Array.from(map.values()).map(i => ({
+          await prisma.cartItem.createMany({ data: Array.from(map.values()).map((i: any) => ({
             userId, productId: i.productId, title: i.title, price: i.price, image: i.image, size: i.size, quantity: i.quantity
           }))});
         } 
         else {
           await prisma.cartItem.deleteMany({ where: { userId } });
           if (localCart.length > 0) {
-            await prisma.cartItem.createMany({ data: localCart.map(i => ({
+            await prisma.cartItem.createMany({ data: localCart.map((i: any) => ({
                 userId, productId: i.productId, title: i.title, price: i.price, image: i.image, size: i.size, quantity: i.quantity
             }))});
           }
@@ -154,7 +154,6 @@ const resolvers = {
       }
     },
 
-    // 🌐 Sincronizar favoritos trayendo la info real de la base de datos relacional
     syncWishlist: async (_root: unknown, args: { userId: string; productIds: number[]; isInitial?: boolean }) => {
       try {
         const { userId, productIds, isInitial = false } = args;
@@ -163,9 +162,6 @@ const resolvers = {
         const db = (prisma as any).wishlistItem || (prisma as any).wishlist || (prisma as any).wishListItem;
         if (!db) return [];
 
-        // 🚀 CORREGIDO PROFESIONALMENTE:
-        // Solo operamos si NO es la consulta inicial de login.
-        // Si no es el login, limpiamos Postgres por completo sin importar si viene un array vacío ([]).
         if (!isInitial) {
           console.log(`🧹 [BACKEND WISHLIST] Reemplazando favoritos para usuario ${userId}. Nuevos IDs:`, productIds);
           
@@ -183,7 +179,6 @@ const resolvers = {
           console.log(`📥 [BACKEND WISHLIST] Carga inicial detectada para usuario ${userId}. Conservando estado actual.`);
         }
 
-        // Buscamos lo que quedó guardado de manera definitiva
         const updatedItems = await db.findMany({
           where: { userId: String(userId) },
           select: { productId: true }
