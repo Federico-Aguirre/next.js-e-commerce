@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 
     if (expiredOrders.length > 0) {
       console.log(`🧹 Encontradas ${expiredOrders.length} órdenes expiradas. Devolviendo stock...`);
-      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await prisma.$transaction(async (tx: any) => {
         for (const oldOrder of expiredOrders) {
           for (const oldItem of oldOrder.items) {
             const sku = await tx.productSku.findFirst({
