@@ -38,6 +38,10 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
         <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
           {productosFiltrados.map((product) => {
             if (!product) return null; // Resguardo individual
+
+            // 📸 Obtenemos la primera imagen de la primera variante de forma segura
+            const imagenPrincipal = product.variants?.[0]?.images?.[0]?.url || '/placeholder.png';
+
             return (
               <Link 
                 key={product.id} 
@@ -47,7 +51,7 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
                 {/* Contenedor de la Imagen */}
                 <div className="relative w-full h-80 bg-gray-50/50 border-b border-gray-100 overflow-hidden">
                   <Image
-                    src={product.image}
+                    src={imagenPrincipal}
                     alt={product.name}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
@@ -63,12 +67,11 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
                       e.stopPropagation(); 
                     }}
                   >
-                    {/* Nota: Mapeamos product.name a la propiedad title que pide el WishlistButton internamente */}
                     <WishlistButton product={{
                       id: String(product.id),
                       title: product.name, 
                       price: Number(product.price),
-                      image: product.image,
+                      image: imagenPrincipal, 
                       category: product.category
                     }} />
                   </div>
