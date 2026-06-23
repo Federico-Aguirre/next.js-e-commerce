@@ -16,11 +16,11 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
   const searchParams = useSearchParams();
   const queryBusqueda = searchParams.get('search') || '';
 
-  // 🛡️ Filtramos asegurando de que 'initialProducts' sea siempre un array y no de 'undefined'
+  // 🛡️ Filtramos asegurando de que 'initialProducts' sea siempre un array y no 'undefined'
   const productosSeguros = Array.isArray(initialProducts) ? initialProducts : [];
 
   const productosFiltrados = productosSeguros.filter((product) =>
-    product?.title?.toLowerCase().includes(queryBusqueda.toLowerCase())
+    product?.name?.toLowerCase().includes(queryBusqueda.toLowerCase())
   );
 
   return (
@@ -48,7 +48,7 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
                 <div className="relative w-full h-80 bg-gray-50/50 border-b border-gray-100 overflow-hidden">
                   <Image
                     src={product.image}
-                    alt={product.title}
+                    alt={product.name}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                     priority={Number(product.id) <= 4}
@@ -63,9 +63,10 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
                       e.stopPropagation(); 
                     }}
                   >
+                    {/* Nota: Mapeamos product.name a la propiedad title que pide el WishlistButton internamente */}
                     <WishlistButton product={{
                       id: String(product.id),
-                      title: product.title || (product as any).name, // Compatibilidad de fallback de nombres
+                      title: product.name, 
                       price: Number(product.price),
                       image: product.image,
                       category: product.category
@@ -77,7 +78,7 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
                 <div className="flex-1 p-5 flex flex-col justify-between bg-white">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-indigo-600 transition-colors duration-300">
-                      {product.title}
+                      {product.name}
                     </h3>
                     <p className="mt-1.5 text-[10px] text-gray-400 font-bold uppercase tracking-widest bg-gray-50 inline-block px-2 py-0.5 rounded">
                       {product.category}
