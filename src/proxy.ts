@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/request';
+import { NextResponse, type NextRequest } from 'next/server'; // 🚀 ARREGLADO: Ambas importaciones ahora vienen de 'next/server'
 import { jwtVerify } from 'jose';
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -22,7 +21,6 @@ export async function proxy(request: NextRequest) {
       await jwtVerify(sessionToken, JWT_SECRET);
       return NextResponse.next();
     } catch {
-      // Removida la variable "error" que causaba el warning
       // Token inválido o expirado -> Rebotar al login
       const loginUrl = new URL('/login', request.url);
       return NextResponse.redirect(loginUrl);

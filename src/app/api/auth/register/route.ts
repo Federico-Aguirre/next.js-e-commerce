@@ -34,8 +34,11 @@ export async function POST(request: Request) {
       }
     });
 
-    // 4. Generar el token de sesión
-    const token = await createSessionToken({ userId: newUser.id, email: newUser.email });
+    // 🚀 ARREGLADO: Convertimos el ID numérico a string y aseguramos que el email no sea null usando la variable local
+    const token = await createSessionToken({ 
+      userId: String(newUser.id), 
+      email: newUser.email || email 
+    });
 
     const response = NextResponse.json({
       success: true,

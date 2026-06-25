@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifySessionToken } from '@/lib/auth-utils';
-import { prisma } from '@/lib/prisma'; // Importamos el prisma que reparamos antes
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
   try {
@@ -20,10 +20,13 @@ export async function GET(request: Request) {
       return response;
     }
 
-    // ¡AHORA SÍ! Buscamos al usuario real en la base de datos de Aiven
+    // 🚀 ARREGLADO: Tu ID en Prisma es un string, forzamos el tipo correctamente para el findUnique
+    const userIdStr = payload.userId as string;
+
+    // Buscamos al usuario usando el ID string correcto
     const dbUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: { id: true, name: true, email: true } // Traemos solo lo necesario
+      where: { id: userIdStr },
+      select: { id: true, name: true, email: true }
     });
 
     if (!dbUser) {
@@ -34,7 +37,7 @@ export async function GET(request: Request) {
       authenticated: true,
       user: {
         id: dbUser.id,
-        name: dbUser.name, // <--- Este es el nombre real de la base de datos
+        name: dbUser.name,
         email: dbUser.email,
       }
     });

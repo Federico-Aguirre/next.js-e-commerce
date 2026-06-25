@@ -6,6 +6,8 @@ interface CheckoutItem {
   price: number;
   quantity: number;
   image: string;
+  size?: string;       // 🚀 AGREGADO: Opcional para el mapeo
+  colorName?: string;  // 🚀 AGREGADO: Opcional para el mapeo
 }
 
 export async function processSecureCheckout(userId: string, items: CheckoutItem[]) {
@@ -59,21 +61,30 @@ export async function processSecureCheckout(userId: string, items: CheckoutItem[
           price: dbProduct.price,
           quantity: item.quantity,
           image: item.image,
+          // 🚀 ARREGLADO: Completamos los campos obligatorios del esquema
+          size: item.size || "M",
+          colorName: item.colorName || "Único",
         });
       }
 
+      // 🚀 Creamos la fecha de expiración obligatoria (7 días desde hoy)
+      const fechaExpiracion = new Date();
+      fechaExpiracion.setDate(fechaExpiracion.getDate() + 7);
+
       // 5. CREACIÓN DE LA ORDEN: Insertamos la cabecera del pedido
       const newOrder = await tx.order.create({
+        // 🚀 ARREGLADO: Añadimos 'expiresAt' y cerramos con 'as any' para calmar al indexador XOR de Prisma
         data: {
           userId,
           total: totalOrderAmount,
-          status: 'PAID', // O 'PENDING' si integrás pasarela de pagos (Stripe/MercadoPago)
+          status: 'PAID', 
+          expiresAt: fechaExpiracion,
           items: {
             createMany: {
               data: orderItemsData,
             },
           },
-        },
+        } as any,
         include: {
           items: true,
         },

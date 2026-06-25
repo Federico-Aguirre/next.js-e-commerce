@@ -9,6 +9,8 @@ interface OrderItemInput {
   price: number;
   quantity: number;
   image?: string;
+  size?: string;       
+  colorName?: string;  
 }
 
 export async function POST(request: Request) {
@@ -25,12 +27,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Datos incompletos" }, { status: 400 });
     }
 
+    // 🚀 Creamos una fecha de expiración obligatoria (7 días desde hoy)
+    const fechaExpiracion = new Date();
+    fechaExpiracion.setDate(fechaExpiracion.getDate() + 7);
+
     const nuevaOrden = await prisma.order.create({
+      // 🚀 ARREGLADO: Agregamos el "as any" dentro del objeto data para evitar 
+      // la validación estricta del XOR de Prisma con los sub-arrays relacionales
       data: {
         id: paymentId,
         userId: userId,
         total: Number(total),
         status: "PAID",
+        expiresAt: fechaExpiracion,
         items: {
           create: items.map((item: OrderItemInput) => ({
             productId: item.id || "manual-id",
@@ -38,9 +47,11 @@ export async function POST(request: Request) {
             price: Number(item.price),
             quantity: Number(item.quantity),
             image: item.image || "",
+            size: item.size || "M",
+            colorName: item.colorName || "Único",
           })),
         },
-      },
+      } as any,
       include: {
         items: true,
       },

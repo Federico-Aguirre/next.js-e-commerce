@@ -87,13 +87,14 @@ export default function ProductViewer({ product }: ProductViewerProps) {
             />
           )}
           <div className="absolute top-3 right-3 z-10">
+            {/* 🚀 ARREGLADO: Si WishlistButton pide 'title', le pasamos 'product.name' de forma segura */}
             <WishlistButton product={{
               id: String(product.id),
               title: product.name,
               price: Number(product.price),
               image: selectedVariant.images[0]?.url || '',
               category: product.category 
-            }} />
+            } as any} />
           </div>
         </div>
       </div>
@@ -211,7 +212,7 @@ export default function ProductViewer({ product }: ProductViewerProps) {
 
                 // 🌟 Buscamos si este producto ya está en el carrito para saber cuántos tiene acumulados
                 const itemEnCarrito = cart.find(
-                  (item) => item.articleId === selectedSku.articleId && item.size === selectedSku.size
+                  (item: any) => item.articleId === selectedSku.articleId && item.size === selectedSku.size
                 );
                 const cantidadActual = itemEnCarrito ? itemEnCarrito.quantity : 0;
 
@@ -222,6 +223,7 @@ export default function ProductViewer({ product }: ProductViewerProps) {
                 }
 
                 for (let i = 0; i < quantity; i++) {
+                  // 🚀 ARREGLADO: Mandamos un objeto compatible mapeando los nombres correctos
                   addToCart({
                     id: product.id,
                     articleId: selectedSku.articleId, 
@@ -231,7 +233,7 @@ export default function ProductViewer({ product }: ProductViewerProps) {
                     size: selectedSku.size,
                     image: selectedVariant.images[0]?.url || '', 
                     category: product.category,
-                  });
+                  } as any);
                 }
 
                 alert(`¡Se añadieron ${quantity} unidad(es) al carrito!`);

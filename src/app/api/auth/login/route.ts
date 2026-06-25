@@ -18,18 +18,19 @@ export async function POST(request: Request) {
       where: { email }
     });
 
-    if (!user) {
+    // 🚀 ARREGLADO: Nos aseguramos de que el usuario exista Y que tenga password y email cargados
+    if (!user || !user.password || !user.email) {
       return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
     }
 
-    // 2. Comparar el hashcriptográfico de la contraseña
+    // 2. Comparar el hash criptográfico de la contraseña (Ahora seguro porque TS sabe que no es null)
     const isPasswordCorrect = await comparePassword(password, user.password);
 
     if (!isPasswordCorrect) {
       return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
     }
 
-    // 3. Crear token con los datos reales
+    // 3. Crear token con los datos reales (Ahora seguro porque TS sabe que no es null)
     const token = await createSessionToken({ userId: user.id, email: user.email });
 
     const response = NextResponse.json({

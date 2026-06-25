@@ -44,7 +44,9 @@ async function getProductById(id: number): Promise<Product | null> {
     });
 
     const json = await res.json();
-    return json.data?.product || null;
+    // 🚀 ARREGLADO: Agregamos "as Product" para que TypeScript entienda que el objeto retornado
+    // de la respuesta dinámica de GraphQL respeta la interfaz estricta que declaraste en la firma.
+    return (json.data?.product as Product) || null;
   } catch (error) {
     console.error("Error fetching single product:", error);
     return null;

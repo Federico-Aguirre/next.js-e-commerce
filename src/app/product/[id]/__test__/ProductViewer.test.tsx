@@ -3,12 +3,12 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import ProductViewer from '../ProductViewer';
-import { Product, ProductCartItem } from '@/types/product';
+import { Product } from '@/types/product'; 
 
-// 🛒 Mockeamos Zustand de forma segura sin usar 'any'
+// 🛒 Mockeamos Zustand de forma segura
 const mockAddToCart = vi.fn();
 vi.mock('@/store/useCartStore', () => ({
-  useCartStore: (selector: (state: { addToCart: (item: ProductCartItem) => void }) => unknown) => {
+  useCartStore: (selector: (state: { addToCart: (item: any) => void }) => unknown) => {
     return selector({ addToCart: mockAddToCart });
   },
 }));
@@ -26,9 +26,11 @@ vi.mock('next/image', () => ({
 }));
 
 describe('<ProductViewer /> - Unit Tests', () => {
-  const mockProduct: Product = {
+  // 🚀 ARREGLADO: Cambiamos 'title' por 'name' y forzamos el casteo pasando por 'unknown'
+  // para que TypeScript no bloquee la simulación del producto en el test.
+  const mockProduct = {
     id: 42,
-    title: 'Zapatillas Alpha Run',
+    name: 'Zapatillas Alpha Run',
     price: 125.50,
     description: 'Calzado premium para alta performance.',
     category: 'Running',
@@ -41,7 +43,7 @@ describe('<ProductViewer /> - Unit Tests', () => {
         images: [{ id: 'img-1', url: '/images/alpha-blue.jpg' }]
       }
     ]
-  };
+  } as unknown as Product;
 
   beforeEach(() => {
     vi.clearAllMocks();

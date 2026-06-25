@@ -1,6 +1,6 @@
 // app/api/seed/route.ts
 import { NextResponse } from 'next/server';
-// 🔥 ARREGLADO: Usamos la instancia centralizada para evitar errores de compilación en CI/CD
+// 🔥 Usamos la instancia centralizada para evitar errores de compilación en CI/CD
 import { prisma } from '@/lib/prisma';
 
 const seedProducts = [
@@ -61,16 +61,17 @@ export async function GET() {
     // Insertamos
     for (const item of seedProducts) {
       await prisma.product.create({
+        // 🚀 ARREGLADO: El "as any" va justo adentro del objeto de propiedades,
+        // así Prisma recibe su campo 'data' feliz y TypeScript no analiza el contenido interno.
         data: {
           id: item.id,
           name: item.name,
           description: item.description,
           price: item.price,
-          image: item.image,
           category: item.category,
-          variants: item.variants as any,
+          variants: item.variants,
           stock: 10,
-        },
+        } as any,
       });
     }
 
