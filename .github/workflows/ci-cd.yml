@@ -31,21 +31,26 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
 
-    # 🛠️ AGREGAMOS ENV AQUÍ TAMBIÉN PORQUE NEXT.JS VALIDA VARIABLES EN EL BUILD
+    - name: Generate Prisma Client
+      run: npx prisma generate
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
     - name: Build Next.js application
       run: npm run build
       env:
         NEXTAUTH_SECRET: super_secret_mock_key_123
+        NEXTAUTH_URL: http://localhost:3000
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-    # 🚀 EJECUTAMOS TUS TESTS CON LAS VARIABLES COMPLETAS
     - name: Run Playwright tests
       run: npx playwright test
       env:
         PLAYWRIGHT_TEST_BASE_URL: http://localhost:3000
         NEXT_PUBLIC_POSTHOG_KEY: phc_mock_key_for_testing
         NEXT_PUBLIC_POSTHOG_HOST: https://us.i.posthog.com
-        NEXTAUTH_SECRET: super_secret_mock_key_123 # 👈 ¡CLAVE PARA EVITAR EL CRASH!
+        NEXTAUTH_SECRET: super_secret_mock_key_123
+        NEXTAUTH_URL: http://localhost:3000
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
     - name: Upload Playwright report
