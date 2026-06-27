@@ -31,19 +31,22 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
 
+    # 🛠️ AGREGAMOS ENV AQUÍ TAMBIÉN PORQUE NEXT.JS VALIDA VARIABLES EN EL BUILD
     - name: Build Next.js application
       run: npm run build
+      env:
+        NEXTAUTH_SECRET: super_secret_mock_key_123
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-    # 🚀 EJECUTAMOS TUS TESTS REALES
+    # 🚀 EJECUTAMOS TUS TESTS CON LAS VARIABLES COMPLETAS
     - name: Run Playwright tests
       run: npx playwright test
       env:
-        # Playwright necesita saber a qué URL apuntar en el entorno virtual de GitHub
         PLAYWRIGHT_TEST_BASE_URL: http://localhost:3000
         NEXT_PUBLIC_POSTHOG_KEY: phc_mock_key_for_testing
         NEXT_PUBLIC_POSTHOG_HOST: https://us.i.posthog.com
-        # Agregá acá tus variables de entorno si tus tests pegan a una base de datos real
-        DATABASE_URL: ${{ secrets.DATABASE_URL }} 
+        NEXTAUTH_SECRET: super_secret_mock_key_123 # 👈 ¡CLAVE PARA EVITAR EL CRASH!
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
     - name: Upload Playwright report
       uses: actions/upload-artifact@v4
