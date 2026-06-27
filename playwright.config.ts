@@ -6,7 +6,7 @@ process.env.TS_NODE_COMPILER_OPTIONS = '{"module":"commonjs"}';
 
 export default defineConfig({
   /* 📁 Corregido a 'test' en singular para que coincida con tus carpetas */
-  testDir: './test',
+  testDir: './tests',
   
   /* 🎯 CLAVE: Playwright SOLO va a leer archivos que terminen en .spec.ts */
   testMatch: '**/*.spec.ts', 
