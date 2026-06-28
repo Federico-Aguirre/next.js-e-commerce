@@ -26,10 +26,26 @@ jobs:
 
     - name: Run Linter
       run: npm run lint
-      continue-on-error: true # Evita que se trabe el pipeline si tenés un warning de linter
+      continue-on-error: true
 
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
+
+    # Controlamos el cold start de Aiven para evitar que Prisma falle por timeout
+    - name: Wait for Database readiness
+      run: |
+        echo "Verificando conexion con la base de datos..."
+        for i in {1..12}; do
+          if nc -z -w 5 dpg-*.aivencloud.com 5432; then
+            echo "Base de datos activa y lista."
+            exit 0
+          fi
+          echo "La base de datos esta respondiendo lento o levantandose. Reintentando en 10 segundos..."
+          sleep 10
+        done
+        echo "No se pudo establecer conexion con la base de datos."
+        exit 1
+      continue-on-error: true
 
     - name: Generate Prisma Client
       run: npx prisma generate
@@ -39,7 +55,7 @@ jobs:
     - name: Build Next.js application
       run: npm run build
       env:
-        NEXTAUTH_SECRET: super_secret_mock_key_123
+        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
         NEXTAUTH_URL: http://localhost:3000
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
@@ -49,7 +65,7 @@ jobs:
         PLAYWRIGHT_TEST_BASE_URL: http://localhost:3000
         NEXT_PUBLIC_POSTHOG_KEY: phc_mock_key_for_testing
         NEXT_PUBLIC_POSTHOG_HOST: https://us.i.posthog.com
-        NEXTAUTH_SECRET: super_secret_mock_key_123
+        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
         NEXTAUTH_URL: http://localhost:3000
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
 

@@ -5,10 +5,8 @@ process.env.PLAYWRIGHT_OUTPUT_DIR = 'test-results';
 process.env.TS_NODE_COMPILER_OPTIONS = '{"module":"commonjs"}'; 
 
 export default defineConfig({
-  /* 📁 Corregido a 'test' en singular para que coincida con tus carpetas */
   testDir: './tests',
   
-  /* 🎯 CLAVE: Playwright SOLO va a leer archivos que terminen en .spec.ts */
   testMatch: '**/*.spec.ts', 
   fullyParallel: true,
   reporter: 'html',
@@ -19,7 +17,7 @@ export default defineConfig({
     video: 'off',
   },
 
-  /* 🚀 UNIFICADO: Dejamos solo la versión Senior que compila y sirve para CI/CD y local */
+  /* Dejamos solo la versión Senior que compila y sirve para CI/CD y local */
   webServer: {
     command: 'npm run build && npm start', 
     url: 'http://localhost:3000',
