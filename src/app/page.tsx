@@ -6,7 +6,6 @@ import CatalogSkeleton from '@/components/CatalogSkeleton';
 
 async function getProducts(): Promise<Product[]> {
   try {
-    // 🌟 QUERY ACTUALIZADA: Pedimos 'name' y navegamos relacionalmente para traer las fotos
     const query = `
       query GetSeniorCatalog {
         products {
@@ -33,7 +32,10 @@ async function getProducts(): Promise<Product[]> {
       }
     `;
 
-    const res = await fetch('http://localhost:3000/api/graphql', {
+    // Determinamos el host dinámicamente según el entorno actual
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    
+    const res = await fetch(`${baseUrl}/api/graphql`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -50,7 +52,7 @@ async function getProducts(): Promise<Product[]> {
     const json = await res.json();
     
     if (json.errors) {
-      console.error('❌ [DETALLE GRAPHQL ERROR]:', JSON.stringify(json.errors, null, 2));
+      console.error('GraphQL Error:', JSON.stringify(json.errors, null, 2));
       return [];
     }
 

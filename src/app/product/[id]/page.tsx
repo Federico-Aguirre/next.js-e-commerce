@@ -9,7 +9,6 @@ interface ProductPageProps {
 
 async function getProductById(id: number): Promise<Product | null> {
   try {
-    // 🌟 QUERY CORREGIDA: Pedimos 'name' y la estructura completa de skus con stock
     const query = `
       query GetSingleProduct($id: Int!) {
         product(id: $id) {
@@ -36,7 +35,10 @@ async function getProductById(id: number): Promise<Product | null> {
       }
     `;
 
-    const res = await fetch('http://localhost:3000/api/graphql', {
+    // Evitamos problemas de resolución de nombres en producción usando la URL del entorno
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+    const res = await fetch(`${baseUrl}/api/graphql`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, variables: { id } }),
@@ -44,8 +46,8 @@ async function getProductById(id: number): Promise<Product | null> {
     });
 
     const json = await res.json();
-    // 🚀 ARREGLADO: Agregamos "as Product" para que TypeScript entienda que el objeto retornado
-    // de la respuesta dinámica de GraphQL respeta la interfaz estricta que declaraste en la firma.
+    
+    // Casteamos la respuesta para asegurar la compatibilidad con la interfaz estricta
     return (json.data?.product as Product) || null;
   } catch (error) {
     console.error("Error fetching single product:", error);
