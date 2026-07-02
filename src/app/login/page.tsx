@@ -14,13 +14,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // 1. MANEJO DE REGISTRO TRADICIONAL Y LOGIN UNIFICADO
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
 
-    // Si es REGISTRO, seguimos usando tu API local de registro para insertar el usuario en Aiven
+    // =========================================================================
+    // FLUJO DE REGISTRO
+    // =========================================================================
     if (!isLogin) {
       try {
         const res = await fetch('/api/auth/register', {
@@ -35,9 +36,22 @@ export default function LoginPage() {
           throw new Error(data.error || 'Ocurrió un error inesperado');
         }
 
-        alert('¡Registro completado con éxito! Ahora inicia sesión.');
-        setIsLogin(true);
-        setPassword('');
+        // Si el registro fue exitoso en Aiven, disparamos el inicio de sesión automático
+        const result = await signIn("credentials", {
+          redirect: false,
+          email,
+          password,
+          callbackUrl: "/"
+        });
+
+        if (result?.error) {
+          setErrorMsg(result.error === "CredentialsSignin" ? "Usuario creado, pero hubo un error al iniciar sesión automáticamente." : result.error);
+          setIsLogin(true); // Fallback por si acaso para que intente manual
+        } else {
+          alert('¡Cuenta creada e inicio de sesión exitoso!');
+          router.push("/");
+          router.refresh();
+        }
       } catch (err: unknown) {
         if (err instanceof Error) setErrorMsg(err.message);
       } finally {
@@ -46,7 +60,9 @@ export default function LoginPage() {
       return;
     }
 
-    // SI ES LOGIN TRADICIONAL: Dejamos que NextAuth lo procese
+    // =========================================================================
+    // FLUJO DE LOGIN TRADICIONAL
+    // =========================================================================
     try {
       const result = await signIn("credentials", {
         redirect: false,
@@ -58,7 +74,6 @@ export default function LoginPage() {
       if (result?.error) {
         setErrorMsg(result.error === "CredentialsSignin" ? "Credenciales inválidas" : result.error);
       } else {
-        // ¡Alerta funcional para el login tradicional!
         alert('¡Inicio de sesión exitoso!');
         router.push("/");
         router.refresh();
@@ -70,12 +85,10 @@ export default function LoginPage() {
     }
   };
 
-  // 2. LOGIN CON GOOGLE UNIFICADO
   const handleGoogleLogin = async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      // Le pasamos el callbackUrl con el parámetro ?login=success para que lo capture el componente del catálogo
       await signIn("google", { callbackUrl: "/?login=success" });
     } catch {
       setErrorMsg("Ocurrió un error inesperado con Google");
