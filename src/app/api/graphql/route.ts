@@ -124,7 +124,6 @@ const resolvers = {
           const dbItems = await prisma.cartItem.findMany({ where: { userId } });
           const map = new Map();
           
-          // 🔥 ARREGLADO: Se agregaron tipos explícitos : any para evitar que TS falle implícitamente
           dbItems.forEach((i: any) => map.set(`${i.productId}-${i.size}`, i));
           localCart.forEach((i: any) => {
             const key = `${i.productId}-${i.size}`;
@@ -163,8 +162,6 @@ const resolvers = {
         if (!db) return [];
 
         if (!isInitial) {
-          console.log(`🧹 [BACKEND WISHLIST] Reemplazando favoritos para usuario ${userId}. Nuevos IDs:`, productIds);
-          
           await db.deleteMany({ where: { userId: String(userId) } });
           
           if (productIds && productIds.length > 0) {
@@ -175,8 +172,6 @@ const resolvers = {
               }))
             });
           }
-        } else {
-          console.log(`📥 [BACKEND WISHLIST] Carga inicial detectada para usuario ${userId}. Conservando estado actual.`);
         }
 
         const updatedItems = await db.findMany({
@@ -201,7 +196,7 @@ const resolvers = {
         });
 
       } catch (err: any) {
-        console.error("🚨 [ERROR WISHLIST]:", err.message);
+        console.error("Error en wishlist:", err.message);
         throw new Error("Error interno en favoritos.");
       }
     },
@@ -219,14 +214,13 @@ const resolvers = {
 
 const schema = createSchema({ typeDefs, resolvers });
 
+// Instancia unica de GraphQL Yoga integrada con el endpoint correspondiente
+const { handleRequest } = createYoga({
+  schema,
+  graphqlEndpoint: '/api/graphql',
+  fetchAPI: { Response }
+});
+
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
-  const { handleRequest } = createYoga({ schema, graphqlEndpoint: '/api/graphql' });
-  return handleRequest(request, {});
-}
-
-export async function POST(request: Request) {
-  const { handleRequest } = createYoga({ schema, graphqlEndpoint: '/api/graphql' });
-  return handleRequest(request, {});
-}
+export { handleRequest as GET, handleRequest as POST };
