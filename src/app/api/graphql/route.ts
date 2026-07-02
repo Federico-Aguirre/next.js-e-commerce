@@ -215,7 +215,7 @@ const resolvers = {
 const schema = createSchema({ typeDefs, resolvers });
 
 // Instancia unica de GraphQL Yoga integrada con el endpoint correspondiente
-const { handleRequest } = createYoga({
+const yoga = createYoga({
   schema,
   graphqlEndpoint: '/api/graphql',
   fetchAPI: { Response }
@@ -223,4 +223,11 @@ const { handleRequest } = createYoga({
 
 export const dynamic = 'force-dynamic';
 
-export { handleRequest as GET, handleRequest as POST };
+// Adaptadores compatibles con las firmas estrictas de Next.js App Router
+export async function GET(request: Request) {
+  return yoga.handleRequest(request, {});
+}
+
+export async function POST(request: Request) {
+  return yoga.handleRequest(request, {});
+}
