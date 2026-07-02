@@ -12,9 +12,9 @@ interface WishlistItem {
 interface WishlistState {
   wishlist: WishlistItem[];
   _hasHydrated: boolean; 
-  isInitialMergeDone: boolean; // 🌟 Nueva bandera global para controlar el login único
+  isInitialMergeDone: boolean; // Nueva bandera global para controlar el login único
   setHasHydrated: (state: boolean) => void; 
-  setInitialMergeDone: (done: boolean) => void; // 🌟 Setter para controlar el estado del merge
+  setInitialMergeDone: (done: boolean) => void; // Setter para controlar el estado del merge
   toggleWishlist: (product: WishlistItem) => void;
   isInWishlist: (productId: string) => boolean;
   clearWishlist: () => void;
