@@ -6,8 +6,8 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const BASE_URL = 'https://next-js-e-commerce-999.vercel.app';
 
@@ -72,7 +72,8 @@ export default function HomePage() {
 
   const triggerAivenWakeUp = async () => {
     try {
-      await fetch(`${BASE_URL}/api/aiven-status`, { cache: 'no-store' });
+      // Se eliminó { cache: 'no-store' } que provocaba el TypeError en React Native
+      await fetch(`${BASE_URL}/api/aiven-status`);
     } catch (err) {
       console.error('Error al intentar despertar Aiven:', err);
     }
@@ -109,14 +110,15 @@ export default function HomePage() {
     fetchProducts();
   }, []);
 
+  // Formatea URLs relativas (/uploads/...) a URLs absolutas completas para React Native
   const getProductImage = (product: Product): string => {
     const firstVariantWithImage = product.variants?.find(
       (v) => v.images && v.images.length > 0
     );
-    return (
-      firstVariantWithImage?.images[0]?.url ||
-      'https://via.placeholder.com/300'
-    );
+    const rawUrl = firstVariantWithImage?.images[0]?.url;
+
+    if (!rawUrl) return 'https://via.placeholder.com/300';
+    return rawUrl.startsWith('http') ? rawUrl : `${BASE_URL}${rawUrl}`;
   };
 
   const renderProductCard = ({ item }: { item: Product }) => {
@@ -138,7 +140,7 @@ export default function HomePage() {
             className="bg-gray-900 py-3 rounded-lg items-center active:opacity-80"
             onPress={() => alert(`Añadido: ${item.name}`)}
           >
-            <Text className="color-white font-semibold text-sm">Agregar al Carrito</Text>
+            <Text className="text-white font-semibold text-sm">Agregar al Carrito</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -170,7 +172,7 @@ export default function HomePage() {
             className="bg-indigo-600 px-4 py-2 rounded-md"
             onPress={fetchProducts}
           >
-            <Text className="color-white font-semibold">Reintentar</Text>
+            <Text className="text-white font-semibold">Reintentar</Text>
           </TouchableOpacity>
         </View>
       ) : products.length === 0 ? (
