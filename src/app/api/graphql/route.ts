@@ -173,7 +173,7 @@ const resolvers = {
             await prisma.cartItem.createMany({
               data: Array.from(map.values()).map((i: any) => ({
                 userId,
-                productId: String(i.productId),
+                productId: Number(i.productId), // 👈 Cambiado de String a Number
                 title: i.title,
                 price: Number(i.price),
                 image: i.image,
@@ -187,7 +187,7 @@ const resolvers = {
               await prisma.cartItem.createMany({
                 data: localCart.map((i: any) => ({
                   userId,
-                  productId: String(i.productId),
+                  productId: Number(i.productId), // 👈 Cambiado de String a Number
                   title: i.title,
                   price: Number(i.price),
                   image: i.image,
