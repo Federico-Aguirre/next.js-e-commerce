@@ -7,12 +7,12 @@ import { useCartStore } from '@/store/useCartStore';
 export default function CartSynchronizer() {
   const { data: session, status } = useSession();
   const { cart, setCart } = useCartStore();
-  
+
   const currentUserId = (session?.user as any)?.id || session?.user?.email || '';
-  
+
   const lastUserIdRef = useRef<string>('');
   const isInitialMergeDone = useRef<boolean>(false);
-  
+
   // 🔒 Control de la cola secuencial (Previene Race Conditions y rollbacks al restar)
   const isLoopRunning = useRef<boolean>(false);
   const pendingPayload = useRef<any[] | null>(null);
@@ -39,7 +39,11 @@ export default function CartSynchronizer() {
 
     if (status === 'loading' || !currentUserId) return;
 
-    if (status === 'authenticated' && lastUserIdRef.current !== '' && lastUserIdRef.current !== currentUserId) {
+    if (
+      status === 'authenticated' &&
+      lastUserIdRef.current !== '' &&
+      lastUserIdRef.current !== currentUserId
+    ) {
       setCart([]);
       lastSyncedJson.current = JSON.stringify([]);
       isInitialMergeDone.current = false;
@@ -48,8 +52,8 @@ export default function CartSynchronizer() {
 
     lastUserIdRef.current = currentUserId;
 
-    console.log("Sincronizando carro para el usuario:", currentUserId);
-    console.log("Estado de Zustand actual:", cart);
+    console.log('Sincronizando carro para el usuario:', currentUserId);
+    console.log('Estado de Zustand actual:', cart);
 
     // === 2. DECLARACIÓN DE FUNCIONES INTERNAS ===
     async function sendSyncRequest(items: any[], isInitial: boolean) {
@@ -75,7 +79,7 @@ export default function CartSynchronizer() {
             variables: {
               userId: currentUserId,
               isInitial,
-              localCart: items.map(item => {
+              localCart: items.map((item) => {
                 const cleanId = Number(item.articleId || item.productId || item.id || 0);
                 return {
                   id: cleanId,
@@ -84,10 +88,10 @@ export default function CartSynchronizer() {
                   price: Number(item.price || 0),
                   size: String(item.size || 'U'),
                   image: String(item.image || ''),
-                  quantity: Number(item.quantity || 1)
+                  quantity: Number(item.quantity || 1),
                 };
-              })
-            }
+              }),
+            },
           }),
         });
 
@@ -109,7 +113,7 @@ export default function CartSynchronizer() {
         const anonymousLocalCart = [...cart];
 
         const dbServerCart = await sendSyncRequest([], true);
-        
+
         const consolidatedMap = new Map();
 
         if (dbServerCart && Array.isArray(dbServerCart)) {
@@ -124,7 +128,7 @@ export default function CartSynchronizer() {
               price: Number(dbItem.price),
               size: dbItem.size,
               image: dbItem.image,
-              quantity: Number(dbItem.quantity)
+              quantity: Number(dbItem.quantity),
             });
           });
         }
@@ -145,7 +149,7 @@ export default function CartSynchronizer() {
               price: Number(localItem.price),
               size: localItem.size,
               image: localItem.image,
-              quantity: Number(localItem.quantity)
+              quantity: Number(localItem.quantity),
             });
           }
         });
@@ -164,7 +168,7 @@ export default function CartSynchronizer() {
       // MODO B: Clicks comunes posteriores (+, -, borrar)
       while (pendingPayload.current !== null) {
         const currentItemsToSync = pendingPayload.current;
-        pendingPayload.current = null; 
+        pendingPayload.current = null;
 
         lastSyncedJson.current = JSON.stringify(currentItemsToSync);
         await sendSyncRequest(currentItemsToSync, false);
@@ -185,7 +189,6 @@ export default function CartSynchronizer() {
       pendingPayload.current = cart;
       runSyncLoop();
     }
-
   }, [status, currentUserId, cart, setCart]);
 
   return null;

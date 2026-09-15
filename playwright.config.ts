@@ -2,27 +2,27 @@ import { defineConfig, devices } from '@playwright/test';
 
 process.env.PLAYWRIGHT_HTML_REPORT = 'playwright-report';
 process.env.PLAYWRIGHT_OUTPUT_DIR = 'test-results';
-process.env.TS_NODE_COMPILER_OPTIONS = '{"module":"commonjs"}'; 
+process.env.TS_NODE_COMPILER_OPTIONS = '{"module":"commonjs"}';
 
 export default defineConfig({
   testDir: './tests',
-  
-  testMatch: '**/*.spec.ts', 
+
+  testMatch: '**/*.spec.ts',
   fullyParallel: true,
   reporter: 'html',
-  
+
   use: {
-    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
+    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3001',
     trace: 'off',
     video: 'off',
   },
 
-  /* Dejamos solo la versión Senior que compila y sirve para CI/CD y local */
+  /* Dejamos solo la versión Nova que compila y sirve para CI/CD y local */
   webServer: {
-    command: 'npm run build && npm start', 
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,  
-    timeout: 120000,                       
+    command: 'npm run build && npm start',
+    url: 'http://localhost:3001',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
   },
 
   projects: [

@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useSession, signOut } from 'next-auth/react'; 
+import { useSession, signOut } from 'next-auth/react';
 import { useCartStore } from '@/store/useCartStore';
 
 function CartCounter() {
@@ -28,40 +28,63 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm backdrop-blur-md bg-white/90">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm backdrop-blur-md bg-white/90">
+      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
-          
           {/* LOGO */}
-          <div className="flex-shrink-0 flex items-center">
-            <Link href="/" className="text-xl font-black tracking-tight text-gray-900 hover:text-indigo-600 transition-colors">
-              SENIOR<span className="text-indigo-600">STORE</span>
+          <div className="shrink-0 flex items-center">
+            <Link
+              href="/"
+              className="text-xl font-black tracking-tight text-gray-900 hover:text-indigo-600 transition-colors"
+            >
+              NOVA<span className="text-indigo-600">STORE</span>
             </Link>
           </div>
 
           {/* NAVEGACIÓN DERECHA */}
           <div className="flex items-center gap-x-6">
-            <Link href="/" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
+            <Link
+              href="/"
+              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+            >
               Catálogo
             </Link>
-            
+
             {/* ❤️ CORREGIDO: Apunta a /favoritos en español como tu archivo */}
-            <Link href="/favorites" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors" title="Mis Favoritos">
+            <Link
+              href="/favorites"
+              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+              title="Mis Favoritos"
+            >
               Lista de deseos
             </Link>
 
             {/* 🛍️ UBICACIÓN PREMIUM: "Mis Compras" aparece integrado de forma natural */}
-            <Link 
-              href="/historial" 
+            <Link
+              href="/historial"
               className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
             >
               Mis Compras
             </Link>
 
             {/* BOTÓN DEL CARRITO */}
-            <Link href="/checkout" className="group -m-2 p-2 flex items-center relative" aria-label="Ver carrito">
-              <svg className="flex-shrink-0 h-6 w-6 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            <Link
+              href="/checkout"
+              className="group -m-2 p-2 flex items-center relative"
+              aria-label="Ver carrito"
+            >
+              <svg
+                className="shrink-0 h-6 w-6 text-gray-400 group-hover:text-gray-600 transition-colors"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                />
               </svg>
               <DynamicCartCounter />
             </Link>
@@ -76,7 +99,8 @@ export default function Navbar() {
               /* Estado: USUARIO LOGUEADO */
               <div className="flex items-center gap-x-5">
                 <span className="text-sm font-semibold text-gray-700">
-                  Hola <span className="text-indigo-600">{user.name?.split(' ')[0] || 'Comprador'}</span>
+                  Hola{' '}
+                  <span className="text-indigo-600">{user.name?.split(' ')[0] || 'Comprador'}</span>
                 </span>
 
                 <button
@@ -98,9 +122,8 @@ export default function Navbar() {
               </div>
             )}
           </div>
-
         </div>
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 }

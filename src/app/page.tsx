@@ -2,25 +2,22 @@ import React, { Suspense } from 'react';
 import { Product } from '@/types/product';
 import GoogleLoginAlert from '@/components/GoogleLoginAlert';
 import ProductCatalog from '@/components/ProductCatalog';
-import CatalogSkeleton from '@/components/CatalogSkeleton'; 
 
 async function triggerAivenWakeUp(baseUrl: string) {
   try {
-    // Llamamos a nuestro endpoint de Aiven para mandar la orden de encendido
     await fetch(`${baseUrl}/api/aiven-status`, { cache: 'no-store' });
   } catch (err) {
-    console.error("Error al intentar despertar Aiven:", err);
+    console.error('Error al intentar despertar Aiven:', err);
   }
 }
 
 async function getProducts(): Promise<Product[]> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://127.0.0.1:3001';
 
-  // 1. Intentamos encender Aiven si está apagado
   await triggerAivenWakeUp(baseUrl);
 
   const query = `
-    query GetSeniorCatalog {
+    query GetNovaCatalog {
       products {
         id
         name
@@ -50,22 +47,20 @@ async function getProducts(): Promise<Product[]> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query }),
-      cache: 'no-store', 
+      cache: 'no-store',
     });
 
     if (!res.ok) return [];
 
     const json = await res.json();
-    
+
     if (json.errors) {
-      // Si GraphQL devolvió error de conexión, devolvemos [] para que el cliente cargue 
-      // y el DatabaseGuard tome el control
       return [];
     }
 
     return json.data?.products || [];
   } catch (error) {
-    console.error("Error fetching from GraphQL:", error);
+    console.error('Error fetching from GraphQL:', error);
     return [];
   }
 }
@@ -78,21 +73,19 @@ export default async function HomePage() {
       <GoogleLoginAlert />
 
       <div className="max-w-7xl mx-auto">
-        <header className="mb-12 text-center">
+        <div className="mb-12 text-center">
           <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
             Nuestra Colección
           </h1>
-          <p className="mt-4 text-lg text-gray-500">
-            Ropa exclusiva diseñada para durar.
-          </p>
-        </header>
+          <p className="mt-4 text-lg text-gray-500">Ropa exclusiva diseñada para durar.</p>
+        </div>
 
         {products.length === 0 ? (
           <p className="text-center text-gray-500">
             Cargando la tienda o iniciando servidores...
           </p>
         ) : (
-          <Suspense fallback={<CatalogSkeleton />}>
+          <Suspense fallback={null}>
             <ProductCatalog initialProducts={products} />
           </Suspense>
         )}

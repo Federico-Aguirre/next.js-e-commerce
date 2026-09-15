@@ -7,9 +7,7 @@ import { PostHogProvider } from './PostHogProvider';
 export default function Providers({ children }: PropsWithChildren) {
   return (
     <SessionProvider>
-      <PostHogProvider>
-        {children}
-      </PostHogProvider>
+      <PostHogProvider>{children}</PostHogProvider>
     </SessionProvider>
   );
 }

@@ -14,7 +14,8 @@ export default function DatabaseWakingLoader() {
       </h2>
 
       <p className="max-w-md mt-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-        Estamos utilizando una infraestructura gratuita. La base de datos entró en reposo por inactividad y se está encendiendo automáticamente.
+        Estamos utilizando una infraestructura gratuita. La base de datos entró en reposo por
+        inactividad y se está encendiendo automáticamente.
       </p>
 
       <div className="mt-6 flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-full text-xs text-amber-700 dark:text-amber-300">

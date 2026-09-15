@@ -18,11 +18,14 @@ export async function comparePassword(password: string, hashed: string): Promise
 }
 
 // 3. Crear Token de Sesión JWT válido por 7 días
-export async function createSessionToken(payload: { userId: string; email: string }): Promise<string> {
+export async function createSessionToken(payload: {
+  userId: string;
+  email: string;
+}): Promise<string> {
   // 🚀 ARREGLADO: Forzamos el objeto como un Record plano para que 'jose' lo acepte sin chistar
   const claims: Record<string, string> = {
     userId: payload.userId,
-    email: payload.email
+    email: payload.email,
   };
 
   return new SignJWT(claims)

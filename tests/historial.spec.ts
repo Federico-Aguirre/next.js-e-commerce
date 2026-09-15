@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('🔒 Historial de Usuario Autenticado', () => {
-
   test('Debería renderizar los estados vacíos si el usuario no tiene compras', async ({ page }) => {
     // 💡 TRUCO DE PORTFOLIO: Mockeamos la sesión inyectando una cookie falsa o interceptando la API
     await page.route('/api/orders', async (route) => {
@@ -14,5 +13,4 @@ test.describe('🔒 Historial de Usuario Autenticado', () => {
     // Comprobamos que el diseño maneja la experiencia de usuario de forma fluida
     await expect(page.locator('text=No tenés compras registradas todavía.')).toBeVisible();
   });
-  
 });

@@ -15,11 +15,14 @@ export async function POST(request: Request) {
 
     // 1. Validar si el email ya existe en el servidor
     const userExists = await prisma.user.findUnique({
-      where: { email }
+      where: { email },
     });
 
     if (userExists) {
-      return NextResponse.json({ error: 'El correo electrónico ya está registrado' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'El correo electrónico ya está registrado' },
+        { status: 400 }
+      );
     }
 
     // 2. Encriptar la contraseña de forma segura
@@ -31,7 +34,7 @@ export async function POST(request: Request) {
         name,
         email,
         password: hashedPassword,
-      }
+      },
     });
 
     // 4. Retornamos éxito sin cookies intermedias redundantes
@@ -41,14 +44,13 @@ export async function POST(request: Request) {
         id: newUser.id,
         name: newUser.name,
         email: newUser.email,
-      }
+      },
     });
-
   } catch (error) {
     console.error('Error en el controlador de registro:', error);
-    
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error interno al registrar el usuario' }, 
+      { error: error instanceof Error ? error.message : 'Error interno al registrar el usuario' },
       { status: 500 }
     );
   }

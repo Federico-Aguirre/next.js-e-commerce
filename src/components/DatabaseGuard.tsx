@@ -1,12 +1,12 @@
-// src/components/DatabaseGuard.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function DatabaseGuard({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<'LOADING' | 'WAKING_UP' | 'READY'>('LOADING');
   const router = useRouter();
+  const wasWakingUp = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -24,16 +24,17 @@ export default function DatabaseGuard({ children }: { children: React.ReactNode 
 
         if (data.status === 'READY') {
           if (isMounted) {
-            // Si veníamos de estar en espera/encendido, refrescamos la ruta de forma segura
-            setStatus((prevStatus) => {
-              if (prevStatus === 'WAKING_UP' || prevStatus === 'LOADING') {
-                setTimeout(() => router.refresh(), 0);
-              }
-              return 'READY';
-            });
+            // Solo refresca la ruta si la BD realmente tuvo que ser despertada
+            if (wasWakingUp.current) {
+              router.refresh();
+            }
+            setStatus('READY');
           }
         } else {
-          if (isMounted) setStatus('WAKING_UP');
+          if (isMounted) {
+            wasWakingUp.current = true;
+            setStatus('WAKING_UP');
+          }
           // Reintentar en 5 segundos mientras siga iniciando
           timer = setTimeout(checkStatus, 5000);
         }
@@ -56,14 +57,16 @@ export default function DatabaseGuard({ children }: { children: React.ReactNode 
   }
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      minHeight: '100vh', 
-      fontFamily: 'system-ui, sans-serif' 
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        fontFamily: 'system-ui, sans-serif',
+      }}
+    >
       <h2>Conectando con la base de datos...</h2>
       <p>El servidor de Aiven se está preparando. Por favor, aguarda unos segundos.</p>
     </div>

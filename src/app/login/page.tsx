@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [name, setName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  
+
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -37,19 +37,23 @@ export default function LoginPage() {
         }
 
         // Si el registro fue exitoso en Aiven, disparamos el inicio de sesión automático
-        const result = await signIn("credentials", {
+        const result = await signIn('credentials', {
           redirect: false,
           email,
           password,
-          callbackUrl: "/"
+          callbackUrl: '/',
         });
 
         if (result?.error) {
-          setErrorMsg(result.error === "CredentialsSignin" ? "Usuario creado, pero hubo un error al iniciar sesión automáticamente." : result.error);
+          setErrorMsg(
+            result.error === 'CredentialsSignin'
+              ? 'Usuario creado, pero hubo un error al iniciar sesión automáticamente.'
+              : result.error
+          );
           setIsLogin(true); // Fallback por si acaso para que intente manual
         } else {
           alert('¡Cuenta creada e inicio de sesión exitoso!');
-          router.push("/");
+          router.push('/');
           router.refresh();
         }
       } catch (err: unknown) {
@@ -64,18 +68,18 @@ export default function LoginPage() {
     // FLUJO DE LOGIN TRADICIONAL
     // =========================================================================
     try {
-      const result = await signIn("credentials", {
+      const result = await signIn('credentials', {
         redirect: false,
         email,
         password,
-        callbackUrl: "/"
+        callbackUrl: '/',
       });
 
       if (result?.error) {
-        setErrorMsg(result.error === "CredentialsSignin" ? "Credenciales inválidas" : result.error);
+        setErrorMsg(result.error === 'CredentialsSignin' ? 'Credenciales inválidas' : result.error);
       } else {
         alert('¡Inicio de sesión exitoso!');
-        router.push("/");
+        router.push('/');
         router.refresh();
       }
     } catch {
@@ -89,9 +93,9 @@ export default function LoginPage() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      await signIn("google", { callbackUrl: "/?login=success" });
+      await signIn('google', { callbackUrl: '/?login=success' });
     } catch {
-      setErrorMsg("Ocurrió un error inesperado con Google");
+      setErrorMsg('Ocurrió un error inesperado con Google');
       setLoading(false);
     }
   };
@@ -119,7 +123,6 @@ export default function LoginPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-sm border border-gray-100 sm:rounded-2xl sm:px-10">
-          
           {errorMsg && (
             <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-md text-sm text-red-700 font-medium">
               ⚠️ {errorMsg}
@@ -129,7 +132,10 @@ export default function LoginPage() {
           <form className="space-y-6" onSubmit={handleSubmit}>
             {!isLogin && (
               <div>
-                <label htmlFor="name" className="block text-sm font-bold text-gray-700 uppercase tracking-wider text-[11px]">
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-bold text-gray-700 uppercase tracking-wider text-[11px]"
+                >
                   Nombre Completo
                 </label>
                 <div className="mt-1">
@@ -147,7 +153,10 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-bold text-gray-700 uppercase tracking-wider text-[11px]">
+              <label
+                htmlFor="email"
+                className="block text-sm font-bold text-gray-700 uppercase tracking-wider text-[11px]"
+              >
                 Correo Electrónico
               </label>
               <div className="mt-1">
@@ -159,13 +168,16 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="appearance-none block w-full px-3 py-3 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-gray-50/50"
-                  placeholder="senior@store.com"
+                  placeholder="nova@store.com"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-bold text-gray-700 uppercase tracking-wider text-[11px]">
+              <label
+                htmlFor="password"
+                className="block text-sm font-bold text-gray-700 uppercase tracking-wider text-[11px]"
+              >
                 Contraseña
               </label>
               <div className="mt-1">
@@ -191,7 +203,7 @@ export default function LoginPage() {
                 {loading ? 'Procesando...' : isLogin ? 'Iniciar sesión' : 'Crear cuenta'}
               </button>
             </div>
-            
+
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -220,7 +232,6 @@ export default function LoginPage() {
               </div>
             </div>
           </form>
-
         </div>
       </div>
     </main>

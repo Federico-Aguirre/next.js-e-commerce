@@ -28,18 +28,16 @@ class CatalogPage {
   }
 }
 
-test.describe('🛒 Flujo de Catálogo - Senior Store', () => {
-  
+test.describe('🛒 Flujo de Catálogo - Nova Store', () => {
   test('Debería filtrar los productos mediante Query Params en la URL', async ({ page }) => {
     const catalogo = new CatalogPage(page);
-    
+
     await catalogo.navegar();
-    
+
     // Buscamos "shoes" que sabemos que devuelve resultados reales de tu base de datos
-    await catalogo.buscarProducto('shoes'); 
-    
+    await catalogo.buscarProducto('shoes');
+
     // 🚀 AHORA SÍ: Validamos que se muestren los productos en pantalla
     await catalogo.verificarProductosVisibles();
   });
-
 });

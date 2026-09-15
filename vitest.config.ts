@@ -9,7 +9,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
     /* 🎯 CLAVE: Vitest solo va a buscar archivos .test.tsx dentro de src */
-    include: ['src/**/*.test.tsx'], 
+    include: ['src/**/*.test.tsx'],
   },
   resolve: {
     alias: {

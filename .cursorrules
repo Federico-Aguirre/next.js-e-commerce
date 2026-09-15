@@ -1,0 +1,38 @@
+# CONTEXTO DEL PROYECTO
+
+Estamos creando una versión móvil (React Native + Expo) para un e-commerce que YA tiene una versión web funcional (Next.js). Ambas aplicaciones conviven en el mismo repositorio.
+
+# REGLA DE ORO DE ARCHIVOS
+
+- La carpeta `src/` (Next.js web) es estrictamente SOLO DE LECTURA. NUNCA edites, borres ni muevas archivos dentro de `src/`. Úsala únicamente como referencia.
+- Todo el código nuevo, modificado o adaptado para la app móvil debe escribirse ÚNICAMENTE dentro de la carpeta `ecommerce-mobile/`.
+
+# ESTRUCTURA Y ENRUTAMIENTO
+
+- Replica la misma jerarquía de carpetas de `src/app/` dentro de `ecommerce-mobile/src/app/`.
+- Convierte los archivos de ruta `page.tsx` de Next.js en `index.tsx` para Expo Router (ej. `src/app/cart/page.tsx` -> `ecommerce-mobile/src/app/cart/index.tsx`).
+- Convierte los archivos `layout.tsx` de Next.js en `_layout.tsx` para Expo Router.
+- Mantén los nombres de componentes auxiliares e interfaces intactos (ej. `ProductViewer.tsx`).
+
+# REGLAS DE ADAPTACIÓN A REACT NATIVE
+
+1. COMPONENTES:
+   - Prohibido usar etiquetas HTML (div, span, p, button, img, h1, etc.).
+   - Reemplazos obligatorios:
+     - `div` -> `View`
+     - `p`, `h1`, `h2`, `span` -> `Text`
+     - `button`, `onClick` -> `Pressable` (con prop `onPress`)
+     - `img` -> `Image` de 'react-native' (especificando siempre dimensiones y resizeMode)
+     - Scroll horizontal/vertical -> `ScrollView` o `FlatList`
+
+2. ENRUTAMIENTO Y NAVEGACIÓN:
+   - Reemplaza `next/navigation` y `next/router` por `expo-router`.
+   - Reemplaza `useParams()` / `useSearchParams()` por `useLocalSearchParams()`.
+   - Reemplaza `useRouter()` de Next por `useRouter()` de `expo-router`.
+
+3. ESTILOS Y LÓGICA:
+   - Usa NativeWind v4 para los estilos (`className="..."`).
+   - Recuerda que en React Native el `flex-direction` por defecto es `column`.
+   - Mantén la lógica de Zustand (`useCartStore`), GraphQL e interfaces TypeScript exactamente igual a la web.
+   - Reemplaza `alert(...)` del navegador por `Alert.alert(...)` de 'react-native'.
+   - Las llamadas a API deben usar variables de entorno `process.env.EXPO_PUBLIC_...`.

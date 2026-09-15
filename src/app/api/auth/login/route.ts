@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     // 1. Buscar al usuario real por su email en la nube
     const user = await prisma.user.findUnique({
-      where: { email }
+      where: { email },
     });
 
     // 🚀 ARREGLADO: Nos aseguramos de que el usuario exista Y que tenga password y email cargados
@@ -39,19 +39,18 @@ export async function POST(request: Request) {
         id: user.id,
         name: user.name,
         email: user.email,
-      }
+      },
     });
 
-    response.cookies.set('senior_session', token, {
+    response.cookies.set('nova_session', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 7,
-      path: '/'
+      path: '/',
     });
 
     return response;
-
   } catch (error) {
     console.error('Login API Error:', error);
     return NextResponse.json({ error: 'Error al iniciar sesión' }, { status: 500 });

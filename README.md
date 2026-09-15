@@ -1,75 +1,84 @@
-# 🛒 Senior Store - E-Commerce de Alta Performance
+🌐 **Language:** **English** | [Spanish Version](README.es.md)
 
-¡Bienvenido a **Senior Store**! Una aplicación web de comercio electrónico moderna, rápida y escalable construida con arquitectura de vanguardia en Next.js. El proyecto simula una tienda de ropa exclusiva integrando flujos complejos de autenticación, persistencia de datos en la nube, pasarela de pagos y testing automatizado.
+🛒 Nova Store - High-Performance E-Commerce
 
----
+[![View Live Project](https://img.shields.io/badge/🚀_View_Live_Project-007ACC?style=for-the-badge&logo=vercel&logoColor=white)](https://next-js-e-commerce-999.vercel.app)
 
-## 🚀 Stack Tecnológico & Arquitectura
+Welcome to Nova Store! A modern, fast, and scalable e-commerce web application built with cutting-edge architecture using Next.js. The project simulates an exclusive clothing store integrating complex authentication flows, cloud data persistence, payment gateway integration, and automated testing.
 
-Este proyecto fue diseñado bajo estándares de nivel producción, priorizando el desacoplamiento de componentes y la optimización del rendimiento:
+🚀 Tech Stack & Architecture
+This project was built following production-grade standards, prioritizing component decoupling and performance optimization:
 
-*   **Frontend:** `Next.js 15+ (App Router)` aprovechando la potencia de los **Server Components (RSC)** para cargas asíncronas inmediatas y SEO optimizado.
-*   **Estilos:** `Tailwind CSS` con un diseño minimalista, responsivo y animaciones fluidas (`ease-out`).
-*   **Base de Datos en la Nube:** `Aiven (PostgreSQL)` para garantizar persistencia robusta del historial de compras y perfiles de usuario.
-*   **API Layer:** `GraphQL` local mediante peticiones `fetch` nativas, optimizando la transferencia de datos y evitando el over-fetching.
-*   **Gestión de Estado Global:** `Zustand` para el manejo del carrito de compras en memoria, logrando actualizaciones en tiempo real sin re-renders innecesarios.
-*   **Autenticación:** `NextAuth.js` integrado de forma segura con Google OAuth y almacenamiento de sesiones en base de datos.
-*   **Pasarela de Pagos:** `Mercado Pago SDK` integrado dinámicamente mediante Webhooks y Query Params para la transición de órdenes a estados aprobados (`PAID`).
+Frontend: Next.js 15+ (App Router) leveraging React Server Components (RSC) for instant asynchronous rendering and optimized SEO.
 
----
+Styling: Tailwind CSS featuring a minimalist, responsive design with smooth animations (ease-out).
 
-## ✨ Características Principales (Features)
+Cloud Database: Aiven (PostgreSQL) ensuring robust data persistence for order history and user profiles.
 
-1.  **Buscador Sincronizado en URL:** Filtrado instantáneo del catálogo mediante *Query Params* (`?search=...`). Permite compartir enlaces con búsquedas ya pre-cargadas de forma orgánica.
-2.  **Skeleton Loader Premium:** Implementación de pantallas de carga animadas (`animate-pulse`) dentro de bloques `<Suspense />` para mejorar la percepción de velocidad del usuario (UX).
-3.  **Lista de Deseos (Wishlist):** Persistencia independiente de productos favoritos por usuario de manera reactiva.
-4.  **Historial de Órdenes Dinámico:** Sección exclusiva ("Mis Compras") protegida por NextAuth que lee y mapea las órdenes procesadas desde Aiven de forma segura.
+API Layer: Local GraphQL using native fetch requests, optimizing data transfer and avoiding over-fetching.
 
----
+Global State Management: Zustand for in-memory shopping cart management, achieving real-time updates without unnecessary re-renders.
 
-## 🧪 QA & Testing Automation (Playwright)
+Authentication: NextAuth.js securely integrated with Google OAuth and database-backed session storage.
 
-El repositorio incluye una suite completa de pruebas End-to-End (E2E) robusta diseñada bajo el patrón de arquitectura **Page Object Model (POM)**.
+Payment Gateway: Mercado Pago SDK dynamically integrated via Webhooks and Query Params to handle order state transitions to approved (PAID).
 
-### Enfoque de Pruebas:
-*   **Mantenibilidad:** Separación estricta de selectores y flujos lógicos en clases independientes (`CatalogPage`).
-*   **Agnóstico al Entorno:** Configuración dinámica que permite ejecutar los tests tanto en `localhost` como contra el dominio ya hosteado en producción (`TEST_BASE_URL`).
-*   **Interceptación de Rutas:** Simulación de flujos mediante el mockeo de respuestas API (`page.route`) para testear estados vacíos o errores del servidor de manera aislada.
+✨ Key Features
+URL-Synchronized Search: Instant catalog filtering via Query Params (?search=...). Allows sharing pre-filtered search results organically.
 
-Para ejecutar los tests interactivos con interfaz visual:
-```bash
+Premium Skeleton Loaders: Animated loading states (animate-pulse) wrapped in <Suspense/> boundaries to enhance user-perceived speed and UX.
+
+Wishlist: Independent, reactive persistence of user favorite products.
+
+Dynamic Order History: An exclusive "My Orders" section protected by NextAuth that securely fetches and maps processed orders from Aiven.
+
+🧪 QA & Automated Testing (Playwright)
+The repository includes a robust, end-to-end (E2E) test suite designed using the Page Object Model (POM) pattern.
+
+Testing Approach:
+Maintainability: Strict separation of selectors and logical flows into independent classes (CatalogPage).
+
+Environment-Agnostic: Dynamic configuration enabling test execution both locally on localhost and against hosted production domains (TEST_BASE_URL).
+
+Route Interception: Workflow simulation via API response mocking (page.route) to isolate and test empty states or server errors.
+
+To run the interactive test suite with a UI:
+
+Bash
 npx playwright test --ui
+🛠️ Local Installation & Setup
+To replicate this development environment locally, follow these steps:
 
+Clone the repository:
 
-Instalación y Configuración Local
+Bash
+git clone https://github.com/your-username/nova-store.git
+cd nova-store
+Install Node.js dependencies:
 
-Para replicar este entorno de desarrollo localmente, seguí estos pasos:
-
-Clonar el repositorio:
-git clone [https://github.com/tu-usuario/senior-store.git](https://github.com/tu-usuario/senior-store.git)
-cd senior-store
-
-Instalar las dependencias de Node.js:
+Bash
 npm install
+Configure environment variables:
+Create a .env.local file in the root directory and add your credentials:
 
-Configurar las variables de entorno:
-Crea un archivo llamado .env.local en la raíz del proyecto y agrega tus credenciales correspondientes:
-
-NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+Fragmento de código
+NEXT_PUBLIC_SITE_URL="http://localhost:3001"
 
 # NextAuth Config
-NEXTAUTH_SECRET="tu_secreto_super_seguro_para_produccion"
-NEXTAUTH_URL="http://localhost:3000"
-GOOGLE_CLIENT_ID="tu_client_id_de_google_console"
-GOOGLE_CLIENT_SECRET="tu_client_secret_de_google_console"
+
+NEXTAUTH_SECRET="your_super_secure_production_secret"
+NEXTAUTH_URL="http://localhost:3001"
+GOOGLE_CLIENT_ID="your_google_console_client_id"
+GOOGLE_CLIENT_SECRET="your_google_console_client_secret"
 
 # Mercado Pago Sandbox
-MERCADOPAGO_ACCESS_TOKEN="TEST-tu-access-token-de-prueba"
+
+MERCADOPAGO_ACCESS_TOKEN="TEST-your-test-access-token"
 
 # Aiven Database URL
+
 DATABASE_URL="postgresql://user:password@aiven-host:port/dbname"
+Start the development server:
 
-Levantar el servidor de desarrollo:
+Bash
 npm run dev
-
-Una vez ejecutado el comando, abrí http://localhost:3000 en tu navegador para interactuar con la plataforma.

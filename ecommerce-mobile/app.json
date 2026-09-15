@@ -3,14 +3,17 @@
     "name": "ecommerce-mobile",
     "slug": "ecommerce-mobile",
     "version": "1.0.0",
+    "owner": "fede.dev3",
+    "scheme": "novastore",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "ecommercemobile",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.fede.novastore",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.fede.novastore",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -30,9 +33,12 @@
         {
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 76,
+          "root": "./src/app"
         }
-      ]
+      ],
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,

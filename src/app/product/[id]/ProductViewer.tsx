@@ -14,12 +14,12 @@ export default function ProductViewer({ product }: ProductViewerProps) {
   const addToCart = useCartStore((state) => state.addToCart);
   // 🌟 Leemos el estado actual del carrito para validar el stock acumulado
   const cart = useCartStore((state) => state.cart);
-  
+
   // Inicializamos con la primera variante de color
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant>(
     product.variants[0] || { id: '', colorName: 'Default', skus: [], images: [] }
   );
-  
+
   // La imagen principal inicial es la primera foto de ese color
   const [activeImageUrl, setActiveImageUrl] = useState<string>(
     selectedVariant.images[0]?.url || ''
@@ -49,7 +49,6 @@ export default function ProductViewer({ product }: ProductViewerProps) {
 
   return (
     <div className="lg:grid lg:grid-cols-2 lg:gap-x-8 lg:items-start">
-      
       {/* BLOQUE IZQUIERDO: Galería de Imágenes */}
       <div className="flex flex-col-reverse">
         {selectedVariant.images.length > 1 && (
@@ -60,7 +59,9 @@ export default function ProductViewer({ product }: ProductViewerProps) {
                   key={img.id}
                   onClick={() => setActiveImageUrl(img.url)}
                   className={`relative h-24 bg-gray-50 rounded-md flex items-center justify-center cursor-pointer overflow-hidden border-2 transition-all ${
-                    activeImageUrl === img.url ? 'border-indigo-600 ring-2 ring-indigo-600/20' : 'border-transparent hover:border-gray-300'
+                    activeImageUrl === img.url
+                      ? 'border-indigo-600 ring-2 ring-indigo-600/20'
+                      : 'border-transparent hover:border-gray-300'
                   }`}
                 >
                   <Image
@@ -88,13 +89,17 @@ export default function ProductViewer({ product }: ProductViewerProps) {
           )}
           <div className="absolute top-3 right-3 z-10">
             {/* 🚀 ARREGLADO: Si WishlistButton pide 'title', le pasamos 'product.name' de forma segura */}
-            <WishlistButton product={{
-              id: String(product.id),
-              title: product.name,
-              price: Number(product.price),
-              image: selectedVariant.images[0]?.url || '',
-              category: product.category 
-            } as any} />
+            <WishlistButton
+              product={
+                {
+                  id: String(product.id),
+                  title: product.name,
+                  price: Number(product.price),
+                  image: selectedVariant.images[0]?.url || '',
+                  category: product.category,
+                } as any
+              }
+            />
           </div>
         </div>
       </div>
@@ -102,7 +107,7 @@ export default function ProductViewer({ product }: ProductViewerProps) {
       {/* BLOQUE DERECHO: Info y Selectores */}
       <div className="mt-10 px-4 sm:px-0 sm:mt-16 lg:mt-0">
         <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">{product.name}</h1>
-        
+
         <div className="mt-3">
           <p className="text-3xl text-gray-900 font-bold">${product.price.toFixed(2)}</p>
         </div>
@@ -154,8 +159,8 @@ export default function ProductViewer({ product }: ProductViewerProps) {
                     !hasStock
                       ? 'bg-gray-100 border-gray-200 text-gray-400 line-through cursor-not-allowed'
                       : isSelected
-                      ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
-                      : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
+                        ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                        : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
                   }`}
                 >
                   <span>{sku.size}</span>
@@ -163,7 +168,7 @@ export default function ProductViewer({ product }: ProductViewerProps) {
               );
             })}
           </div>
-          
+
           {/* Indicador Numérico de Stock dinámico */}
           {selectedSku && (
             <p className="mt-3 text-sm font-medium text-emerald-600">
@@ -174,9 +179,10 @@ export default function ProductViewer({ product }: ProductViewerProps) {
 
         {/* CONTROLES DE COMPRA */}
         <div className="mt-10 flex flex-col sm:flex-row gap-4 items-end sm:items-center">
-          
           <div className="flex flex-col w-full sm:w-auto">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Cantidad</span>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              Cantidad
+            </span>
             <div className="flex items-center border border-gray-200 rounded-lg bg-gray-50 h-14 justify-between px-4 min-w-35">
               <button
                 type="button"
@@ -212,13 +218,16 @@ export default function ProductViewer({ product }: ProductViewerProps) {
 
                 // 🌟 Buscamos si este producto ya está en el carrito para saber cuántos tiene acumulados
                 const itemEnCarrito = cart.find(
-                  (item: any) => item.articleId === selectedSku.articleId && item.size === selectedSku.size
+                  (item: any) =>
+                    item.articleId === selectedSku.articleId && item.size === selectedSku.size
                 );
                 const cantidadActual = itemEnCarrito ? itemEnCarrito.quantity : 0;
 
                 // 🛡️ Candado definitivo: si lo que ya tiene + lo que quiere agregar supera el stock real, frena la operación
                 if (cantidadActual + quantity > selectedSku.stock) {
-                  alert(`No podés agregar más unidades. Ya tenés ${cantidadActual} en el carrito y el stock máximo es de ${selectedSku.stock}.`);
+                  alert(
+                    `No podés agregar más unidades. Ya tenés ${cantidadActual} en el carrito y el stock máximo es de ${selectedSku.stock}.`
+                  );
                   return;
                 }
 
@@ -226,12 +235,12 @@ export default function ProductViewer({ product }: ProductViewerProps) {
                   // 🚀 ARREGLADO: Mandamos un objeto compatible mapeando los nombres correctos
                   addToCart({
                     id: product.id,
-                    articleId: selectedSku.articleId, 
+                    articleId: selectedSku.articleId,
                     title: product.name,
                     price: product.price,
                     colorName: selectedVariant.colorName,
                     size: selectedSku.size,
-                    image: selectedVariant.images[0]?.url || '', 
+                    image: selectedVariant.images[0]?.url || '',
                     category: product.category,
                   } as any);
                 }
@@ -248,9 +257,7 @@ export default function ProductViewer({ product }: ProductViewerProps) {
               {!selectedSku ? 'Selecciona un talle' : 'Añadir al carrito'}
             </button>
           </div>
-
         </div>
-
       </div>
     </div>
   );

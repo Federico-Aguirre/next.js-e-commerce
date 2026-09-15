@@ -17,10 +17,10 @@ interface Order {
   id: string;
   userId: string;
   total: number;
-  status: string; 
-  createdAt: string; 
+  status: string;
+  createdAt: string;
   updatedAt: string;
-  items: OrderItem[]; 
+  items: OrderItem[];
 }
 
 export default function HistorialPage() {
@@ -33,20 +33,20 @@ export default function HistorialPage() {
       try {
         // Llamamos directamente al endpoint limpio sin pasar IDs expuestos por URL
         const res = await fetch('/api/orders');
-        
+
         if (res.ok) {
           const datos: Order[] = await res.json();
           setCompras(datos);
         } else {
           if (res.status === 401) {
-            setErrorMsg("Debes iniciar sesión para ver tus compras.");
+            setErrorMsg('Debes iniciar sesión para ver tus compras.');
           } else {
-            setErrorMsg("Ocurrió un error al obtener el historial.");
+            setErrorMsg('Ocurrió un error al obtener el historial.');
           }
         }
       } catch (error) {
-        console.error("Error leyendo historial de Aiven:", error);
-        setErrorMsg("Error de conexión con el servidor.");
+        console.error('Error leyendo historial de Aiven:', error);
+        setErrorMsg('Error de conexión con el servidor.');
       } finally {
         setLoading(false);
       }
@@ -58,7 +58,9 @@ export default function HistorialPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500 font-medium animate-pulse">Cargando tu historial desde la base de datos...</p>
+        <p className="text-gray-500 font-medium animate-pulse">
+          Cargando tu historial desde la base de datos...
+        </p>
       </div>
     );
   }
@@ -68,7 +70,10 @@ export default function HistorialPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="bg-white border border-gray-100 p-8 rounded-2xl text-center shadow-sm max-w-sm">
           <p className="text-amber-600 font-bold mb-4">⚠️ {errorMsg}</p>
-          <Link href="/api/auth/signin" className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold block hover:bg-gray-800 transition-colors">
+          <Link
+            href="/api/auth/signin"
+            className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold block hover:bg-gray-800 transition-colors"
+          >
             Iniciar sesión
           </Link>
         </div>
@@ -85,26 +90,40 @@ export default function HistorialPage() {
             ← Volver a la tienda
           </Link>
         </div>
-        
+
         {compras.length === 0 ? (
           <div className="bg-white border border-gray-100 p-12 rounded-2xl text-center shadow-sm">
             <p className="text-gray-400 text-lg mb-4">No tenés compras registradas todavía.</p>
-            <Link href="/" className="inline-block bg-indigo-600 text-white px-5 h-10 leading-10 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors">
+            <Link
+              href="/"
+              className="inline-block bg-indigo-600 text-white px-5 h-10 leading-10 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors"
+            >
               Ir a comprar
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
             {compras.map((compra) => (
-              <div key={compra.id} className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-4">
+              <div
+                key={compra.id}
+                className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-4"
+              >
                 <div className="flex justify-between items-start border-b border-gray-100 pb-4">
                   <div>
-                    <h2 className="font-bold text-gray-900 text-sm md:text-base">Orden #{compra.id.slice(-8).toUpperCase()}</h2>
-                    <p className="text-xs text-gray-400">Fecha: {new Date(compra.createdAt).toLocaleDateString('es-AR')}</p>
+                    <h2 className="font-bold text-gray-900 text-sm md:text-base">
+                      Orden #{compra.id.slice(-8).toUpperCase()}
+                    </h2>
+                    <p className="text-xs text-gray-400">
+                      Fecha: {new Date(compra.createdAt).toLocaleDateString('es-AR')}
+                    </p>
                   </div>
-                  <span className={`px-3 py-1 font-bold text-xs rounded-full ${
-                    compra.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                  }`}>
+                  <span
+                    className={`px-3 py-1 font-bold text-xs rounded-full ${
+                      compra.status === 'PAID'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
                     {compra.status === 'PAID' ? 'Aprobado' : compra.status}
                   </span>
                 </div>
@@ -113,9 +132,12 @@ export default function HistorialPage() {
                   {compra.items?.map((item: OrderItem) => (
                     <div key={item.id} className="flex justify-between text-sm text-gray-600">
                       <p>
-                        {item.title} <span className="text-gray-400 font-medium">x{item.quantity}</span>
+                        {item.title}{' '}
+                        <span className="text-gray-400 font-medium">x{item.quantity}</span>
                       </p>
-                      <p className="font-semibold text-gray-900">${(item.price * item.quantity).toLocaleString('es-AR')}</p>
+                      <p className="font-semibold text-gray-900">
+                        ${(item.price * item.quantity).toLocaleString('es-AR')}
+                      </p>
                     </div>
                   ))}
                 </div>

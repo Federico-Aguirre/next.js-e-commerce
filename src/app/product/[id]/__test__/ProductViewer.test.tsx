@@ -3,7 +3,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import ProductViewer from '../ProductViewer';
-import { Product } from '@/types/product'; 
+import { Product } from '@/types/product';
 
 // 🛒 Mockeamos Zustand de forma segura
 const mockAddToCart = vi.fn();
@@ -31,7 +31,7 @@ describe('<ProductViewer /> - Unit Tests', () => {
   const mockProduct = {
     id: 42,
     name: 'Zapatillas Alpha Run',
-    price: 125.50,
+    price: 125.5,
     description: 'Calzado premium para alta performance.',
     category: 'Running',
     image: '/images/alpha-front.jpg',
@@ -40,9 +40,9 @@ describe('<ProductViewer /> - Unit Tests', () => {
         articleId: 1001,
         colorName: 'Azul Eléctrico',
         sizes: ['39', '40', '42'],
-        images: [{ id: 'img-1', url: '/images/alpha-blue.jpg' }]
-      }
-    ]
+        images: [{ id: 'img-1', url: '/images/alpha-blue.jpg' }],
+      },
+    ],
   } as unknown as Product;
 
   beforeEach(() => {
@@ -73,7 +73,9 @@ describe('<ProductViewer /> - Unit Tests', () => {
 
     fireEvent.click(botonAñadir);
 
-    expect(window.alert).toHaveBeenCalledWith('Por favor, selecciona un talle antes de añadir al carrito.');
+    expect(window.alert).toHaveBeenCalledWith(
+      'Por favor, selecciona un talle antes de añadir al carrito.'
+    );
     expect(mockAddToCart).not.toHaveBeenCalled();
   });
 });

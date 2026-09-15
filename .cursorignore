@@ -1,0 +1,22 @@
+# Dependencias y construcciones masivas
+
+node_modules/
+.expo/
+.next/
+.cache/
+dist/
+build/
+android/
+ios/
+
+# Logs y cobertura de tests
+
+_.log
+coverage/
+**tests**/
+_.test.tsx
+\*.spec.tsx
+
+# Archivos de entorno y clave
+
+.env\*

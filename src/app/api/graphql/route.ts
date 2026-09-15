@@ -91,10 +91,10 @@ const resolvers = {
               variants: {
                 include: {
                   images: true,
-                  skus: { orderBy: { size: 'asc' } }
-                }
-              }
-            }
+                  skus: { orderBy: { size: 'asc' } },
+                },
+              },
+            },
           })
         );
       } catch (err) {
@@ -112,10 +112,10 @@ const resolvers = {
               variants: {
                 include: {
                   images: true,
-                  skus: { orderBy: { size: 'asc' } }
-                }
-              }
-            }
+                  skus: { orderBy: { size: 'asc' } },
+                },
+              },
+            },
           })
         );
       } catch (err) {
@@ -133,16 +133,30 @@ const resolvers = {
         console.error('[GraphQL Query Error - getDbCart]:', err);
         return [];
       }
-    }
+    },
   },
 
   Mutation: {
-    mergeCart: async (_root: unknown, args: { userId: string; localCart: any[]; isInitial?: boolean }) => {
+    mergeCart: async (
+      _root: unknown,
+      args: { userId: string; localCart: any[]; isInitial?: boolean }
+    ) => {
       try {
         const { userId, localCart, isInitial = false } = args;
-        if (!userId) throw new Error("userId requerido");
+        if (!userId) throw new Error('userId requerido');
 
         return await prismaWithRetry(async () => {
+          // 🛡️ PASO CLAVE: Asegura la existencia del usuario en Postgres antes de insertar items en CartItem
+          await prisma.user.upsert({
+            where: { id: String(userId) },
+            update: {},
+            create: {
+              id: String(userId),
+              email: `user_${userId}@placeholder.com`,
+              name: 'Usuario Carrito',
+            },
+          });
+
           if (isInitial) {
             const dbItems = await prisma.cartItem.findMany({ where: { userId } });
             const map = new Map();
@@ -159,13 +173,13 @@ const resolvers = {
             await prisma.cartItem.createMany({
               data: Array.from(map.values()).map((i: any) => ({
                 userId,
-                productId: i.productId,
+                productId: String(i.productId),
                 title: i.title,
-                price: i.price,
+                price: Number(i.price),
                 image: i.image,
-                size: i.size,
-                quantity: i.quantity
-              }))
+                size: i.size || 'UNICO',
+                quantity: Number(i.quantity),
+              })),
             });
           } else {
             await prisma.cartItem.deleteMany({ where: { userId } });
@@ -173,13 +187,13 @@ const resolvers = {
               await prisma.cartItem.createMany({
                 data: localCart.map((i: any) => ({
                   userId,
-                  productId: i.productId,
+                  productId: String(i.productId),
                   title: i.title,
-                  price: i.price,
+                  price: Number(i.price),
                   image: i.image,
-                  size: i.size,
-                  quantity: i.quantity
-                }))
+                  size: i.size || 'UNICO',
+                  quantity: Number(i.quantity),
+                })),
               });
             }
           }
@@ -187,18 +201,35 @@ const resolvers = {
           return await prisma.cartItem.findMany({ where: { userId } });
         });
       } catch (err) {
-        console.error(err);
-        throw new Error("Error al sincronizar el carrito");
+        console.error("Error en mergeCart:", err);
+        throw new Error('Error al sincronizar el carrito');
       }
     },
 
-    syncWishlist: async (_root: unknown, args: { userId: string; productIds: number[]; isInitial?: boolean }) => {
+    syncWishlist: async (
+      _root: unknown,
+      args: { userId: string; productIds: number[]; isInitial?: boolean }
+    ) => {
       try {
         const { userId, productIds, isInitial = false } = args;
-        if (!userId) throw new Error("userId requerido");
+        if (!userId) throw new Error('userId requerido');
 
         return await prismaWithRetry(async () => {
-          const db = (prisma as any).wishlistItem || (prisma as any).wishlist || (prisma as any).wishListItem;
+          // 🛡️ PASO CLAVE: Asegura la existencia del usuario en Postgres
+          await prisma.user.upsert({
+            where: { id: String(userId) },
+            update: {},
+            create: {
+              id: String(userId),
+              email: `user_${userId}@placeholder.com`,
+              name: 'Usuario Wishlist',
+            },
+          });
+
+          const db =
+            (prisma as any).wishlistItem ||
+            (prisma as any).wishlist ||
+            (prisma as any).wishListItem;
           if (!db) return [];
 
           if (!isInitial) {
@@ -206,17 +237,17 @@ const resolvers = {
 
             if (productIds && productIds.length > 0) {
               await db.createMany({
-                data: productIds.map(pId => ({
+                data: productIds.map((pId) => ({
                   userId: String(userId),
-                  productId: Number(pId)
-                }))
+                  productId: Number(pId),
+                })),
               });
             }
           }
 
           const updatedItems = await db.findMany({
             where: { userId: String(userId) },
-            select: { productId: true }
+            select: { productId: true },
           });
 
           const finalIds = updatedItems.map((item: any) => item.productId);
@@ -229,16 +260,15 @@ const resolvers = {
               variants: {
                 include: {
                   images: true,
-                  skus: true
-                }
-              }
-            }
+                  skus: true,
+                },
+              },
+            },
           });
         });
-
       } catch (err: any) {
-        console.error("Error en wishlist:", err.message);
-        throw new Error("Error interno en favoritos.");
+        console.error('Error en wishlist:', err.message);
+        throw new Error('Error interno en favoritos.');
       }
     },
 
@@ -248,8 +278,8 @@ const resolvers = {
       } catch (err: any) {
         throw new Error(err.message);
       }
-    }
-  }
+    },
+  },
 };
 
 const schema = createSchema({ typeDefs, resolvers });

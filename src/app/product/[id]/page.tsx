@@ -1,7 +1,7 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
 import { Product } from '@/types/product';
-import ProductViewer from './ProductViewer'; 
+import ProductViewer from './ProductViewer';
 
 interface ProductPageProps {
   params: Promise<{ id: string }>;
@@ -36,7 +36,7 @@ async function getProductById(id: number): Promise<Product | null> {
     `;
 
     // Evitamos problemas de resolución de nombres en producción usando la URL del entorno
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3001';
 
     const res = await fetch(`${baseUrl}/api/graphql`, {
       method: 'POST',
@@ -46,11 +46,11 @@ async function getProductById(id: number): Promise<Product | null> {
     });
 
     const json = await res.json();
-    
+
     // Casteamos la respuesta para asegurar la compatibilidad con la interfaz estricta
     return (json.data?.product as Product) || null;
   } catch (error) {
-    console.error("Error fetching single product:", error);
+    console.error('Error fetching single product:', error);
     return null;
   }
 }

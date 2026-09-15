@@ -2,24 +2,31 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
 export async function proxy(request: NextRequest) {
-  // Verificamos si el usuario tiene una sesión activa de Next-Auth
-  // Pasamos el "secret" oficial para que pueda desencriptar la cookie nativa
-  const session = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+  const { pathname } = request.nextUrl;
+  const origin = request.headers.get('origin') || 'http://localhost:8081';
 
-  // Si intenta ir al checkout y no está autenticado, directo al login
-  if (request.nextUrl.pathname.startsWith('/checkout')) {
-    if (!session) {
-      const loginUrl = new URL('/login', request.url);
-      return NextResponse.redirect(loginUrl);
+  if (pathname.startsWith('/api')) {
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, ngrok-skip-browser-warning',
+    };
+
+    if (request.method === 'OPTIONS') {
+      return new NextResponse(null, { status: 200, headers: corsHeaders });
     }
+
+    const response = NextResponse.next();
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return response;
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/checkout/:path*'],
+  matcher: ['/api/:path*'],
 };
