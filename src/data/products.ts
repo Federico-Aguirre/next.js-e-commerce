@@ -349,7 +349,7 @@ const rawProductsData: Product[] = [
         ],
       },
       {
-        id: 3,
+        id: 'v8',
         colorName: 'Black',
         images: [
           { id: 'angle-3-1b', url: '/images/products/pants1-1b.webp' },
@@ -639,7 +639,16 @@ const rawProductsData: Product[] = [
   },
 ];
 
-const importedClothingProducts: Product[] = [
+type ImportedClothingRow = readonly [
+  number,
+  string,
+  string,
+  NonNullable<Product['gender']>,
+  number,
+  string,
+];
+
+const importedClothingProductsData: readonly ImportedClothingRow[] = [
   [83, 'Blue & Black Check Shirt', 'mens-shirts', 'Men', 34.99, 'Nike'],
   [84, 'Gigabyte Aorus Men Tshirt', 'mens-shirts', 'Men', 29.99, 'Adidas'],
   [85, 'Man Plaid Shirt', 'mens-shirts', 'Men', 39.99, 'Columbia'],
@@ -683,50 +692,54 @@ const importedClothingProducts: Product[] = [
   [187, 'Golden Shoes Woman', 'womens-shoes', 'Women', 94.99, 'Zara'],
   [188, 'Pampi Shoes', 'womens-shoes', 'Women', 59.99, 'H&M'],
   [189, 'Red Shoes', 'womens-shoes', 'Women', 64.99, 'Zara'],
-].map(([id, name, category, gender, price, brand], index): Product => ({
-  id,
-  slug: `${category}-${id}`,
-  name,
-  price,
-  description: `${name} made with comfortable materials for everyday wear.`,
-  category,
-  gender,
-  material: getMaterial(category, index),
-  brand,
-  sku: `DUMMY-CLOTHING-${id}`,
-  rating: Number((4.1 + (index % 9) / 10).toFixed(1)),
-  discount: [5, 10, 15][index % 3]!,
-  variants: [
-    {
-      id: `dummy-v${id}`,
-      colorName: extractColorLabelFromProductName(name),
-      images: [0, 1, 2, 3].map((imageIndex) => ({
-        id: `dummy-${id}-${imageIndex}`,
-        url: `/assets/images/products/${id}-${imageIndex}.webp`,
-      })),
-      skus: [
-        {
-          id: `dummy-sku-${id}-s`,
-          articleId: id * 10 + 1,
-          size: 'S',
-          stock: 12,
-        },
-        {
-          id: `dummy-sku-${id}-m`,
-          articleId: id * 10 + 2,
-          size: 'M',
-          stock: 18,
-        },
-        {
-          id: `dummy-sku-${id}-l`,
-          articleId: id * 10 + 3,
-          size: 'L',
-          stock: 9,
-        },
-      ],
-    },
-  ],
-}));
+];
+
+const importedClothingProducts: Product[] = importedClothingProductsData.map(
+  ([id, name, category, gender, price, brand], index) => ({
+    id,
+    slug: `${category}-${id}`,
+    name,
+    price,
+    description: `${name} made with comfortable materials for everyday wear.`,
+    category,
+    gender,
+    material: getMaterial(category, index),
+    brand,
+    sku: `DUMMY-CLOTHING-${id}`,
+    rating: Number((4.1 + (index % 9) / 10).toFixed(1)),
+    discount: [5, 10, 15][index % 3]!,
+    variants: [
+      {
+        id: `dummy-v${id}`,
+        colorName: extractColorLabelFromProductName(name),
+        images: [0, 1, 2, 3].map((imageIndex) => ({
+          id: `dummy-${id}-${imageIndex}`,
+          url: `/assets/images/products/${id}-${imageIndex}.webp`,
+        })),
+        skus: [
+          {
+            id: `dummy-sku-${id}-s`,
+            articleId: id * 10 + 1,
+            size: 'S',
+            stock: 12,
+          },
+          {
+            id: `dummy-sku-${id}-m`,
+            articleId: id * 10 + 2,
+            size: 'M',
+            stock: 18,
+          },
+          {
+            id: `dummy-sku-${id}-l`,
+            articleId: id * 10 + 3,
+            size: 'L',
+            stock: 9,
+          },
+        ],
+      },
+    ],
+  }),
+);
 
 export const productsData: Product[] = [
   ...rawProductsData,

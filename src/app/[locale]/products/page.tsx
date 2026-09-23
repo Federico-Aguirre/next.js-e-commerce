@@ -35,20 +35,27 @@ function filterAndSort(
   const filtered = products.filter((product) => {
     const categoryMatch =
       !category || product.categories.some((item) => item.slug === category);
+
     const searchMatch =
       !q ||
       product.name.toLowerCase().includes(q) ||
       product.description.toLowerCase().includes(q);
+
     const stockMatch =
       availability !== 'in-stock' ||
       product.variants.some((variant) => variant.available);
+
     const colorMatch =
       !color ||
       product.variants.some((variant) => variant.optionValues.color === color);
+
     const sizeMatch =
       !size || product.variants.some((variant) => variant.sizeStock?.[size]);
+
     const brandMatch = !brand || product.brand === brand;
+
     const genderMatch = !gender || product.gender === gender;
+
     const materialMatch = !material || product.material === material;
 
     return (
@@ -71,15 +78,19 @@ function filterAndSort(
       case 'price-asc': {
         return aPrice - bPrice;
       }
+
       case 'price-desc': {
         return bPrice - aPrice;
       }
+
       case 'name-asc': {
         return a.name.localeCompare(b.name);
       }
+
       case 'rating-desc': {
         return (b.rating ?? 0) - (a.rating ?? 0);
       }
+
       default: {
         return 0;
       }
@@ -89,26 +100,39 @@ function filterAndSort(
 
 export async function generateMetadata() {
   const t = await getTranslations('Storefront.catalog');
-  return { title: t('metaTitle'), description: t('metaDescription') };
+
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
 }
 
 export default async function ProductsPage(props: ProductsPageProps) {
   const { locale } = await props.params;
   const rawSearchParams = await props.searchParams;
+
   const t = await getTranslations('Storefront.catalog');
   const homeT = await getTranslations('Storefront');
+
   setRequestLocale(locale);
 
   const { products, categories } = createProductCatalog(homeT);
+
   const productsPath = locale === 'en' ? '/products' : `/${locale}/products`;
+
   const filtered = filterAndSort(products, rawSearchParams);
+
   const page = Math.max(1, Number(firstParam(rawSearchParams.page)) || 1);
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+
   const safePage = Math.min(page, pageCount);
+
   const visible = filtered.slice(
     (safePage - 1) * pageSize,
     safePage * pageSize,
   );
+
   const query: Record<string, string | undefined> = {
     q: firstParam(rawSearchParams.q),
     category: firstParam(rawSearchParams.category),
@@ -127,15 +151,18 @@ export default async function ProductsPage(props: ProductsPageProps) {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
           {t('eyebrow')}
         </p>
+
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div className="max-w-3xl">
             <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
               {t('title')}
             </h1>
+
             <p className="mt-3 text-base leading-7 text-muted-foreground sm:text-lg">
               {t('description')}
             </p>
           </div>
+
           <p className="text-sm text-muted-foreground">
             {t('resultCount', { count: filtered.length })}
           </p>
@@ -153,11 +180,15 @@ export default async function ProductsPage(props: ProductsPageProps) {
                   products.flatMap((product) =>
                     product.variants.map((variant) => [
                       variant.optionValues.color,
-                      { id: variant.optionValues.color, name: variant.name },
+                      {
+                        id: variant.optionValues.color,
+                        name: variant.name,
+                      },
                     ]),
                   ),
                 ).values(),
               ],
+
               sizes: [
                 ...new Set(
                   products.flatMap((product) =>
@@ -167,6 +198,7 @@ export default async function ProductsPage(props: ProductsPageProps) {
                   ),
                 ),
               ],
+
               brands: [
                 ...new Set(
                   products
@@ -174,13 +206,18 @@ export default async function ProductsPage(props: ProductsPageProps) {
                     .filter((value): value is string => Boolean(value)),
                 ),
               ],
+
               genders: [
                 ...new Set(
                   products
                     .map((product) => product.gender)
-                    .filter((value): value is string => Boolean(value)),
+                    .filter(
+                      (value): value is NonNullable<CatalogProduct['gender']> =>
+                        value !== undefined,
+                    ),
                 ),
               ],
+
               materials: [
                 ...new Set(
                   products
@@ -202,6 +239,7 @@ export default async function ProductsPage(props: ProductsPageProps) {
                 locale={locale === 'es' ? 'es-AR' : 'en-US'}
                 outOfStockLabel={t('outOfStock')}
               />
+
               <Pagination
                 page={safePage}
                 pageCount={pageCount}
