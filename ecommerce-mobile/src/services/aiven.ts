@@ -13,7 +13,7 @@ export async function triggerAivenWakeUp(): Promise<AivenStatusResponse> {
     const response = await fetch(`${BASE_URL}/api/aiven-status`, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
     });
 
@@ -21,7 +21,10 @@ export async function triggerAivenWakeUp(): Promise<AivenStatusResponse> {
 
     if (!response.ok) {
       console.error('[Aiven Error Mobile]:', data);
-      return { status: 'ERROR', message: data.detail || data.message || 'Error en el servidor' };
+      return {
+        status: 'ERROR',
+        message: data.detail || data.message || 'Error en el servidor',
+      };
     }
 
     return data;
@@ -29,7 +32,8 @@ export async function triggerAivenWakeUp(): Promise<AivenStatusResponse> {
     console.error('[Error de red al conectar con Next.js]:', error);
     return {
       status: 'ERROR',
-      message: 'No se pudo conectar con el servidor. Verifica que Next.js esté corriendo en la IP correcta.',
+      message:
+        'No se pudo conectar con el servidor. Verifica que Next.js esté corriendo en la IP correcta.',
     };
   }
 }

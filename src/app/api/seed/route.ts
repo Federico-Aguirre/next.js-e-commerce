@@ -1,5 +1,6 @@
 // app/api/seed/route.ts
 import { NextResponse } from 'next/server';
+
 // 🔥 Usamos la instancia centralizada para evitar errores de compilación en CI/CD
 import { prisma } from '@/lib/prisma';
 
@@ -82,8 +83,6 @@ const seedProducts = [
 
 export async function GET() {
   try {
-    console.log('🌱 Ejecutando seed desde el servidor Next.js...');
-
     // Limpiamos
     await prisma.product.deleteMany({});
 
@@ -110,6 +109,9 @@ export async function GET() {
     });
   } catch (error: any) {
     console.error(error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
   }
 }

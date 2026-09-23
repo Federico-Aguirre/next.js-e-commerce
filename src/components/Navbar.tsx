@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
-import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { useSession, signOut } from 'next-auth/react';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import React from 'react';
+
 import { useCartStore } from '@/store/useCartStore';
 
 function CartCounter() {
@@ -16,7 +17,9 @@ function CartCounter() {
   );
 }
 
-const DynamicCartCounter = dynamic(() => Promise.resolve(CartCounter), { ssr: false });
+const DynamicCartCounter = dynamic(() => Promise.resolve(CartCounter), {
+  ssr: false,
+});
 
 export default function Navbar() {
   const { data: session, status } = useSession();
@@ -69,7 +72,7 @@ export default function Navbar() {
 
             {/* BOTÓN DEL CARRITO */}
             <Link
-              href="/checkout"
+              href="/cart"
               className="group -m-2 p-2 flex items-center relative"
               aria-label="Ver carrito"
             >
@@ -100,7 +103,9 @@ export default function Navbar() {
               <div className="flex items-center gap-x-5">
                 <span className="text-sm font-semibold text-gray-700">
                   Hola{' '}
-                  <span className="text-indigo-600">{user.name?.split(' ')[0] || 'Comprador'}</span>
+                  <span className="text-indigo-600">
+                    {user.name?.split(' ')[0] || 'Comprador'}
+                  </span>
                 </span>
 
                 <button

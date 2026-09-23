@@ -1,7 +1,8 @@
 import React, { Suspense } from 'react';
-import { Product } from '@/types/product';
+
 import GoogleLoginAlert from '@/components/GoogleLoginAlert';
 import ProductCatalog from '@/components/ProductCatalog';
+import { Product } from '@/types/product';
 
 async function triggerAivenWakeUp(baseUrl: string) {
   try {
@@ -77,7 +78,9 @@ export default async function HomePage() {
           <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
             Nuestra Colección
           </h1>
-          <p className="mt-4 text-lg text-gray-500">Ropa exclusiva diseñada para durar.</p>
+          <p className="mt-4 text-lg text-gray-500">
+            Ropa exclusiva diseñada para durar.
+          </p>
         </div>
 
         {products.length === 0 ? (

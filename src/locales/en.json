@@ -1,0 +1,237 @@
+{
+  "RootLayout": {
+    "home_link": "Home",
+    "about_link": "About",
+    "contact_link": "Contact",
+    "sign_in_link": "Log in",
+    "sign_out_link": "Log out"
+  },
+  "Footer": {},
+  "About": {
+    "title": "About Us",
+    "description": "Welcome to our platform. We build scalable, high-performance web applications using modern web standards."
+  },
+  "auth": {
+    "signInTitle": "Welcome back",
+    "signInSubtitle": "Sign in to your account to continue",
+    "signUpTitle": "Create an account",
+    "signUpSubtitle": "Enter your details below to get started",
+    "continueWithGoogle": "Continue with Google",
+    "nameLabel": "Name",
+    "emailLabel": "Email address",
+    "passwordLabel": "Password",
+    "loading": "Loading...",
+    "signInButton": "Sign In",
+    "signUpButton": "Create Account",
+    "noAccount": "Don't have an account?",
+    "signUpLink": "Sign up",
+    "alreadyHaveAccount": "Already have an account?",
+    "signInLink": "Sign in",
+    "loggedInSuccess": "You have logged in successfully!"
+  },
+  "contact": {
+    "meta_title": "Contact - My App",
+    "meta_description": "Get in touch with our team.",
+    "title": "Contact Us",
+    "description": "Have questions? Reach out to us and we'll respond as soon as possible.",
+    "sendMessage": "Send us a message",
+    "name": "Name",
+    "email": "Email",
+    "affair": "Subject",
+    "message": "Message",
+    "send": "Send message",
+    "sending": "Sending...",
+    "messages": {
+      "success": "Message sent successfully! We will get back to you soon.",
+      "serverError": "An unexpected server error occurred. Please try again later.",
+      "rateLimitExceeded": "Too many attempts. Please try again in a minute.",
+      "invalidData": "The data provided is invalid.",
+      "submittedTooFast": "Submission flagged as spam (submitted too fast).",
+      "serviceError": "Could not deliver the message via the email service."
+    },
+    "errors": {
+      "nameRequired": "Name is required.",
+      "invalidEmail": "Please enter a valid email address.",
+      "affairRequired": "Subject is required.",
+      "messageTooShort": "Message must be at least 10 characters long."
+    }
+  },
+  "LocaleSwitcher": {
+    "change_language": "Change language"
+  },
+  "Storefront": {
+    "nav": {
+      "primaryNavigation": "Primary navigation",
+      "catalog": "Catalog",
+      "search": "Search products",
+      "searchPlaceholder": "Search the catalog",
+      "account": "Account",
+      "cart": "Cart"
+    },
+    "home": {
+      "eyebrow": "Modern commerce foundation",
+      "title": "A storefront built to grow with your catalog.",
+      "description": "A provider-neutral shopping experience with clear product discovery, flexible localization, and polished responsive UI ready for integration.",
+      "primaryCta": "Shop the catalog",
+      "secondaryCta": "Explore the template",
+      "categoriesEyebrow": "Shop by need",
+      "categoriesTitle": "Designed for everyday commerce",
+      "categoriesDescription": "Keep categories simple, memorable, and easy to scan on every screen.",
+      "viewAll": "View all",
+      "explore": "Explore",
+      "categoryDescriptions": {
+        "new": "Fresh additions and launch-ready products.",
+        "everyday": "Reliable essentials for repeat purchases.",
+        "workspace": "Tools and objects for focused spaces.",
+        "travel": "Portable pieces made for life on the move."
+      },
+      "featuredEyebrow": "Featured",
+      "featuredTitle": "Popular products, ready for your data",
+      "browseCatalog": "Browse catalog",
+      "benefitsEyebrow": "Storefront foundations",
+      "benefitsTitle": "Conversion-focused without locking you into a provider",
+      "benefit1Title": "Fast discovery",
+      "benefit1Description": "Clear hierarchy and high-signal product presentation.",
+      "benefit2Title": "Reusable components",
+      "benefit2Description": "Cards, grids, filters and detail surfaces share one visual language.",
+      "benefit3Title": "Localized by default",
+      "benefit3Description": "Every storefront surface is ready for translated content.",
+      "benefit4Title": "Accessible interactions",
+      "benefit4Description": "Keyboard-friendly controls, labels and focus states are built in.",
+      "ctaEyebrow": "Ready for integration?",
+      "ctaTitle": "Connect your catalog and keep the storefront layer",
+      "ctaDescription": "The UI consumes typed commerce contracts so persistence and provider integrations can evolve independently.",
+      "ctaButton": "View products"
+    },
+    "categories": {
+      "jackets": "Jackets",
+      "pants": "Pants",
+      "shoes": "Shoes",
+      "sweatshirts": "Sweatshirts",
+      "tshirts": "T-shirts",
+      "new": "New arrivals",
+      "everyday": "Everyday essentials",
+      "workspace": "Workspace",
+      "travel": "Travel"
+    },
+    "products": {
+      "jacket": {
+        "name": "Jacket",
+        "description": "Outerwear designed to complete your everyday looks."
+      },
+      "pants": {
+        "name": "Pants",
+        "description": "Comfortable designs for everyday wear."
+      },
+      "shoes": {
+        "name": "Shoes",
+        "description": "Footwear made to carry you through the day."
+      },
+      "sweatshirt": {
+        "name": "Sweatshirt",
+        "description": "A comfortable, versatile layer for your wardrobe."
+      },
+      "tshirt": {
+        "name": "T-shirt",
+        "description": "Easy-to-style essentials for everyday wear."
+      },
+      "canvasTote": {
+        "name": "Canvas Tote",
+        "description": "A structured carryall with room for daily essentials and flexible use."
+      },
+      "arcLamp": {
+        "name": "Arc Lamp",
+        "description": "A soft architectural light designed to bring focus to a workspace."
+      },
+      "travelOrganizer": {
+        "name": "Travel Organizer",
+        "description": "A compact organizer for cables, documents, and small carry-on essentials."
+      },
+      "dailyNotebook": {
+        "name": "Daily Notebook",
+        "description": "A minimal notebook designed for plans, notes, and recurring ideas."
+      },
+      "fieldBottle": {
+        "name": "Field Bottle",
+        "description": "A reusable bottle with a clean silhouette for everyday routes."
+      },
+      "deskMat": {
+        "name": "Desk Mat",
+        "description": "A low-profile surface that gives keyboards and work tools a calm home."
+      },
+      "utilityPouch": {
+        "name": "Utility Pouch",
+        "description": "A versatile pouch for chargers, tools, and small accessories."
+      },
+      "linenCap": {
+        "name": "Linen Cap",
+        "description": "A lightweight cap with a soft structure and an understated profile."
+      }
+    },
+    "catalog": {
+      "metaTitle": "Catalog",
+      "metaDescription": "Browse the reusable e-commerce catalog experience.",
+      "eyebrow": "Catalog",
+      "title": "Find what fits your next order",
+      "description": "Search, filter and sort through a provider-neutral product collection.",
+      "resultCount": "{count, plural, =0 {No products} one {# product} other {# products}}",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Search products",
+      "categoryLabel": "Category",
+      "allCategories": "All categories",
+      "sortLabel": "Sort",
+      "sortFeatured": "Featured",
+      "sortPriceAsc": "Price: low to high",
+      "sortPriceDesc": "Price: high to low",
+      "sortNameAsc": "Name: A to Z",
+      "sortRatingDesc": "Top rated",
+      "inStockOnly": "In stock only",
+      "applyFilters": "Apply",
+      "emptyTitle": "No products match those filters",
+      "emptyDescription": "Try a broader search or remove one of the filters to see more products.",
+      "errorTitle": "We could not load the catalog",
+      "errorDescription": "The catalog service is unavailable. Try again or connect another provider implementation.",
+      "previous": "Previous",
+      "next": "Next",
+      "outOfStock": "Out of stock",
+      "paginationLabel": "Catalog pagination",
+      "retry": "Try again"
+    },
+    "product": {
+      "eyebrow": "Product detail",
+      "backToCatalog": "Back to catalog",
+      "availability": "Availability",
+      "inStock": "In stock",
+      "outOfStock": "Out of stock",
+      "quantity": "Quantity",
+      "size": "Size",
+      "selectSize": "Choose a size",
+      "sizeRequired": "Choose a size to continue",
+      "stockAvailable": "{count} available",
+      "decreaseQuantity": "Decrease quantity",
+      "increaseQuantity": "Increase quantity",
+      "addToCart": "Add to cart",
+      "cartIntegrationNote": "Cart persistence is intentionally left to the integration layer.",
+      "shippingTitle": "Shipping-ready surface",
+      "shippingDescription": "Reserve delivery messaging and fulfillment details for the connected commerce backend.",
+      "returnsTitle": "Policy-ready surface",
+      "returnsDescription": "Keep return and support policies configurable per business.",
+      "detailsEyebrow": "Product information",
+      "detailsTitle": "Structured detail blocks",
+      "detailOne": "Use typed variants, media and inventory without coupling the UI to a provider schema.",
+      "detailTwo": "Keep pricing and currency explicit so multi-market storefronts remain predictable.",
+      "detailThree": "Swap the demo repository for a real adapter without rewriting the presentation layer."
+    },
+    "footer": {
+      "description": "A reusable Next.js commerce storefront designed to stay provider-neutral as the backend evolves.",
+      "shopTitle": "Shop",
+      "catalog": "Catalog",
+      "about": "About",
+      "supportTitle": "Support",
+      "contact": "Contact",
+      "account": "Account",
+      "copyright": "© {year} {name}. All rights reserved.",
+      "note": "Demo content is ready to be replaced with real catalog data."
+    }
+  }
+}

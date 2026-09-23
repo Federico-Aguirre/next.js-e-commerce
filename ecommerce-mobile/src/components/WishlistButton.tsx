@@ -36,7 +36,9 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({ product }) => {
           ? 'bg-rose-50 border border-rose-100'
           : 'bg-white border border-gray-100'
       }`}
-      accessibilityLabel={isFavorite ? 'Remove from wishlist' : 'Add to wishlist'}
+      accessibilityLabel={
+        isFavorite ? 'Remove from wishlist' : 'Add to wishlist'
+      }
     >
       <Ionicons
         name={isFavorite ? 'heart' : 'heart-outline'}

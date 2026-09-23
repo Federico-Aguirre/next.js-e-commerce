@@ -17,7 +17,7 @@ export default function GoogleLoginAlert() {
             text: 'Continuar',
             onPress: () => router.replace('/'), // Limpia los parámetros navegando a la raíz
           },
-        ]
+        ],
       );
     }
   }, [params.login, router]);

@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  ActivityIndicator,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
@@ -88,11 +94,16 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top', 'left', 'right']}>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: '#ffffff' }}
+        edges={['top', 'left', 'right']}
+      >
         <Navbar />
         <View className="flex-1 bg-white justify-center items-center p-4">
           <ActivityIndicator size="large" color="#4f46e5" />
-          <Text className="text-gray-500 text-sm mt-3 font-medium">Cargando producto...</Text>
+          <Text className="text-gray-500 text-sm mt-3 font-medium">
+            Cargando producto...
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -100,11 +111,16 @@ export default function ProductDetailPage() {
 
   if (error || !product) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top', 'left', 'right']}>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: '#ffffff' }}
+        edges={['top', 'left', 'right']}
+      >
         <Navbar />
         <View className="flex-1 bg-white justify-center items-center p-6">
           <Text className="text-5xl mb-3">🔍</Text>
-          <Text className="text-lg font-bold text-gray-800 text-center">Producto no encontrado</Text>
+          <Text className="text-lg font-bold text-gray-800 text-center">
+            Producto no encontrado
+          </Text>
           <Text className="text-gray-500 text-sm text-center mt-1">
             El artículo que estás buscando no existe o ya no está disponible.
           </Text>
@@ -114,7 +130,10 @@ export default function ProductDetailPage() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: '#ffffff' }}
+      edges={['top', 'left', 'right']}
+    >
       <Navbar />
       <ScrollView className="flex-1 bg-white px-4 py-6">
         <View className="max-w-7xl mx-auto w-full pb-12">

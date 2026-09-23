@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
+import { NextIntlClientProvider } from 'next-intl';
 import { Inter } from 'next/font/google';
-import DatabaseGuard from '@/components/DatabaseGuard';
-import './globals.css';
-import Navbar from '@/components/Navbar'; // O donde tengas tu Navbar instalado
+
 import CartSynchronizer from '@/components/CartSynchronizer';
+
+import './globals.css';
+import DatabaseGuard from '@/components/DatabaseGuard';
+import { Header } from '@/components/Header';
 import WishlistSynchronizer from '@/components/WishlistSynchronizer';
+import messages from '@/locales/es.json';
 import Providers from '@/providers';
 
 // 🌟 Esto obliga a Next.js a tratar a TODAS las páginas de la app como dinámicas,
@@ -28,10 +32,12 @@ export default function RootLayout({
       <body className={inter.className}>
         {/* Envolvemos todo adentro de Providers */}
         <Providers>
-          <Navbar />
-          <DatabaseGuard>{children}</DatabaseGuard>
-          <CartSynchronizer />
-          <WishlistSynchronizer />
+          <NextIntlClientProvider locale="es" messages={messages}>
+            <Header />
+            <DatabaseGuard>{children}</DatabaseGuard>
+            <CartSynchronizer />
+            <WishlistSynchronizer />
+          </NextIntlClientProvider>
         </Providers>
       </body>
     </html>

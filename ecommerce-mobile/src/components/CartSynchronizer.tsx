@@ -70,7 +70,9 @@ export default function CartSynchronizer() {
               userId: currentUserId,
               isInitial,
               localCart: items.map((item) => {
-                const cleanId = Number(item.articleId || item.productId || item.id || 0);
+                const cleanId = Number(
+                  item.articleId || item.productId || item.id || 0,
+                );
                 return {
                   id: cleanId,
                   productId: cleanId,
@@ -88,7 +90,10 @@ export default function CartSynchronizer() {
         const result = await response.json();
         return result.data?.mergeCart || null;
       } catch (error) {
-        console.error('🚨 [CART SYNC ERROR]: Network issue during sync:', error);
+        console.error(
+          '🚨 [CART SYNC ERROR]: Network issue during sync:',
+          error,
+        );
         return null;
       }
     }
@@ -123,12 +128,17 @@ export default function CartSynchronizer() {
         }
 
         anonymousLocalCart.forEach((localItem: any) => {
-          const finalId = Number(localItem.articleId || localItem.productId || localItem.id);
+          const finalId = Number(
+            localItem.articleId || localItem.productId || localItem.id,
+          );
           const key = `${finalId}-${localItem.size.toUpperCase()}`;
 
           if (consolidatedMap.has(key)) {
             const existing = consolidatedMap.get(key);
-            existing.quantity = Math.max(existing.quantity, Number(localItem.quantity));
+            existing.quantity = Math.max(
+              existing.quantity,
+              Number(localItem.quantity),
+            );
           } else {
             consolidatedMap.set(key, {
               id: finalId,

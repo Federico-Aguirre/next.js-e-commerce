@@ -1,8 +1,14 @@
-import { NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
+import { NextResponse } from 'next/server';
+
+const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+
+if (!accessToken) {
+  throw new Error('Falta la variable de entorno MERCADOPAGO_ACCESS_TOKEN.');
+}
 
 const client = new MercadoPagoConfig({
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '',
+  accessToken,
 });
 
 export async function POST(request: Request) {
@@ -18,7 +24,6 @@ export async function POST(request: Request) {
 
       // Si el pago es real y está aprobado en sus servidores...
       if (mpPaymentInfo.status === 'approved') {
-        console.log(`🤖 Webhook Confirmado: El pago ${id} es legítimo.`);
         // Nota: En producción, acá es donde crearías la orden directamente por detrás.
       }
     }
@@ -27,6 +32,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error: unknown) {
     console.error('❌ Error en el Webhook de Mercado Pago:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 },
+    );
   }
 }

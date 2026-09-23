@@ -2,7 +2,7 @@
 export async function prismaWithRetry<T>(
   queryFn: () => Promise<T>,
   retries = 8,
-  delayMs = 4000
+  delayMs = 4000,
 ): Promise<T> {
   for (let i = 0; i < retries; i++) {
     try {
@@ -15,7 +15,7 @@ export async function prismaWithRetry<T>(
 
       if (isConnectionError && i < retries - 1) {
         console.warn(
-          `[Aiven DB] Servidor no alcanzable. Reintentando (${i + 1}/${retries}) en ${delayMs / 1000}s...`
+          `[Aiven DB] Servidor no alcanzable. Reintentando (${i + 1}/${retries}) en ${delayMs / 1000}s...`,
         );
         await new Promise((res) => setTimeout(res, delayMs));
       } else {

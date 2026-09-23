@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator, Linking, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  Linking,
+  Alert,
+} from 'react-native';
 import { router } from 'expo-router';
 import { useCartStore } from '@/store/useCartStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -10,7 +19,7 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_BASE_URL || DEFAULT_LOCAL_URL;
 export default function CartScreen() {
   const cartItems = useCartStore((state) => state.cart);
   const getCartTotal = useCartStore((state) => state.getCartTotal);
-  
+
   // Obtener sesión/usuario desde Zustand
   const session = useAuthStore((state) => state.session);
   const user = useAuthStore((state) => state.user) || session?.user;
@@ -18,7 +27,9 @@ export default function CartScreen() {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  const handleProcessPayment = async (paymentMethod: 'mercadopago' | 'stripe') => {
+  const handleProcessPayment = async (
+    paymentMethod: 'mercadopago' | 'stripe',
+  ) => {
     // 🔍 Extraer ID y Email buscando en las estructuras de NextAuth / JWT
     const targetUserId =
       user?.id ||
@@ -30,12 +41,6 @@ export default function CartScreen() {
 
     const targetUserEmail = user?.email || session?.user?.email;
 
-    console.log('📱 [MOBILE-CART] Intentando checkout con:', {
-      targetUserId,
-      targetUserEmail,
-      rawUser: user,
-    });
-
     // 1. Validar que exista al menos un ID o Email válido
     if (!targetUserId && !targetUserEmail) {
       Alert.alert(
@@ -44,13 +49,15 @@ export default function CartScreen() {
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Iniciar Sesión', onPress: () => router.push('/login') },
-        ]
+        ],
       );
       return;
     }
 
     if (!cartItems || cartItems.length === 0) {
-      setCheckoutError('No se puede procesar la compra. El carrito está vacío.');
+      setCheckoutError(
+        'No se puede procesar la compra. El carrito está vacío.',
+      );
       return;
     }
 
@@ -73,7 +80,7 @@ export default function CartScreen() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          Accept: 'application/json',
         },
         body: JSON.stringify(payload),
       });
@@ -84,7 +91,9 @@ export default function CartScreen() {
       try {
         data = JSON.parse(responseText);
       } catch {
-        throw new Error(`Error en servidor (${response.status}): ${responseText.slice(0, 120)}`);
+        throw new Error(
+          `Error en servidor (${response.status}): ${responseText.slice(0, 120)}`,
+        );
       }
 
       if (!response.ok) {
@@ -111,18 +120,24 @@ export default function CartScreen() {
   return (
     <ScrollView className="flex-1 bg-gray-50 px-4 py-6">
       <View className="max-w-4xl mx-auto pb-12">
-        <Text className="text-2xl font-black text-gray-900 mb-6">Tu Carrito de Compras</Text>
+        <Text className="text-2xl font-black text-gray-900 mb-6">
+          Tu Carrito de Compras
+        </Text>
 
         {checkoutError && (
           <View className="mb-6 p-4 bg-red-50 rounded-xl border-l-4 border-red-500 shadow-sm">
-            <Text className="text-red-700 text-xs font-semibold">⚠️ {checkoutError}</Text>
+            <Text className="text-red-700 text-xs font-semibold">
+              ⚠️ {checkoutError}
+            </Text>
           </View>
         )}
 
         <View className="mb-6 space-y-3">
           {cartItems.length === 0 ? (
             <View className="bg-white p-8 rounded-2xl border border-gray-100 items-center shadow-sm">
-              <Text className="text-gray-500 font-medium">Tu carrito está vacío actualmente.</Text>
+              <Text className="text-gray-500 font-medium">
+                Tu carrito está vacío actualmente.
+              </Text>
             </View>
           ) : (
             cartItems.map((item) => (
@@ -143,7 +158,10 @@ export default function CartScreen() {
                     )}
                   </View>
                   <View className="flex-1">
-                    <Text className="text-sm font-bold text-gray-900" numberOfLines={1}>
+                    <Text
+                      className="text-sm font-bold text-gray-900"
+                      numberOfLines={1}
+                    >
                       {item.title}
                     </Text>
                     <Text className="text-xs text-gray-400 mt-1">
@@ -160,11 +178,17 @@ export default function CartScreen() {
         </View>
 
         <View className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <Text className="text-lg font-black text-gray-900 mb-4">Resumen de Compra</Text>
+          <Text className="text-lg font-black text-gray-900 mb-4">
+            Resumen de Compra
+          </Text>
 
           <View className="flex-row justify-between items-center border-b border-gray-100 pb-4 mb-6">
-            <Text className="text-sm font-medium text-gray-500">Monto Total:</Text>
-            <Text className="text-xl font-black text-gray-950">${cartTotal.toFixed(2)}</Text>
+            <Text className="text-sm font-medium text-gray-500">
+              Monto Total:
+            </Text>
+            <Text className="text-xl font-black text-gray-950">
+              ${cartTotal.toFixed(2)}
+            </Text>
           </View>
 
           <View className="gap-y-3">
@@ -173,12 +197,16 @@ export default function CartScreen() {
               onPress={() => handleProcessPayment('mercadopago')}
               activeOpacity={0.8}
               className="w-full h-12 flex-row items-center justify-center bg-sky-500 rounded-lg shadow-sm"
-              style={{ opacity: isProcessing || cartItems.length === 0 ? 0.5 : 1 }}
+              style={{
+                opacity: isProcessing || cartItems.length === 0 ? 0.5 : 1,
+              }}
             >
               {isProcessing ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text className="text-white font-bold text-sm">Pagar con Mercado Pago</Text>
+                <Text className="text-white font-bold text-sm">
+                  Pagar con Mercado Pago
+                </Text>
               )}
             </TouchableOpacity>
 
@@ -187,12 +215,16 @@ export default function CartScreen() {
               onPress={() => handleProcessPayment('stripe')}
               activeOpacity={0.8}
               className="w-full h-12 flex-row items-center justify-center bg-indigo-600 rounded-lg shadow-sm"
-              style={{ opacity: isProcessing || cartItems.length === 0 ? 0.5 : 1 }}
+              style={{
+                opacity: isProcessing || cartItems.length === 0 ? 0.5 : 1,
+              }}
             >
               {isProcessing ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text className="text-white font-bold text-sm">Pagar con Stripe</Text>
+                <Text className="text-white font-bold text-sm">
+                  Pagar con Stripe
+                </Text>
               )}
             </TouchableOpacity>
           </View>

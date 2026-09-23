@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
 import { encode } from 'next-auth/jwt';
+import { NextResponse } from 'next/server';
+
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
@@ -11,9 +12,14 @@ export async function POST(request: Request) {
     }
 
     // 1. Validar el token con Google
-    const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+    const googleRes = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`,
+    );
     if (!googleRes.ok) {
-      return NextResponse.json({ error: 'Token de Google inválido' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Token de Google inválido' },
+        { status: 401 },
+      );
     }
 
     const payload = await googleRes.json();
@@ -34,12 +40,16 @@ export async function POST(request: Request) {
     // 3. Crear sesión con NextAuth
     const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
     if (!secret) {
-      return NextResponse.json({ error: 'Falta NEXTAUTH_SECRET' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Falta NEXTAUTH_SECRET' },
+        { status: 500 },
+      );
     }
 
-    const cookieName = process.env.NODE_ENV === 'production'
-      ? '__Secure-next-auth.session-token'
-      : 'next-auth.session-token';
+    const cookieName =
+      process.env.NODE_ENV === 'production'
+        ? '__Secure-next-auth.session-token'
+        : 'next-auth.session-token';
 
     const maxAge = 30 * 24 * 60 * 60;
     const now = Math.floor(Date.now() / 1000);
@@ -61,7 +71,12 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json({
       success: true,
-      user: { id: user.id, email: user.email, name: user.name, image: user.image },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+      },
     });
 
     response.cookies.set(cookieName, sessionToken, {
@@ -75,6 +90,9 @@ export async function POST(request: Request) {
     return response;
   } catch (error: any) {
     console.error('❌ [AUTH ERROR]:', error);
-    return NextResponse.json({ error: error?.message || 'Error interno' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Error interno' },
+      { status: 500 },
+    );
   }
 }

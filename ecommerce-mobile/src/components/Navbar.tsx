@@ -47,7 +47,11 @@ export default function Navbar() {
         {/* ACCIONES DERECHA */}
         <View className="flex-row items-center gap-x-4">
           {/* BOTÓN CARRITO */}
-          <Pressable onPress={() => router.push('/checkout')} className="relative p-1" hitSlop={8}>
+          <Pressable
+            onPress={() => router.push('/checkout')}
+            className="relative p-1"
+            hitSlop={8}
+          >
             <Feather name="shopping-bag" size={22} color="#6b7280" />
             <CartCounter />
           </Pressable>
@@ -61,11 +65,19 @@ export default function Navbar() {
           ) : user ? (
             <View className="flex-row items-center gap-x-2">
               <Text className="text-xs font-semibold text-gray-700">
-                Hola <Text className="text-indigo-600">{user.name?.split(' ')[0] || 'Comprador'}</Text>
+                Hola{' '}
+                <Text className="text-indigo-600">
+                  {user.name?.split(' ')[0] || 'Comprador'}
+                </Text>
               </Text>
 
-              <Pressable onPress={handleLogout} className="bg-red-50 px-2 py-1 rounded-md">
-                <Text className="text-[11px] font-bold text-red-500">Salir</Text>
+              <Pressable
+                onPress={handleLogout}
+                className="bg-red-50 px-2 py-1 rounded-md"
+              >
+                <Text className="text-[11px] font-bold text-red-500">
+                  Salir
+                </Text>
               </Pressable>
             </View>
           ) : (
@@ -88,7 +100,9 @@ export default function Navbar() {
         </Pressable>
 
         <Pressable onPress={() => router.push('/favorites')}>
-          <Text className="text-xs font-medium text-gray-500">Lista de deseos</Text>
+          <Text className="text-xs font-medium text-gray-500">
+            Lista de deseos
+          </Text>
         </Pressable>
 
         <Pressable onPress={() => router.push('/historial')}>

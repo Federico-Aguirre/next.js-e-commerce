@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import React from 'react';
+
 import SearchBar from '@/components/SearchBar';
 import WishlistButton from '@/components/WishlistButton';
 import { Product } from '@/types/product';
@@ -12,14 +13,18 @@ interface ProductCatalogProps {
   initialProducts?: Product[];
 }
 
-export default function ProductCatalog({ initialProducts = [] }: ProductCatalogProps) {
+export default function ProductCatalog({
+  initialProducts = [],
+}: ProductCatalogProps) {
   const searchParams = useSearchParams();
   const queryBusqueda = searchParams.get('search') || '';
 
-  const productosSeguros = Array.isArray(initialProducts) ? initialProducts : [];
+  const productosSeguros = Array.isArray(initialProducts)
+    ? initialProducts
+    : [];
 
   const productosFiltrados = productosSeguros.filter((product) =>
-    product?.name?.toLowerCase().includes(queryBusqueda.toLowerCase())
+    product?.name?.toLowerCase().includes(queryBusqueda.toLowerCase()),
   );
 
   return (
@@ -29,7 +34,9 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
       {productosFiltrados.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 p-8 max-w-sm mx-auto shadow-sm">
           <p className="text-gray-400 text-3xl mb-2">🔍</p>
-          <h3 className="text-sm font-bold text-gray-800">No encontramos resultados</h3>
+          <h3 className="text-sm font-bold text-gray-800">
+            No encontramos resultados
+          </h3>
           <p className="text-xs text-gray-500 mt-1">
             Probá escribiendo otra palabra o limpiando el buscador.
           </p>
@@ -39,7 +46,8 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
           {productosFiltrados.map((product) => {
             if (!product) return null;
 
-            const coverImage = product.variants?.[0]?.images?.[0]?.url || '/placeholder.png';
+            const coverImage =
+              product.variants?.[0]?.images?.[0]?.url || '/placeholder.png';
 
             return (
               <Link
@@ -87,7 +95,9 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
                   </div>
 
                   <div className="mt-5 flex items-center justify-between">
-                    <p className="text-xl font-black text-gray-900">${Number(product.price).toFixed(2)}</p>
+                    <p className="text-xl font-black text-gray-900">
+                      ${Number(product.price).toFixed(2)}
+                    </p>
                     <span className="rounded-lg bg-gray-900 px-3.5 py-2 text-xs font-bold text-white shadow-sm group-hover:bg-indigo-600 transition-colors duration-300">
                       Ver detalle
                     </span>

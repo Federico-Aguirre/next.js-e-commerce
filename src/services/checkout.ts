@@ -10,11 +10,16 @@ interface CheckoutItem {
   colorName?: string; // 🚀 AGREGADO: Opcional para el mapeo
 }
 
-export async function processSecureCheckout(userId: string, items: CheckoutItem[]) {
+export async function processSecureCheckout(
+  userId: string,
+  items: CheckoutItem[],
+) {
   if (!items || items.length === 0) throw new Error('El carrito está vacío');
 
   // 1. Evitamos Deadlocks ordenando los strings de los IDs alfabéticamente
-  const sortedItems = [...items].sort((a, b) => a.productId.localeCompare(b.productId));
+  const sortedItems = [...items].sort((a, b) =>
+    a.productId.localeCompare(b.productId),
+  );
 
   try {
     // Iniciamos la transacción interactiva en PostgreSQL
@@ -36,14 +41,14 @@ export async function processSecureCheckout(userId: string, items: CheckoutItem[
 
           if (!dbProduct) {
             throw new Error(
-              `El producto "${item.title}" (ID: ${item.productId}) ya no está disponible.`
+              `El producto "${item.title}" (ID: ${item.productId}) ya no está disponible.`,
             );
           }
 
           // 3. CONTROL DE SOBREVENTA: Validación estricta en memoria aislada
           if (dbProduct.stock < item.quantity) {
             throw new Error(
-              `¡Sobreventa mitigada! No hay stock suficiente para "${dbProduct.name}". Quedan ${dbProduct.stock} unidades y solicitaste ${item.quantity}.`
+              `¡Sobreventa mitigada! No hay stock suficiente para "${dbProduct.name}". Quedan ${dbProduct.stock} unidades y solicitaste ${item.quantity}.`,
             );
           }
 
@@ -97,19 +102,18 @@ export async function processSecureCheckout(userId: string, items: CheckoutItem[
         await tx.cartItem.deleteMany({
           where: { userId },
         });
-
-        console.log(
-          `✅ [CONCURRENCY CONTROL] Orden ${newOrder.id} generada con éxito. Stock actualizado.`
-        );
         return { success: true, orderId: newOrder.id };
       },
       {
         maxWait: 5000, // Tiempo máximo esperando que Postgres otorgue una conexión (5s)
         timeout: 15000, // Tiempo límite para ejecutar todo antes de forzar un Rollback (15s)
-      }
+      },
     );
   } catch (error: any) {
-    console.error('❌ [CHECKOUT ROLLBACK] Compra cancelada de manera segura:', error.message);
+    console.error(
+      '❌ [CHECKOUT ROLLBACK] Compra cancelada de manera segura:',
+      error.message,
+    );
     throw error; // Re-lanzamos para que el controlador de la API envíe el mensaje al cliente
   }
 }

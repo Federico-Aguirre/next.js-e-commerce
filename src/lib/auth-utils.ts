@@ -1,9 +1,10 @@
-import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
+import { SignJWT, jwtVerify } from 'jose';
 
 // Llave secreta local para firmar los tokens (en producción iría en tu .env.local)
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'llave-secreta-ultra-segura-de-32-caracteres-minimo'
+  process.env.JWT_SECRET ||
+    'llave-secreta-ultra-segura-de-32-caracteres-minimo',
 );
 
 // 1. Encriptar contraseña de forma segura
@@ -13,7 +14,10 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 // 2. Comparar contraseña ingresada con la encriptada en la base de datos
-export async function comparePassword(password: string, hashed: string): Promise<boolean> {
+export async function comparePassword(
+  password: string,
+  hashed: string,
+): Promise<boolean> {
   return bcrypt.compare(password, hashed);
 }
 

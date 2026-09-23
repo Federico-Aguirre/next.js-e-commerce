@@ -19,7 +19,9 @@ class CatalogPage {
   async buscarProducto(nombre: string) {
     await this.searchInput.fill(nombre);
     // Esperamos a que la URL cambie reflejando el filtro
-    await this.page.waitForURL(new RegExp(`.*search=${nombre}`), { timeout: 5000 });
+    await this.page.waitForURL(new RegExp(`.*search=${nombre}`), {
+      timeout: 5000,
+    });
   }
 
   async verificarProductosVisibles() {
@@ -29,7 +31,9 @@ class CatalogPage {
 }
 
 test.describe('🛒 Flujo de Catálogo - Nova Store', () => {
-  test('Debería filtrar los productos mediante Query Params en la URL', async ({ page }) => {
+  test('Debería filtrar los productos mediante Query Params en la URL', async ({
+    page,
+  }) => {
     const catalogo = new CatalogPage(page);
 
     await catalogo.navegar();

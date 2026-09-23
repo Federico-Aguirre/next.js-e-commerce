@@ -134,7 +134,8 @@ export default function HomePage() {
       if (!res.ok) throw new Error(`Error en el servidor: ${res.status}`);
 
       const json = await res.json();
-      if (json.errors) throw new Error(json.errors[0]?.message || 'Error en GraphQL');
+      if (json.errors)
+        throw new Error(json.errors[0]?.message || 'Error en GraphQL');
 
       setProducts(json.data?.products || []);
     } catch (err: any) {
@@ -150,7 +151,9 @@ export default function HomePage() {
   }, []);
 
   const getProductImage = (product: Product): string => {
-    const firstVariantWithImage = product.variants?.find((v) => v.images && v.images.length > 0);
+    const firstVariantWithImage = product.variants?.find(
+      (v) => v.images && v.images.length > 0,
+    );
     const rawUrl = firstVariantWithImage?.images[0]?.url;
 
     if (!rawUrl) return 'https://via.placeholder.com/300';
@@ -190,7 +193,10 @@ export default function HomePage() {
         {/* Información del Producto */}
         <View className="p-3 flex-1 justify-between bg-white">
           <View>
-            <Text className="text-xs font-semibold text-gray-800" numberOfLines={2}>
+            <Text
+              className="text-xs font-semibold text-gray-800"
+              numberOfLines={2}
+            >
               {item.name}
             </Text>
             <View className="mt-1.5 self-start bg-gray-50 px-2 py-0.5 rounded">
@@ -215,8 +221,12 @@ export default function HomePage() {
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Encabezado */}
       <View className="py-4 px-4 bg-white border-b border-gray-100 items-center">
-        <Text className="text-2xl font-extrabold text-gray-900">Nuestra Colección</Text>
-        <Text className="text-sm text-gray-500 mt-1">Ropa exclusiva diseñada para durar.</Text>
+        <Text className="text-2xl font-extrabold text-gray-900">
+          Nuestra Colección
+        </Text>
+        <Text className="text-sm text-gray-500 mt-1">
+          Ropa exclusiva diseñada para durar.
+        </Text>
       </View>
 
       {/* Estados de interfaz */}
@@ -230,7 +240,10 @@ export default function HomePage() {
       ) : error ? (
         <View className="flex-1 justify-center items-center p-5">
           <Text className="text-red-500 text-sm mb-3 text-center">{error}</Text>
-          <TouchableOpacity className="bg-indigo-600 px-4 py-2 rounded-md" onPress={fetchProducts}>
+          <TouchableOpacity
+            className="bg-indigo-600 px-4 py-2 rounded-md"
+            onPress={fetchProducts}
+          >
             <Text className="text-white font-semibold">Reintentar</Text>
           </TouchableOpacity>
         </View>

@@ -32,7 +32,8 @@ export const useCartStore = create<CartState>()(
       addToCart: (newItem, stockMaximo) => {
         const currentCart = get().cart;
         const existingIndex = currentCart.findIndex(
-          (item) => item.articleId === newItem.articleId && item.size === newItem.size
+          (item) =>
+            item.articleId === newItem.articleId && item.size === newItem.size,
         );
 
         const limiteStock = stockMaximo !== undefined ? stockMaximo : 99;
@@ -42,7 +43,9 @@ export const useCartStore = create<CartState>()(
           const itemExistente = updatedCart[existingIndex];
 
           if (itemExistente.quantity >= limiteStock) {
-            console.warn(`[STOCK LIMITADO]: No puedes agregar más de ${limiteStock} unidades.`);
+            console.warn(
+              `[STOCK LIMITADO]: No puedes agregar más de ${limiteStock} unidades.`,
+            );
             return;
           }
 
@@ -59,19 +62,26 @@ export const useCartStore = create<CartState>()(
 
       removeFromCart: (articleId, size) => {
         set({
-          cart: get().cart.filter((item) => !(item.articleId === articleId && item.size === size)),
+          cart: get().cart.filter(
+            (item) => !(item.articleId === articleId && item.size === size),
+          ),
         });
       },
 
       clearCart: () => set({ cart: [] }),
 
-      getCartCount: () => get().cart.reduce((total, item) => total + item.quantity, 0),
-      getCartTotal: () => get().cart.reduce((total, item) => total + item.price * item.quantity, 0),
+      getCartCount: () =>
+        get().cart.reduce((total, item) => total + item.quantity, 0),
+      getCartTotal: () =>
+        get().cart.reduce(
+          (total, item) => total + item.price * item.quantity,
+          0,
+        ),
       setCart: (items) => set({ cart: items }),
     }),
     {
       name: 'nova-cart-storage-mobile',
       storage: createJSONStorage(() => AsyncStorage), // <--- Adaptado para persistencia en iOS/Android
-    }
-  )
+    },
+  ),
 );

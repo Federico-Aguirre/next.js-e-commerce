@@ -1,10 +1,16 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
 
-export default function DatabaseGuard({ children }: { children: React.ReactNode }) {
-  const [status, setStatus] = useState<'LOADING' | 'WAKING_UP' | 'READY'>('LOADING');
+export default function DatabaseGuard({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [status, setStatus] = useState<'LOADING' | 'WAKING_UP' | 'READY'>(
+    'LOADING',
+  );
   const router = useRouter();
   const wasWakingUp = useRef(false);
 
@@ -68,7 +74,10 @@ export default function DatabaseGuard({ children }: { children: React.ReactNode 
       }}
     >
       <h2>Conectando con la base de datos...</h2>
-      <p>El servidor de Aiven se está preparando. Por favor, aguarda unos segundos.</p>
+      <p>
+        El servidor de Aiven se está preparando. Por favor, aguarda unos
+        segundos.
+      </p>
     </div>
   );
 }

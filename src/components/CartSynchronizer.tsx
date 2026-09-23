@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { useEffect, useRef } from 'react';
+
 import { useCartStore } from '@/store/useCartStore';
 
 export default function CartSynchronizer() {
   const { data: session, status } = useSession();
   const { cart, setCart } = useCartStore();
 
-  const currentUserId = (session?.user as any)?.id || session?.user?.email || '';
+  const currentUserId =
+    (session?.user as any)?.id || session?.user?.email || '';
 
   const lastUserIdRef = useRef<string>('');
   const isInitialMergeDone = useRef<boolean>(false);
@@ -52,9 +54,6 @@ export default function CartSynchronizer() {
 
     lastUserIdRef.current = currentUserId;
 
-    console.log('Sincronizando carro para el usuario:', currentUserId);
-    console.log('Estado de Zustand actual:', cart);
-
     // === 2. DECLARACIÓN DE FUNCIONES INTERNAS ===
     async function sendSyncRequest(items: any[], isInitial: boolean) {
       try {
@@ -80,7 +79,9 @@ export default function CartSynchronizer() {
               userId: currentUserId,
               isInitial,
               localCart: items.map((item) => {
-                const cleanId = Number(item.articleId || item.productId || item.id || 0);
+                const cleanId = Number(
+                  item.articleId || item.productId || item.id || 0,
+                );
                 return {
                   id: cleanId,
                   productId: cleanId,
@@ -134,12 +135,17 @@ export default function CartSynchronizer() {
         }
 
         anonymousLocalCart.forEach((localItem: any) => {
-          const finalId = Number(localItem.articleId || localItem.productId || localItem.id);
+          const finalId = Number(
+            localItem.articleId || localItem.productId || localItem.id,
+          );
           const key = `${finalId}-${localItem.size.toUpperCase()}`;
 
           if (consolidatedMap.has(key)) {
             const existing = consolidatedMap.get(key);
-            existing.quantity = Math.max(existing.quantity, Number(localItem.quantity));
+            existing.quantity = Math.max(
+              existing.quantity,
+              Number(localItem.quantity),
+            );
           } else {
             consolidatedMap.set(key, {
               id: finalId,

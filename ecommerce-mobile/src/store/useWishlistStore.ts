@@ -55,6 +55,6 @@ export const useWishlistStore = create<WishlistState>()(
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       },
-    }
-  )
+    },
+  ),
 );

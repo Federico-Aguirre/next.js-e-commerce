@@ -1,14 +1,18 @@
-import { NextResponse } from 'next/server';
-import { encode } from 'next-auth/jwt';
-import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { encode } from 'next-auth/jwt';
+import { NextResponse } from 'next/server';
+
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
 
     if (!email || !password) {
-      return NextResponse.json({ error: 'Faltan credenciales' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Faltan credenciales' },
+        { status: 400 },
+      );
     }
 
     // 1. Buscar usuario en Prisma
@@ -16,20 +20,26 @@ export async function POST(request: Request) {
     if (!user || !user.password) {
       return NextResponse.json(
         { error: 'Usuario no encontrado o creado mediante Google' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     // 2. Validar la contraseña encriptada
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
-      return NextResponse.json({ error: 'Contraseña incorrecta' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Contraseña incorrecta' },
+        { status: 401 },
+      );
     }
 
     // 3. Crear token de sesión con NextAuth (Misma lógica que google-mobile)
     const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
     if (!secret) {
-      return NextResponse.json({ error: 'Falta NEXTAUTH_SECRET' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Falta NEXTAUTH_SECRET' },
+        { status: 500 },
+      );
     }
 
     const cookieName =
@@ -57,7 +67,12 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json({
       success: true,
-      user: { id: user.id, email: user.email, name: user.name, image: user.image },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+      },
     });
 
     response.cookies.set(cookieName, sessionToken, {
@@ -71,6 +86,9 @@ export async function POST(request: Request) {
     return response;
   } catch (error: any) {
     console.error('❌ [LOGIN ERROR]:', error);
-    return NextResponse.json({ error: error?.message || 'Error interno' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Error interno' },
+      { status: 500 },
+    );
   }
 }

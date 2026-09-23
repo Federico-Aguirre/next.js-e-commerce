@@ -1,6 +1,7 @@
 if (typeof requestAnimationFrame === 'undefined') {
-  (globalThis as any).requestAnimationFrame = (callback: (...args: any[]) => void) =>
-    setTimeout(callback, 0);
+  (globalThis as any).requestAnimationFrame = (
+    callback: (...args: any[]) => void,
+  ) => setTimeout(callback, 0);
   (globalThis as any).cancelAnimationFrame = (id: any) => clearTimeout(id);
 }
 
@@ -47,13 +48,20 @@ export default function RootLayout() {
         setSession({ user: data.user });
 
         if (platform === 'web') {
-          window.alert(`¡Bienvenido! Hola ${data.user.name || data.user.email}`);
+          window.alert(
+            `¡Bienvenido! Hola ${data.user.name || data.user.email}`,
+          );
         } else {
-          Alert.alert('¡Bienvenido!', `Hola ${data.user.name || data.user.email}`);
+          Alert.alert(
+            '¡Bienvenido!',
+            `Hola ${data.user.name || data.user.email}`,
+          );
         }
         router.replace('/');
       })
-      .catch((err) => console.error(`Error al verificar token (${platform}):`, err));
+      .catch((err) =>
+        console.error(`Error al verificar token (${platform}):`, err),
+      );
   };
 
   useEffect(() => {
@@ -67,8 +75,7 @@ export default function RootLayout() {
       })
       .catch(() => {
         // En móvil se ignora el fallo de cookies web
-      }
-    );
+      });
   }, []);
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import 'dotenv/config';
-
 import { NextResponse } from 'next/server';
+
 import { hashPassword } from '@/lib/auth-utils';
 import { prisma } from '@/lib/prisma';
 
@@ -10,7 +10,10 @@ export async function POST(request: Request) {
     const { name, email, password } = await request.json();
 
     if (!name || !email || !password) {
-      return NextResponse.json({ error: 'Todos los campos son obligatorios' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Todos los campos son obligatorios' },
+        { status: 400 },
+      );
     }
 
     // 1. Validar si el email ya existe en el servidor
@@ -21,7 +24,7 @@ export async function POST(request: Request) {
     if (userExists) {
       return NextResponse.json(
         { error: 'El correo electrónico ya está registrado' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -50,8 +53,13 @@ export async function POST(request: Request) {
     console.error('Error en el controlador de registro:', error);
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error interno al registrar el usuario' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error interno al registrar el usuario',
+      },
+      { status: 500 },
     );
   }
 }

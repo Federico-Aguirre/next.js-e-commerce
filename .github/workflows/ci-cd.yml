@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 jobs:
   e2e-testing:
@@ -12,67 +12,67 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 22
-        cache: 'npm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Run Linter
-      run: npm run lint
-      continue-on-error: true
+      - name: Run Linter
+        run: npm run lint
+        continue-on-error: true
 
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
 
-    # Controlamos el cold start de Aiven para evitar que Prisma falle por timeout
-    - name: Wait for Database readiness
-      run: |
-        echo "Verificando conexion con la base de datos..."
-        for i in {1..12}; do
-          if nc -z -w 5 dpg-*.aivencloud.com 5432; then
-            echo "Base de datos activa y lista."
-            exit 0
-          fi
-          echo "La base de datos esta respondiendo lento o levantandose. Reintentando en 10 segundos..."
-          sleep 10
-        done
-        echo "No se pudo establecer conexion con la base de datos."
-        exit 1
-      continue-on-error: true
+      # Controlamos el cold start de Aiven para evitar que Prisma falle por timeout
+      - name: Wait for Database readiness
+        run: |
+          echo "Verificando conexion con la base de datos..."
+          for i in {1..12}; do
+            if nc -z -w 5 dpg-*.aivencloud.com 5432; then
+              echo "Base de datos activa y lista."
+              exit 0
+            fi
+            echo "La base de datos esta respondiendo lento o levantandose. Reintentando en 10 segundos..."
+            sleep 10
+          done
+          echo "No se pudo establecer conexion con la base de datos."
+          exit 1
+        continue-on-error: true
 
-    - name: Generate Prisma Client
-      run: npx prisma generate
-      env:
-        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-    - name: Build Next.js application
-      run: npm run build
-      env:
-        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-        NEXTAUTH_URL: http://localhost:3000
-        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          NEXTAUTH_URL: http://localhost:3000
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-    - name: Run Playwright tests
-      run: npx playwright test
-      env:
-        PLAYWRIGHT_TEST_BASE_URL: http://localhost:3000
-        NEXT_PUBLIC_POSTHOG_KEY: phc_mock_key_for_testing
-        NEXT_PUBLIC_POSTHOG_HOST: https://us.i.posthog.com
-        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-        NEXTAUTH_URL: http://localhost:3000
-        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Run Playwright tests
+        run: npx playwright test
+        env:
+          PLAYWRIGHT_TEST_BASE_URL: http://localhost:3000
+          NEXT_PUBLIC_POSTHOG_KEY: phc_mock_key_for_testing
+          NEXT_PUBLIC_POSTHOG_HOST: https://us.i.posthog.com
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          NEXTAUTH_URL: http://localhost:3000
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-    - name: Upload Playwright report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30

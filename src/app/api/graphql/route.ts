@@ -1,4 +1,5 @@
 import { createSchema, createYoga } from 'graphql-yoga';
+
 import { prisma } from '@/lib/prisma';
 import { prismaWithRetry } from '@/lib/prisma-retry';
 import { processSecureCheckout } from '@/services/checkout';
@@ -95,7 +96,7 @@ const resolvers = {
                 },
               },
             },
-          })
+          }),
         );
       } catch (err) {
         console.error('[GraphQL Query Error - products]:', err);
@@ -116,7 +117,7 @@ const resolvers = {
                 },
               },
             },
-          })
+          }),
         );
       } catch (err) {
         console.error('[GraphQL Query Error - product]:', err);
@@ -127,7 +128,7 @@ const resolvers = {
     getDbCart: async (_root: unknown, args: { userId: string }) => {
       try {
         return await prismaWithRetry(() =>
-          prisma.cartItem.findMany({ where: { userId: args.userId } })
+          prisma.cartItem.findMany({ where: { userId: args.userId } }),
         );
       } catch (err) {
         console.error('[GraphQL Query Error - getDbCart]:', err);
@@ -139,7 +140,7 @@ const resolvers = {
   Mutation: {
     mergeCart: async (
       _root: unknown,
-      args: { userId: string; localCart: any[]; isInitial?: boolean }
+      args: { userId: string; localCart: any[]; isInitial?: boolean },
     ) => {
       try {
         const { userId, localCart, isInitial = false } = args;
@@ -158,7 +159,9 @@ const resolvers = {
           });
 
           if (isInitial) {
-            const dbItems = await prisma.cartItem.findMany({ where: { userId } });
+            const dbItems = await prisma.cartItem.findMany({
+              where: { userId },
+            });
             const map = new Map();
 
             dbItems.forEach((i: any) => map.set(`${i.productId}-${i.size}`, i));
@@ -201,14 +204,14 @@ const resolvers = {
           return await prisma.cartItem.findMany({ where: { userId } });
         });
       } catch (err) {
-        console.error("Error en mergeCart:", err);
+        console.error('Error en mergeCart:', err);
         throw new Error('Error al sincronizar el carrito');
       }
     },
 
     syncWishlist: async (
       _root: unknown,
-      args: { userId: string; productIds: number[]; isInitial?: boolean }
+      args: { userId: string; productIds: number[]; isInitial?: boolean },
     ) => {
       try {
         const { userId, productIds, isInitial = false } = args;
@@ -272,9 +275,14 @@ const resolvers = {
       }
     },
 
-    checkout: async (_root: unknown, args: { userId: string; items: any[] }) => {
+    checkout: async (
+      _root: unknown,
+      args: { userId: string; items: any[] },
+    ) => {
       try {
-        return await prismaWithRetry(() => processSecureCheckout(args.userId, args.items));
+        return await prismaWithRetry(() =>
+          processSecureCheckout(args.userId, args.items),
+        );
       } catch (err: any) {
         throw new Error(err.message);
       }

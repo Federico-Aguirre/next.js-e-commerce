@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { Product, ProductVariant, ProductSku } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
 import WishlistButton from '@/components/WishlistButton';
@@ -9,7 +16,10 @@ interface ProductViewerProps {
   baseUrl?: string;
 }
 
-export default function ProductViewer({ product, baseUrl = '' }: ProductViewerProps) {
+export default function ProductViewer({
+  product,
+  baseUrl = '',
+}: ProductViewerProps) {
   const addToCart = useCartStore((state) => state.addToCart);
   const cart = useCartStore((state) => state.cart);
 
@@ -20,11 +30,16 @@ export default function ProductViewer({ product, baseUrl = '' }: ProductViewerPr
   };
 
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant>(
-    product.variants?.[0] || { id: '', colorName: 'Default', skus: [], images: [] }
+    product.variants?.[0] || {
+      id: '',
+      colorName: 'Default',
+      skus: [],
+      images: [],
+    },
   );
 
   const [activeImageUrl, setActiveImageUrl] = useState<string>(
-    selectedVariant.images?.[0]?.url || ''
+    selectedVariant.images?.[0]?.url || '',
   );
 
   const [selectedSku, setSelectedSku] = useState<ProductSku | null>(null);
@@ -53,14 +68,18 @@ export default function ProductViewer({ product, baseUrl = '' }: ProductViewerPr
     if (!selectedSku) return;
 
     const itemEnCarrito = cart.find(
-      (item: any) => item.articleId === selectedSku.articleId && item.size === selectedSku.size
+      (item: any) =>
+        item.articleId === selectedSku.articleId &&
+        item.size === selectedSku.size,
     );
-    const cantidadActual = itemEnCarrito ? Number(itemEnCarrito.quantity || 0) : 0;
+    const cantidadActual = itemEnCarrito
+      ? Number(itemEnCarrito.quantity || 0)
+      : 0;
 
     if (cantidadActual + quantity > stockDisponible) {
       Alert.alert(
         'Stock insuficiente',
-        `No puedes agregar más unidades. Ya tienes ${cantidadActual} en el carrito.`
+        `No puedes agregar más unidades. Ya tienes ${cantidadActual} en el carrito.`,
       );
       return;
     }
@@ -78,7 +97,10 @@ export default function ProductViewer({ product, baseUrl = '' }: ProductViewerPr
       } as any);
     }
 
-    Alert.alert('¡Producto agregado!', `Se añadieron ${quantity} unidad(es) al carrito.`);
+    Alert.alert(
+      '¡Producto agregado!',
+      `Se añadieron ${quantity} unidad(es) al carrito.`,
+    );
     setQuantity(1);
   };
 
@@ -108,8 +130,14 @@ export default function ProductViewer({ product, baseUrl = '' }: ProductViewerPr
       </View>
 
       {/* Galería Miniaturas */}
-      {Boolean(selectedVariant?.images && selectedVariant.images.length > 1) && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-x-3">
+      {Boolean(
+        selectedVariant?.images && selectedVariant.images.length > 1,
+      ) && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="flex-row gap-x-3"
+        >
           {selectedVariant.images.map((img) => (
             <TouchableOpacity
               key={img.id}
@@ -132,7 +160,9 @@ export default function ProductViewer({ product, baseUrl = '' }: ProductViewerPr
 
       {/* Info Principal */}
       <View className="gap-y-2">
-        <Text className="text-2xl font-extrabold text-gray-900">{product.name}</Text>
+        <Text className="text-2xl font-extrabold text-gray-900">
+          {product.name}
+        </Text>
         <Text className="text-2xl font-bold text-gray-900">
           ${Number(product.price || 0).toFixed(2)}
         </Text>
@@ -141,13 +171,18 @@ export default function ProductViewer({ product, baseUrl = '' }: ProductViewerPr
       {/* Descripción */}
       <View className="gap-y-1">
         <Text className="text-xs font-semibold text-gray-900">Descripción</Text>
-        <Text className="text-sm text-gray-500 leading-relaxed">{product.description}</Text>
+        <Text className="text-sm text-gray-500 leading-relaxed">
+          {product.description}
+        </Text>
       </View>
 
       {/* Selector de Color */}
       <View className="gap-y-2">
         <Text className="text-xs font-semibold text-gray-900">
-          Color: <Text className="font-normal text-gray-500">{selectedVariant?.colorName}</Text>
+          Color:{' '}
+          <Text className="font-normal text-gray-500">
+            {selectedVariant?.colorName}
+          </Text>
         </Text>
         <View className="flex-row flex-wrap gap-2">
           {product.variants?.map((variant) => {
@@ -177,7 +212,9 @@ export default function ProductViewer({ product, baseUrl = '' }: ProductViewerPr
 
       {/* Selector de Talle */}
       <View className="gap-y-2">
-        <Text className="text-xs font-semibold text-gray-900">Talles Disponibles</Text>
+        <Text className="text-xs font-semibold text-gray-900">
+          Talles Disponibles
+        </Text>
         <View className="flex-row flex-wrap gap-2">
           {selectedVariant?.skus?.map((sku) => {
             const currentStock = Number(sku.stock || 0);
@@ -235,9 +272,15 @@ export default function ProductViewer({ product, baseUrl = '' }: ProductViewerPr
       {/* Controles de Compra */}
       <View className="gap-y-4 pt-2">
         <View className="flex-row items-center justify-between border border-gray-200 rounded-xl bg-gray-50 h-14 px-4">
-          <Text className="text-xs font-bold text-gray-400 uppercase">Cantidad</Text>
+          <Text className="text-xs font-bold text-gray-400 uppercase">
+            Cantidad
+          </Text>
           <View className="flex-row items-center gap-x-4">
-            <TouchableOpacity onPress={handleDecrease} activeOpacity={0.7} className="p-1">
+            <TouchableOpacity
+              onPress={handleDecrease}
+              activeOpacity={0.7}
+              className="p-1"
+            >
               <Text className="text-2xl font-black text-gray-700 px-2">−</Text>
             </TouchableOpacity>
 
@@ -254,7 +297,10 @@ export default function ProductViewer({ product, baseUrl = '' }: ProductViewerPr
               <Text
                 className="text-2xl font-black px-2"
                 style={{
-                  color: !selectedSku || quantity >= stockDisponible ? '#d1d5db' : '#4f46e5',
+                  color:
+                    !selectedSku || quantity >= stockDisponible
+                      ? '#d1d5db'
+                      : '#4f46e5',
                 }}
               >
                 +

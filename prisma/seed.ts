@@ -1,6 +1,6 @@
+import * as dotenv from 'dotenv';
 // prisma/seed.ts
 import { Client } from 'pg';
-import * as dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -136,7 +136,8 @@ const fullProducts = [
     id: 4,
     name: 'Under Armour UA Waffle Henley Long Sleeve TShirt',
     price: 31.67,
-    description: 'Waffle-textured knit fabric traps warmth without adding bulk.',
+    description:
+      'Waffle-textured knit fabric traps warmth without adding bulk.',
     category: 'tshirts',
     variants: [
       {
@@ -178,7 +179,8 @@ const fullProducts = [
     id: 5,
     name: 'Como Quieres Bleach Jogging Pants',
     price: 34.99,
-    description: "Comfortable and stylish women's fleece joggers with a modern bleached finish.",
+    description:
+      "Comfortable and stylish women's fleece joggers with a modern bleached finish.",
     category: 'pants',
     variants: [
       {
@@ -233,7 +235,8 @@ const fullProducts = [
     id: 7,
     name: "DC Shoes Pure Men's Skate Sneakers",
     price: 65.0,
-    description: 'The classic heritage skate shoe built for durability and performance.',
+    description:
+      'The classic heritage skate shoe built for durability and performance.',
     category: 'sneakers',
     variants: [
       {
@@ -291,7 +294,8 @@ const fullProducts = [
     id: 9,
     name: 'Heavy-Duty Half-Zip Fleece Sweatshirt',
     price: 39.99,
-    description: 'Premium heavy fleece sweater with a functional mock-neck half-zip design.',
+    description:
+      'Premium heavy fleece sweater with a functional mock-neck half-zip design.',
     category: 'hoodies',
     variants: [
       {
@@ -341,7 +345,10 @@ const fullProducts = [
 
 async function main() {
   const cleanUrl = process.env.DATABASE_URL?.split('?')[0];
-  const client = new Client({ connectionString: cleanUrl, ssl: { rejectUnauthorized: false } });
+  const client = new Client({
+    connectionString: cleanUrl,
+    ssl: { rejectUnauthorized: false },
+  });
 
   console.log('🚀 Conectando a Aiven via PG...');
   await client.connect();
@@ -354,13 +361,15 @@ async function main() {
     await client.query('DELETE FROM "ProductVariant";');
     await client.query('DELETE FROM "Product";');
 
-    console.log('🌱 Sembrando catálogo profesional con paths de public/ e IDs únicos...');
+    console.log(
+      '🌱 Sembrando catálogo profesional con paths de public/ e IDs únicos...',
+    );
 
     for (const prod of fullProducts) {
       await client.query(
         `INSERT INTO "Product" (id, name, description, price, category, "updatedAt") 
          VALUES ($1, $2, $3, $4, $5, NOW())`,
-        [prod.id, prod.name, prod.description, prod.price, prod.category]
+        [prod.id, prod.name, prod.description, prod.price, prod.category],
       );
 
       for (const variant of prod.variants) {
@@ -368,14 +377,14 @@ async function main() {
 
         await client.query(
           `INSERT INTO "ProductVariant" (id, "colorName", "productId") VALUES ($1, $2, $3)`,
-          [variantId, variant.colorName, prod.id]
+          [variantId, variant.colorName, prod.id],
         );
 
         for (const imgUrl of variant.images) {
           const imgId = `img-${Math.random().toString(36).substr(2, 9)}`;
           await client.query(
             `INSERT INTO "VariantImage" (id, url, "variantId") VALUES ($1, $2, $3)`,
-            [imgId, imgUrl, variantId]
+            [imgId, imgUrl, variantId],
           );
         }
 
@@ -384,13 +393,15 @@ async function main() {
           await client.query(
             `INSERT INTO "ProductSku" (id, "articleId", size, stock, "variantId") 
              VALUES ($1, $2, $3, $4, $5)`,
-            [skuId, sku.articleId, sku.size, sku.stock, variantId]
+            [skuId, sku.articleId, sku.size, sku.stock, variantId],
           );
         }
       }
     }
 
-    console.log('✅ ¡Catálogo relacional inyectado con URLs de public/ listas!');
+    console.log(
+      '✅ ¡Catálogo relacional inyectado con URLs de public/ listas!',
+    );
   } catch (err) {
     console.error('❌ Error inyectando el seed:', err);
   } finally {

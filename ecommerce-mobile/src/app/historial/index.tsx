@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/useAuthStore';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.3.2:3001';
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.3.2:3001';
 
 interface OrderItem {
   id: string;
@@ -45,17 +52,13 @@ export default function HistorialScreen() {
       }
 
       try {
-        console.log('📱 Datos enviados desde Zustand:', {
-          id: user?.id,
-          email: user?.email,
-        });
         const res = await fetch(`${API_BASE_URL}/api/orders`, {
           method: 'GET',
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
             'x-user-id': user.id || '',
-            'x-user-email': user.email || ''
+            'x-user-email': user.email || '',
           },
         });
 
@@ -96,7 +99,9 @@ export default function HistorialScreen() {
     return (
       <View className="flex-1 bg-gray-50 items-center justify-center p-4">
         <View className="bg-white border border-gray-100 p-8 rounded-2xl items-center shadow-sm max-w-sm w-full gap-y-4">
-          <Text className="text-amber-600 font-bold text-center">⚠️ {errorMsg}</Text>
+          <Text className="text-amber-600 font-bold text-center">
+            ⚠️ {errorMsg}
+          </Text>
           <Pressable
             onPress={() => router.push('/login')}
             className="bg-gray-900 px-4 py-3 rounded-lg w-full items-center active:bg-gray-800"
@@ -114,7 +119,9 @@ export default function HistorialScreen() {
         <View className="flex-row justify-between items-center">
           <Text className="text-2xl font-black text-gray-900">Mis Compras</Text>
           <Pressable onPress={() => router.push('/')}>
-            <Text className="text-sm font-bold text-indigo-600">← Volver a la tienda</Text>
+            <Text className="text-sm font-bold text-indigo-600">
+              ← Volver a la tienda
+            </Text>
           </Pressable>
         </View>
 
@@ -143,18 +150,23 @@ export default function HistorialScreen() {
                       Orden #{compra.id.slice(-8).toUpperCase()}
                     </Text>
                     <Text className="text-xs text-gray-400 mt-0.5">
-                      Fecha: {new Date(compra.createdAt).toLocaleDateString('es-AR')}
+                      Fecha:{' '}
+                      {new Date(compra.createdAt).toLocaleDateString('es-AR')}
                     </Text>
                   </View>
 
                   <View
                     className={`px-3 py-1 rounded-full ${
-                      compra.status === 'PAID' ? 'bg-emerald-100' : 'bg-amber-100'
+                      compra.status === 'PAID'
+                        ? 'bg-emerald-100'
+                        : 'bg-amber-100'
                     }`}
                   >
                     <Text
                       className={`font-bold text-xs ${
-                        compra.status === 'PAID' ? 'text-emerald-800' : 'text-amber-800'
+                        compra.status === 'PAID'
+                          ? 'text-emerald-800'
+                          : 'text-amber-800'
                       }`}
                     >
                       {compra.status === 'PAID' ? 'Aprobado' : compra.status}
@@ -164,10 +176,18 @@ export default function HistorialScreen() {
 
                 <View className="gap-y-2">
                   {compra.items?.map((item: OrderItem) => (
-                    <View key={item.id} className="flex-row justify-between items-center">
-                      <Text className="text-xs text-gray-600 flex-1 mr-2" numberOfLines={1}>
+                    <View
+                      key={item.id}
+                      className="flex-row justify-between items-center"
+                    >
+                      <Text
+                        className="text-xs text-gray-600 flex-1 mr-2"
+                        numberOfLines={1}
+                      >
                         {item.title}{' '}
-                        <Text className="text-gray-400 font-medium">x{item.quantity}</Text>
+                        <Text className="text-gray-400 font-medium">
+                          x{item.quantity}
+                        </Text>
                       </Text>
                       <Text className="text-xs font-semibold text-gray-900">
                         ${(item.price * item.quantity).toLocaleString('es-AR')}
@@ -177,7 +197,9 @@ export default function HistorialScreen() {
                 </View>
 
                 <View className="flex-row justify-between items-center border-t border-gray-100 pt-3">
-                  <Text className="text-xs font-black text-gray-900">Total pagado:</Text>
+                  <Text className="text-xs font-black text-gray-900">
+                    Total pagado:
+                  </Text>
                   <Text className="text-base font-black text-indigo-600">
                     ${compra.total.toLocaleString('es-AR')}
                   </Text>

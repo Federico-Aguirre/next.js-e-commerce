@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useEffect, Suspense } from 'react';
 
 function AlertHandler() {
   const searchParams = useSearchParams();

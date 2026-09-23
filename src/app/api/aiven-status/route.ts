@@ -7,14 +7,18 @@ export async function GET() {
 
   if (!token || !project || !service) {
     return NextResponse.json(
-      { error: 'Faltan variables de entorno de Aiven en .env (AIVEN_API_TOKEN, AIVEN_PROJECT_NAME, AIVEN_SERVICE_NAME)' },
-      { status: 500 }
+      {
+        error:
+          'Faltan variables de entorno de Aiven en .env (AIVEN_API_TOKEN, AIVEN_PROJECT_NAME, AIVEN_SERVICE_NAME)',
+      },
+      { status: 500 },
     );
   }
 
-  const authHeader = token.startsWith('aivenv1 ') || token.startsWith('Bearer ')
-    ? token
-    : `aivenv1 ${token}`;
+  const authHeader =
+    token.startsWith('aivenv1 ') || token.startsWith('Bearer ')
+      ? token
+      : `aivenv1 ${token}`;
 
   const targetUrl = `https://api.aiven.io/v1/project/${project}/service/${service}`;
 
@@ -22,7 +26,7 @@ export async function GET() {
     const res = await fetch(targetUrl, {
       headers: {
         Authorization: authHeader,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       cache: 'no-store',
     });
@@ -32,7 +36,7 @@ export async function GET() {
       console.error(`[Aiven Error Status ${res.status}]:`, errText);
       return NextResponse.json(
         { status: 'ERROR', detail: errText },
-        { status: res.status }
+        { status: res.status },
       );
     }
 
@@ -48,7 +52,7 @@ export async function GET() {
         method: 'PUT',
         headers: {
           Authorization: authHeader,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ powered: true }),
       });
@@ -65,7 +69,7 @@ export async function GET() {
         message: error.message,
         cause: error.cause ? String(error.cause) : error.code || 'Desconocido',
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

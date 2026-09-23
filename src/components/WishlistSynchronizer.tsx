@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { useEffect, useRef } from 'react';
+
 import { useWishlistStore } from '@/store/useWishlistStore';
 
 export default function WishlistSynchronizer() {
@@ -9,10 +10,15 @@ export default function WishlistSynchronizer() {
   const wishlist = useWishlistStore((state) => state.wishlist);
   const _hasHydrated = useWishlistStore((state) => (state as any)._hasHydrated);
 
-  const isInitialMergeDone = useWishlistStore((state) => (state as any).isInitialMergeDone);
-  const setInitialMergeDone = useWishlistStore((state) => (state as any).setInitialMergeDone);
+  const isInitialMergeDone = useWishlistStore(
+    (state) => (state as any).isInitialMergeDone,
+  );
+  const setInitialMergeDone = useWishlistStore(
+    (state) => (state as any).setInitialMergeDone,
+  );
 
-  const currentUserId = (session?.user as any)?.id || session?.user?.email || '';
+  const currentUserId =
+    (session?.user as any)?.id || session?.user?.email || '';
 
   const isClientMountedRef = useRef(false);
   const lastUserIdRef = useRef<string>('');
@@ -23,7 +29,8 @@ export default function WishlistSynchronizer() {
   useEffect(() => {
     isClientMountedRef.current = true;
     return () => {
-      if (activeAbortControllerRef.current) activeAbortControllerRef.current.abort();
+      if (activeAbortControllerRef.current)
+        activeAbortControllerRef.current.abort();
     };
   }, []);
 
@@ -31,9 +38,9 @@ export default function WishlistSynchronizer() {
     if (!isClientMountedRef.current || !_hasHydrated) return;
 
     if (status === 'unauthenticated') {
-      if (activeAbortControllerRef.current) activeAbortControllerRef.current.abort();
+      if (activeAbortControllerRef.current)
+        activeAbortControllerRef.current.abort();
       if (lastUserIdRef.current !== '') {
-        console.log('🚪 [FRONTEND WISHLIST] Usuario deslogueado. Limpiando Zustand.');
         useWishlistStore.getState().clearWishlist();
         lastUserIdRef.current = '';
         lastSyncedJson.current = '';
@@ -48,7 +55,7 @@ export default function WishlistSynchronizer() {
     async function syncWithBackend(
       productIds: number[],
       signal: AbortSignal,
-      isInitial: boolean = false
+      isInitial: boolean = false,
     ) {
       try {
         const query = `
@@ -93,7 +100,8 @@ export default function WishlistSynchronizer() {
       if (isProcessing.current) return;
       isProcessing.current = true;
 
-      if (activeAbortControllerRef.current) activeAbortControllerRef.current.abort();
+      if (activeAbortControllerRef.current)
+        activeAbortControllerRef.current.abort();
       const controller = new AbortController();
       activeAbortControllerRef.current = controller;
 
@@ -101,9 +109,12 @@ export default function WishlistSynchronizer() {
 
       // FASE 1: LOGIN / MERGE INICIAL
       if (!isInitialMergeDone) {
-        console.log('🔄 [FRONTEND WISHLIST] Merge Inicial de sesión con flag isInitial: true');
         // Pasamos 'true' para avisarle al backend que solo queremos consultar lo que tiene Postgres
-        const serverProducts = await syncWithBackend([], controller.signal, true);
+        const serverProducts = await syncWithBackend(
+          [],
+          controller.signal,
+          true,
+        );
 
         if (
           controller.signal.aborted ||
@@ -131,7 +142,11 @@ export default function WishlistSynchronizer() {
           });
 
           currentLocalItems.forEach((prod: any) => {
-            if (prod && prod.id) combinedMap.set(String(prod.id), { ...prod, id: String(prod.id) });
+            if (prod && prod.id)
+              combinedMap.set(String(prod.id), {
+                ...prod,
+                id: String(prod.id),
+              });
           });
 
           const finalMergedList = Array.from(combinedMap.values());
@@ -143,7 +158,9 @@ export default function WishlistSynchronizer() {
 
           // Si había productos locales agregados como invitado, los subimos de inmediato desactivando el modo inicial
           if (finalMergedList.length !== serverProducts.length) {
-            const numericIds = finalMergedList.map((item) => parseInt(item.id, 10)).filter(Boolean);
+            const numericIds = finalMergedList
+              .map((item) => parseInt(item.id, 10))
+              .filter(Boolean);
             await syncWithBackend(numericIds, controller.signal, false);
           }
         }
@@ -155,13 +172,11 @@ export default function WishlistSynchronizer() {
       const currentLocalJson = JSON.stringify(currentLocalItems);
 
       if (isInitialMergeDone && currentLocalJson !== lastSyncedJson.current) {
-        console.log(
-          '⚡ [FRONTEND WISHLIST] Sincronizando cambio manual en caliente con flag isInitial: false'
-        );
-
         lastSyncedJson.current = currentLocalJson;
 
-        const numericIds = currentLocalItems.map((item) => parseInt(item.id, 10)).filter(Boolean);
+        const numericIds = currentLocalItems
+          .map((item) => parseInt(item.id, 10))
+          .filter(Boolean);
         // Pasamos 'false' (o por defecto) para que el backend limpie y reemplace en Postgres
         await syncWithBackend(numericIds, controller.signal, false);
       }
@@ -176,7 +191,14 @@ export default function WishlistSynchronizer() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [status, currentUserId, wishlist, _hasHydrated, isInitialMergeDone, setInitialMergeDone]);
+  }, [
+    status,
+    currentUserId,
+    wishlist,
+    _hasHydrated,
+    isInitialMergeDone,
+    setInitialMergeDone,
+  ]);
 
   return null;
 }

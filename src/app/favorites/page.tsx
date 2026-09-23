@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useWishlistStore } from '@/store/useWishlistStore';
+import React, { useState } from 'react';
+
 import { useCartStore } from '@/store/useCartStore';
+import { useWishlistStore } from '@/store/useWishlistStore';
 
 interface WishlistItem {
   id: string;
@@ -98,10 +99,14 @@ export default function FavoritesPage() {
                 type="button"
                 onClick={() => handleQuickAdd(item)}
                 className={`mt-4 w-full h-11 rounded-lg text-xs font-bold text-white transition-colors flex items-center justify-center ${
-                  aviso === item.id ? 'bg-emerald-500' : 'bg-gray-900 hover:bg-black'
+                  aviso === item.id
+                    ? 'bg-emerald-500'
+                    : 'bg-gray-900 hover:bg-black'
                 }`}
               >
-                {aviso === item.id ? '¡Agregado con éxito! ✓' : '🛒 Agregar al carrito rápido (Talle M)'}
+                {aviso === item.id
+                  ? '¡Agregado con éxito! ✓'
+                  : '🛒 Agregar al carrito rápido (Talle M)'}
               </button>
             </div>
           ))}

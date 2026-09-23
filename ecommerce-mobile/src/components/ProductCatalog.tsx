@@ -9,15 +9,19 @@ interface ProductCatalogProps {
   initialProducts?: Product[];
 }
 
-export default function ProductCatalog({ initialProducts = [] }: ProductCatalogProps) {
+export default function ProductCatalog({
+  initialProducts = [],
+}: ProductCatalogProps) {
   const params = useLocalSearchParams<{ search?: string }>();
   const router = useRouter();
   const queryBusqueda = (params.search as string) || '';
 
-  const productosSeguros = Array.isArray(initialProducts) ? initialProducts : [];
+  const productosSeguros = Array.isArray(initialProducts)
+    ? initialProducts
+    : [];
 
   const productosFiltrados = productosSeguros.filter((product) =>
-    product?.name?.toLowerCase().includes(queryBusqueda.toLowerCase())
+    product?.name?.toLowerCase().includes(queryBusqueda.toLowerCase()),
   );
 
   return (
@@ -27,7 +31,9 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
       {productosFiltrados.length === 0 ? (
         <View className="py-12 bg-white rounded-2xl border border-gray-100 p-8 max-w-sm mx-auto shadow-sm items-center mt-6">
           <Text className="text-gray-400 text-3xl mb-2">🔍</Text>
-          <Text className="text-sm font-bold text-gray-800">No encontramos resultados</Text>
+          <Text className="text-sm font-bold text-gray-800">
+            No encontramos resultados
+          </Text>
           <Text className="text-xs text-gray-500 mt-1 text-center">
             Probá escribiendo otra palabra o limpiando el buscador.
           </Text>
@@ -44,7 +50,8 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
             if (!product) return null;
 
             const coverImage =
-              product.variants?.[0]?.images?.[0]?.url || 'https://via.placeholder.com/150';
+              product.variants?.[0]?.images?.[0]?.url ||
+              'https://via.placeholder.com/150';
 
             return (
               <Pressable
@@ -73,7 +80,10 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
 
                 <View className="p-3 flex-1 justify-between bg-white">
                   <View>
-                    <Text numberOfLines={2} className="text-xs font-semibold text-gray-800">
+                    <Text
+                      numberOfLines={2}
+                      className="text-xs font-semibold text-gray-800"
+                    >
                       {product.name}
                     </Text>
                     <View className="mt-1 bg-gray-50 self-start px-2 py-0.5 rounded">
@@ -88,7 +98,9 @@ export default function ProductCatalog({ initialProducts = [] }: ProductCatalogP
                       ${Number(product.price).toFixed(2)}
                     </Text>
                     <View className="rounded-lg bg-gray-900 px-2.5 py-1.5">
-                      <Text className="text-[10px] font-bold text-white">Ver</Text>
+                      <Text className="text-[10px] font-bold text-white">
+                        Ver
+                      </Text>
                     </View>
                   </View>
                 </View>

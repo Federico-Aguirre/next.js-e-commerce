@@ -1,6 +1,234 @@
 import { Product } from '@/types/product';
 
-export const productsData: Product[] = [
+const COLOR_RULES = [
+  {
+    name: 'Black',
+    id: 'black',
+    aliases: ['black', 'charcoal'],
+  },
+  {
+    name: 'White',
+    id: 'white',
+    aliases: ['off white', 'off-white', 'white', 'ivory', 'cream'],
+  },
+  {
+    name: 'Gray',
+    id: 'gray',
+    aliases: [
+      'grey',
+      'gray',
+      'aluminum',
+      'silver',
+      'slate',
+      'graphite',
+      'steel',
+    ],
+  },
+  {
+    name: 'Blue',
+    id: 'blue',
+    aliases: [
+      'blue',
+      'navy',
+      'royal blue',
+      'cobalt',
+      'aqua',
+      'turquoise',
+      'teal',
+    ],
+  },
+  {
+    name: 'Green',
+    id: 'green',
+    aliases: ['green', 'olive', 'mint', 'lime', 'emerald'],
+  },
+  {
+    name: 'Red',
+    id: 'red',
+    aliases: ['red', 'burgundy', 'maroon', 'wine'],
+  },
+  {
+    name: 'Pink',
+    id: 'pink',
+    aliases: ['pink', 'rose', 'blush', 'coral'],
+  },
+  {
+    name: 'Purple',
+    id: 'purple',
+    aliases: ['purple', 'violet', 'lavender', 'plum'],
+  },
+  {
+    name: 'Yellow',
+    id: 'yellow',
+    aliases: ['yellow', 'mustard'],
+  },
+  {
+    name: 'Orange',
+    id: 'orange',
+    aliases: ['orange', 'rust'],
+  },
+  {
+    name: 'Brown',
+    id: 'brown',
+    aliases: ['brown', 'chocolate', 'coffee'],
+  },
+  {
+    name: 'Beige',
+    id: 'beige',
+    aliases: ['beige', 'tan', 'camel', 'sand', 'khaki'],
+  },
+  {
+    name: 'Gold',
+    id: 'gold',
+    aliases: ['gold', 'golden'],
+  },
+] as const;
+
+type ColorMatch = {
+  rule: (typeof COLOR_RULES)[number];
+  alias: string;
+  index: number;
+};
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const findColorMatches = (value: string): ColorMatch[] => {
+  const lowerValue = value.toLowerCase();
+  const matches: ColorMatch[] = [];
+
+  for (const rule of COLOR_RULES) {
+    for (const alias of rule.aliases) {
+      const index = lowerValue.search(
+        new RegExp(`\\b${escapeRegExp(alias)}\\b`, 'i'),
+      );
+
+      if (index >= 0) {
+        matches.push({
+          rule,
+          alias,
+          index,
+        });
+      }
+    }
+  }
+
+  return matches.sort((a, b) => {
+    if (a.index !== b.index) {
+      return a.index - b.index;
+    }
+
+    return b.alias.length - a.alias.length;
+  });
+};
+
+const normalizeColor = (rawName: string) => {
+  const source = rawName.trim();
+  const matches = findColorMatches(source);
+
+  if (matches.length === 0) {
+    return {
+      id: 'multicolor',
+      name: 'Multicolor',
+      group: source || 'Multicolor',
+    };
+  }
+
+  const primary = matches[0]!;
+
+  const primaryRegex = new RegExp(`\\b${escapeRegExp(primary.alias)}\\b`, 'i');
+
+  const group = source
+    .replace(primaryRegex, '')
+    .replace(/\s*[/&,-]\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return {
+    id: primary.rule.id,
+    name: primary.rule.name,
+    group: group || primary.rule.name,
+  };
+};
+
+const extractColorLabelFromProductName = (name: string) => {
+  const matches = findColorMatches(name);
+
+  if (matches.length === 0) {
+    return 'Black';
+  }
+
+  return matches[0]!.alias;
+};
+
+const MATERIALS_BY_CATEGORY: Record<string, string[]> = {
+  jackets: ['Nylon', 'Polyester', 'Wool Blend', 'Leather', 'Softshell'],
+  pants: ['Cotton', 'Denim', 'Twill', 'Viscose', 'Corduroy', 'Wool Blend'],
+  tshirts: ['Cotton', 'Modal', 'Linen', 'Jersey', 'Bamboo', 'Cotton Blend'],
+  hoodies: [
+    'Fleece',
+    'French Terry',
+    'Cotton',
+    'Polyester',
+    'Sherpa',
+    'Wool Blend',
+  ],
+  sneakers: [
+    'Mesh',
+    'Knit Textile',
+    'Synthetic Leather',
+    'Suede',
+    'Leather',
+    'Canvas',
+  ],
+  'mens-shirts': [
+    'Cotton',
+    'Linen',
+    'Flannel',
+    'Viscose',
+    'Oxford Cotton',
+    'Denim',
+  ],
+  'womens-dresses': [
+    'Cotton',
+    'Linen',
+    'Satin',
+    'Silk',
+    'Viscose',
+    'Chiffon',
+    'Rayon',
+  ],
+  tops: ['Cotton', 'Modal', 'Rayon', 'Linen', 'Jersey', 'Viscose'],
+  'mens-shoes': [
+    'Mesh',
+    'Leather',
+    'Synthetic Leather',
+    'Suede',
+    'Canvas',
+    'Knit Textile',
+  ],
+  'womens-shoes': [
+    'Leather',
+    'Suede',
+    'Synthetic Leather',
+    'Mesh',
+    'Canvas',
+    'Satin',
+  ],
+};
+
+const getMaterial = (category: string, index: number) => {
+  const materials = MATERIALS_BY_CATEGORY[category] ?? [
+    'Cotton',
+    'Polyester',
+    'Nylon',
+    'Viscose',
+  ];
+
+  return materials[index % materials.length]!;
+};
+
+const rawProductsData: Product[] = [
   {
     id: 1,
     name: 'Columbia Glennaker Waterproof Jacket',
@@ -45,6 +273,7 @@ export const productsData: Product[] = [
       },
     ],
   },
+
   {
     id: 2,
     name: 'Van Heusen Flex Stretch Suit Jacket',
@@ -97,6 +326,7 @@ export const productsData: Product[] = [
       },
     ],
   },
+
   {
     id: 3,
     name: 'Under Armour Performance Baseball Pants',
@@ -119,7 +349,7 @@ export const productsData: Product[] = [
         ],
       },
       {
-        id: 'v8',
+        id: 3,
         colorName: 'Black',
         images: [
           { id: 'angle-3-1b', url: '/images/products/pants1-1b.webp' },
@@ -141,6 +371,7 @@ export const productsData: Product[] = [
       },
     ],
   },
+
   {
     id: 4,
     name: 'Under Armour UA Waffle Henley Long Sleeve TShirt',
@@ -190,6 +421,7 @@ export const productsData: Product[] = [
       },
     ],
   },
+
   {
     id: 5,
     name: 'Como Quieres Bleach Jogging Pants',
@@ -225,6 +457,7 @@ export const productsData: Product[] = [
       },
     ],
   },
+
   {
     id: 6,
     name: 'Giannis Immortality 4 Basketball Shoes',
@@ -252,6 +485,7 @@ export const productsData: Product[] = [
       },
     ],
   },
+
   {
     id: 7,
     name: "DC Shoes Pure Men's Skate Sneakers",
@@ -292,6 +526,7 @@ export const productsData: Product[] = [
       },
     ],
   },
+
   {
     id: 8,
     name: 'Modern Casual Henley Long Sleeve TShirt',
@@ -325,6 +560,7 @@ export const productsData: Product[] = [
       },
     ],
   },
+
   {
     id: 9,
     name: 'Heavy-Duty Half-Zip Fleece Sweatshirt',
@@ -365,6 +601,7 @@ export const productsData: Product[] = [
       },
     ],
   },
+
   {
     id: 10,
     name: 'Premium Unisex High-Neck Fleece Sweatshirt',
@@ -376,7 +613,9 @@ export const productsData: Product[] = [
       {
         id: 'v22',
         colorName: 'Grey',
-        images: [{ id: 'angle-10-1a', url: '/images/products/sweatshirt2-1a.webp' }],
+        images: [
+          { id: 'angle-10-1a', url: '/images/products/sweatshirt2-1a.webp' },
+        ],
         skus: [
           { id: 's65', articleId: 65, size: 'S', stock: 15 },
           { id: 's66', articleId: 66, size: 'M', stock: 22 },
@@ -386,7 +625,9 @@ export const productsData: Product[] = [
       {
         id: 'v23',
         colorName: 'Red',
-        images: [{ id: 'angle-10-1b', url: '/images/products/sweatshirt2-1b.webp' }],
+        images: [
+          { id: 'angle-10-1b', url: '/images/products/sweatshirt2-1b.webp' },
+        ],
         skus: [
           { id: 's68', articleId: 68, size: 'S', stock: 6 },
           { id: 's69', articleId: 69, size: 'M', stock: 11 },
@@ -397,3 +638,142 @@ export const productsData: Product[] = [
     ],
   },
 ];
+
+const importedClothingProducts: Product[] = [
+  [83, 'Blue & Black Check Shirt', 'mens-shirts', 'Men', 34.99, 'Nike'],
+  [84, 'Gigabyte Aorus Men Tshirt', 'mens-shirts', 'Men', 29.99, 'Adidas'],
+  [85, 'Man Plaid Shirt', 'mens-shirts', 'Men', 39.99, 'Columbia'],
+  [86, 'Man Short Sleeve Shirt', 'mens-shirts', 'Men', 27.99, 'Nike'],
+  [87, 'Men Check Shirt', 'mens-shirts', 'Men', 36.99, 'Hurley'],
+
+  [177, "Black Women's Gown", 'womens-dresses', 'Women', 89.99, 'Zara'],
+  [178, 'Corset Leather With Skirt', 'womens-dresses', 'Women', 119.99, 'Zara'],
+  [179, 'Corset With Black Skirt', 'womens-dresses', 'Women', 99.99, 'H&M'],
+  [180, 'Dress Pea', 'womens-dresses', 'Women', 74.99, 'Zara'],
+  [181, 'Marni Red & Black Suit', 'womens-dresses', 'Women', 149.99, 'H&M'],
+
+  [162, 'Blue Frock', 'tops', 'Women', 44.99, 'Adidas'],
+  [163, 'Girl Summer Dress', 'tops', 'Women', 39.99, 'Zara'],
+  [164, 'Gray Dress', 'tops', 'Women', 49.99, 'H&M'],
+  [165, 'Short Frock', 'tops', 'Women', 42.99, 'Zara'],
+  [166, 'Tartan Dress', 'tops', 'Unisex', 54.99, 'Hurley'],
+
+  [88, 'Nike Air Jordan 1 Red And Black', 'mens-shoes', 'Men', 129.99, 'Nike'],
+  [89, 'Nike Baseball Cleats', 'mens-shoes', 'Men', 84.99, 'Nike'],
+  [90, 'Puma Future Rider Trainers', 'mens-shoes', 'Unisex', 79.99, 'Puma'],
+  [91, 'Sports Sneakers Off White & Red', 'mens-shoes', 'Men', 69.99, 'Adidas'],
+  [
+    92,
+    'Sports Sneakers Off White Red',
+    'mens-shoes',
+    'Unisex',
+    74.99,
+    'Adidas',
+  ],
+
+  [185, 'Black & Brown Slipper', 'womens-shoes', 'Women', 44.99, 'H&M'],
+  [
+    186,
+    'Calvin Klein Heel Shoes',
+    'womens-shoes',
+    'Women',
+    109.99,
+    'Calvin Klein',
+  ],
+  [187, 'Golden Shoes Woman', 'womens-shoes', 'Women', 94.99, 'Zara'],
+  [188, 'Pampi Shoes', 'womens-shoes', 'Women', 59.99, 'H&M'],
+  [189, 'Red Shoes', 'womens-shoes', 'Women', 64.99, 'Zara'],
+].map(([id, name, category, gender, price, brand], index): Product => ({
+  id,
+  slug: `${category}-${id}`,
+  name,
+  price,
+  description: `${name} made with comfortable materials for everyday wear.`,
+  category,
+  gender,
+  material: getMaterial(category, index),
+  brand,
+  sku: `DUMMY-CLOTHING-${id}`,
+  rating: Number((4.1 + (index % 9) / 10).toFixed(1)),
+  discount: [5, 10, 15][index % 3]!,
+  variants: [
+    {
+      id: `dummy-v${id}`,
+      colorName: extractColorLabelFromProductName(name),
+      images: [0, 1, 2, 3].map((imageIndex) => ({
+        id: `dummy-${id}-${imageIndex}`,
+        url: `/assets/images/products/${id}-${imageIndex}.webp`,
+      })),
+      skus: [
+        {
+          id: `dummy-sku-${id}-s`,
+          articleId: id * 10 + 1,
+          size: 'S',
+          stock: 12,
+        },
+        {
+          id: `dummy-sku-${id}-m`,
+          articleId: id * 10 + 2,
+          size: 'M',
+          stock: 18,
+        },
+        {
+          id: `dummy-sku-${id}-l`,
+          articleId: id * 10 + 3,
+          size: 'L',
+          stock: 9,
+        },
+      ],
+    },
+  ],
+}));
+
+export const productsData: Product[] = [
+  ...rawProductsData,
+  ...importedClothingProducts,
+].map((product, index) => ({
+  ...product,
+
+  slug:
+    product.slug ||
+    `${product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${product.id}`,
+
+  gender:
+    product.gender ??
+    (product.category === 'jackets' || product.category === 'sneakers'
+      ? 'Men'
+      : 'Unisex'),
+
+  material: product.material ?? getMaterial(product.category, index),
+
+  brand:
+    product.brand ?? ['Adidas', 'Nike', 'Columbia', 'Under Armour'][index % 4]!,
+
+  sku: product.sku ?? `NOVA-${product.id}`,
+
+  rating: product.rating ?? Number((4 + (index % 10) / 10).toFixed(1)),
+
+  discount: product.discount ?? [0, 5, 10, 15][index % 4]!,
+
+  variants: product.variants.map((variant) => {
+    const normalizedColor = normalizeColor(variant.colorName);
+
+    return {
+      ...variant,
+
+      colorName: normalizedColor.name,
+
+      colorGroup: normalizedColor.group,
+
+      color: {
+        id: normalizedColor.id,
+        name: normalizedColor.name,
+      },
+
+      images: variant.images.map((image) => ({
+        ...image,
+        url: image.url.replace(/^\/images\//, '/assets/images/'),
+      })),
+    };
+  }),
+}));

@@ -9,8 +9,12 @@ export default function WishlistSynchronizer() {
   const wishlist = useWishlistStore((state) => state.wishlist);
   const _hasHydrated = useWishlistStore((state) => (state as any)._hasHydrated);
 
-  const isInitialMergeDone = useWishlistStore((state) => (state as any).isInitialMergeDone);
-  const setInitialMergeDone = useWishlistStore((state) => (state as any).setInitialMergeDone);
+  const isInitialMergeDone = useWishlistStore(
+    (state) => (state as any).isInitialMergeDone,
+  );
+  const setInitialMergeDone = useWishlistStore(
+    (state) => (state as any).setInitialMergeDone,
+  );
 
   const currentUserId = user?.id || user?.email || '';
 
@@ -23,7 +27,8 @@ export default function WishlistSynchronizer() {
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
-      if (activeAbortControllerRef.current) activeAbortControllerRef.current.abort();
+      if (activeAbortControllerRef.current)
+        activeAbortControllerRef.current.abort();
     };
   }, []);
 
@@ -32,7 +37,8 @@ export default function WishlistSynchronizer() {
 
     // Reset store state upon user logout
     if (!isAuthenticated || !currentUserId) {
-      if (activeAbortControllerRef.current) activeAbortControllerRef.current.abort();
+      if (activeAbortControllerRef.current)
+        activeAbortControllerRef.current.abort();
       if (lastUserIdRef.current !== '') {
         useWishlistStore.getState().clearWishlist();
         lastUserIdRef.current = '';
@@ -47,7 +53,7 @@ export default function WishlistSynchronizer() {
     async function syncWithBackend(
       productIds: number[],
       signal: AbortSignal,
-      isInitial: boolean = false
+      isInitial: boolean = false,
     ) {
       try {
         const query = `
@@ -83,7 +89,10 @@ export default function WishlistSynchronizer() {
         return result.data?.syncWishlist || null;
       } catch (error: any) {
         if (error.name !== 'AbortError') {
-          console.error('🚨 [WISHLIST SYNC ERROR]: Network request failed:', error.message);
+          console.error(
+            '🚨 [WISHLIST SYNC ERROR]: Network request failed:',
+            error.message,
+          );
         }
         return 'NET_ERROR';
       }
@@ -93,7 +102,8 @@ export default function WishlistSynchronizer() {
       if (isProcessing.current) return;
       isProcessing.current = true;
 
-      if (activeAbortControllerRef.current) activeAbortControllerRef.current.abort();
+      if (activeAbortControllerRef.current)
+        activeAbortControllerRef.current.abort();
       const controller = new AbortController();
       activeAbortControllerRef.current = controller;
 
@@ -101,7 +111,11 @@ export default function WishlistSynchronizer() {
 
       // Phase 1: Initial authentication merge with server state
       if (!isInitialMergeDone) {
-        const serverProducts = await syncWithBackend([], controller.signal, true);
+        const serverProducts = await syncWithBackend(
+          [],
+          controller.signal,
+          true,
+        );
 
         if (
           controller.signal.aborted ||
@@ -129,7 +143,11 @@ export default function WishlistSynchronizer() {
           });
 
           currentLocalItems.forEach((prod: any) => {
-            if (prod && prod.id) combinedMap.set(String(prod.id), { ...prod, id: String(prod.id) });
+            if (prod && prod.id)
+              combinedMap.set(String(prod.id), {
+                ...prod,
+                id: String(prod.id),
+              });
           });
 
           const finalMergedList = Array.from(combinedMap.values());
@@ -141,7 +159,9 @@ export default function WishlistSynchronizer() {
 
           // Instantly persist guest items added prior to session initialization
           if (finalMergedList.length !== serverProducts.length) {
-            const numericIds = finalMergedList.map((item) => parseInt(item.id, 10)).filter(Boolean);
+            const numericIds = finalMergedList
+              .map((item) => parseInt(item.id, 10))
+              .filter(Boolean);
             await syncWithBackend(numericIds, controller.signal, false);
           }
         }
@@ -155,7 +175,9 @@ export default function WishlistSynchronizer() {
       if (isInitialMergeDone && currentLocalJson !== lastSyncedJson.current) {
         lastSyncedJson.current = currentLocalJson;
 
-        const numericIds = currentLocalItems.map((item) => parseInt(item.id, 10)).filter(Boolean);
+        const numericIds = currentLocalItems
+          .map((item) => parseInt(item.id, 10))
+          .filter(Boolean);
         await syncWithBackend(numericIds, controller.signal, false);
       }
 
@@ -169,7 +191,14 @@ export default function WishlistSynchronizer() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [isAuthenticated, currentUserId, wishlist, _hasHydrated, isInitialMergeDone, setInitialMergeDone]);
+  }, [
+    isAuthenticated,
+    currentUserId,
+    wishlist,
+    _hasHydrated,
+    isInitialMergeDone,
+    setInitialMergeDone,
+  ]);
 
   return null;
 }

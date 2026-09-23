@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
 import Image from 'next/image';
-import { Product, ProductVariant, ProductSku } from '@/types/product';
-import { useCartStore } from '@/store/useCartStore';
+import React, { useState } from 'react';
+
 import WishlistButton from '@/components/WishlistButton';
+import { useCartStore } from '@/store/useCartStore';
+import { Product, ProductVariant, ProductSku } from '@/types/product';
 
 interface ProductViewerProps {
   product: Product;
@@ -17,12 +18,17 @@ export default function ProductViewer({ product }: ProductViewerProps) {
 
   // Inicializamos con la primera variante de color
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant>(
-    product.variants[0] || { id: '', colorName: 'Default', skus: [], images: [] }
+    product.variants[0] || {
+      id: '',
+      colorName: 'Default',
+      skus: [],
+      images: [],
+    },
   );
 
   // La imagen principal inicial es la primera foto de ese color
   const [activeImageUrl, setActiveImageUrl] = useState<string>(
-    selectedVariant.images[0]?.url || ''
+    selectedVariant.images[0]?.url || '',
   );
 
   // Ahora guardamos el objeto SKU completo seleccionado en lugar de solo un string
@@ -58,7 +64,7 @@ export default function ProductViewer({ product }: ProductViewerProps) {
                 <button
                   key={img.id}
                   onClick={() => setActiveImageUrl(img.url)}
-                  className={`relative h-24 bg-gray-50 rounded-md flex items-center justify-center cursor-pointer overflow-hidden border-2 transition-all ${
+                  className={`relative h-24 cursor-pointer rounded-md bg-white flex items-center justify-center overflow-hidden border-2 transition-all ${
                     activeImageUrl === img.url
                       ? 'border-indigo-600 ring-2 ring-indigo-600/20'
                       : 'border-transparent hover:border-gray-300'
@@ -68,7 +74,7 @@ export default function ProductViewer({ product }: ProductViewerProps) {
                     src={img.url}
                     alt="Product angle view"
                     fill
-                    className="object-center object-contain p-2 mix-blend-multiply"
+                    className="object-contain p-0"
                   />
                 </button>
               ))}
@@ -77,14 +83,14 @@ export default function ProductViewer({ product }: ProductViewerProps) {
         )}
 
         {/* Visor Principal */}
-        <div className="w-full aspect-w-1 aspect-h-1 bg-gray-50 rounded-lg overflow-hidden relative h-125 border border-gray-100">
+        <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-gray-100 bg-white">
           {activeImageUrl && (
             <Image
               src={activeImageUrl}
               alt={product.name}
               fill
               priority
-              className="w-full h-full object-center object-contain p-8 mix-blend-multiply"
+              className="object-contain object-center p-0"
             />
           )}
           <div className="absolute top-3 right-3 z-10">
@@ -106,21 +112,30 @@ export default function ProductViewer({ product }: ProductViewerProps) {
 
       {/* BLOQUE DERECHO: Info y Selectores */}
       <div className="mt-10 px-4 sm:px-0 sm:mt-16 lg:mt-0">
-        <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">{product.name}</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
+          {product.name}
+        </h1>
 
         <div className="mt-3">
-          <p className="text-3xl text-gray-900 font-bold">${product.price.toFixed(2)}</p>
+          <p className="text-3xl text-gray-900 font-bold">
+            ${product.price.toFixed(2)}
+          </p>
         </div>
 
         <div className="mt-6">
           <h3 className="text-sm font-medium text-gray-900">Descripción</h3>
-          <p className="mt-2 text-base text-gray-500 leading-relaxed">{product.description}</p>
+          <p className="mt-2 text-base text-gray-500 leading-relaxed">
+            {product.description}
+          </p>
         </div>
 
         {/* Selector de Colores */}
         <div className="mt-8">
           <h3 className="text-sm font-semibold text-gray-900">
-            Color: <span className="font-normal text-gray-500">{selectedVariant.colorName}</span>
+            Color:{' '}
+            <span className="font-normal text-gray-500">
+              {selectedVariant.colorName}
+            </span>
           </h3>
           <div className="mt-3 flex flex-wrap gap-3">
             {product.variants.map((variant) => (
@@ -141,7 +156,9 @@ export default function ProductViewer({ product }: ProductViewerProps) {
 
         {/* Selector de Talles con Validación de Stock Real 🚀 */}
         <div className="mt-8">
-          <h3 className="text-sm font-semibold text-gray-900">Talles Disponibles</h3>
+          <h3 className="text-sm font-semibold text-gray-900">
+            Talles Disponibles
+          </h3>
           <div className="mt-3 grid grid-cols-4 gap-4 sm:grid-cols-6 lg:grid-cols-4">
             {selectedVariant.skus.map((sku) => {
               const hasStock = sku.stock > 0;
@@ -219,14 +236,17 @@ export default function ProductViewer({ product }: ProductViewerProps) {
                 // 🌟 Buscamos si este producto ya está en el carrito para saber cuántos tiene acumulados
                 const itemEnCarrito = cart.find(
                   (item: any) =>
-                    item.articleId === selectedSku.articleId && item.size === selectedSku.size
+                    item.articleId === selectedSku.articleId &&
+                    item.size === selectedSku.size,
                 );
-                const cantidadActual = itemEnCarrito ? itemEnCarrito.quantity : 0;
+                const cantidadActual = itemEnCarrito
+                  ? itemEnCarrito.quantity
+                  : 0;
 
                 // 🛡️ Candado definitivo: si lo que ya tiene + lo que quiere agregar supera el stock real, frena la operación
                 if (cantidadActual + quantity > selectedSku.stock) {
                   alert(
-                    `No podés agregar más unidades. Ya tenés ${cantidadActual} en el carrito y el stock máximo es de ${selectedSku.stock}.`
+                    `No podés agregar más unidades. Ya tenés ${cantidadActual} en el carrito y el stock máximo es de ${selectedSku.stock}.`,
                   );
                   return;
                 }

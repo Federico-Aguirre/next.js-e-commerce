@@ -376,7 +376,9 @@ export const productsData: Product[] = [
       {
         id: 'v22',
         colorName: 'Grey',
-        images: [{ id: 'angle-10-1a', url: '/images/products/sweatshirt2-1a.webp' }],
+        images: [
+          { id: 'angle-10-1a', url: '/images/products/sweatshirt2-1a.webp' },
+        ],
         skus: [
           { id: 's65', articleId: 65, size: 'S', stock: 15 },
           { id: 's66', articleId: 66, size: 'M', stock: 22 },
@@ -386,7 +388,9 @@ export const productsData: Product[] = [
       {
         id: 'v23',
         colorName: 'Red',
-        images: [{ id: 'angle-10-1b', url: '/images/products/sweatshirt2-1b.webp' }],
+        images: [
+          { id: 'angle-10-1b', url: '/images/products/sweatshirt2-1b.webp' },
+        ],
         skus: [
           { id: 's68', articleId: 68, size: 'S', stock: 6 },
           { id: 's69', articleId: 69, size: 'M', stock: 11 },

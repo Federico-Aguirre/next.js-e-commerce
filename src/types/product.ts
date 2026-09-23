@@ -14,6 +14,10 @@ export interface ProductSku {
 
 export interface ProductVariant {
   id: string;
+  color?: {
+    id: string;
+    name: string;
+  };
   colorName: string; // Nombre del color (ej: "Black/City Grey")
   images: VariantImage[]; // Array con las múltiples fotos (ángulos) de ESTE color específico
   skus: ProductSku[]; // Array de objetos con el talle y su stock real
@@ -21,9 +25,16 @@ export interface ProductVariant {
 
 export interface Product {
   id: number;
+  slug?: string;
   name: string; // Cambiado de 'title' a 'name' para mappear con Postgres
   price: number;
   description: string;
   category: string;
+  gender?: 'Men' | 'Women' | 'Unisex' | 'none';
+  material?: string;
+  brand?: string;
+  sku?: string;
+  rating?: number;
+  discount?: number;
   variants: ProductVariant[]; // Ya no es opcional, siempre viene la estructura relacional
 }

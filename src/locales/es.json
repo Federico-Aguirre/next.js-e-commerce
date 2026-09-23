@@ -1,0 +1,237 @@
+{
+  "RootLayout": {
+    "home_link": "Inicio",
+    "about_link": "Nosotros",
+    "contact_link": "Contacto",
+    "sign_in_link": "Iniciar sesión",
+    "sign_out_link": "Cerrar sesión"
+  },
+  "Footer": {},
+  "About": {
+    "title": "Sobre nosotros",
+    "description": "Bienvenido a nuestra plataforma. Construimos aplicaciones web escalables y de alto rendimiento utilizando estándares web modernos."
+  },
+  "auth": {
+    "signInTitle": "Bienvenido de nuevo",
+    "signInSubtitle": "Inicia sesión en tu cuenta para continuar",
+    "signUpTitle": "Crear una cuenta",
+    "signUpSubtitle": "Ingresa tus datos a continuación para comenzar",
+    "continueWithGoogle": "Continuar con Google",
+    "nameLabel": "Nombre",
+    "emailLabel": "Correo electrónico",
+    "passwordLabel": "Contraseña",
+    "loading": "Cargando...",
+    "signInButton": "Iniciar sesión",
+    "signUpButton": "Crear cuenta",
+    "noAccount": "¿No tienes una cuenta?",
+    "signUpLink": "Regístrate",
+    "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+    "signInLink": "Inicia sesión",
+    "loggedInSuccess": "¡Has iniciado sesión exitosamente!"
+  },
+  "contact": {
+    "meta_title": "Contacto - Mi Aplicación",
+    "meta_description": "Ponte en contacto con nuestro equipo.",
+    "title": "Contáctanos",
+    "description": "¿Tienes preguntas? Escríbenos y te responderemos lo antes posible.",
+    "sendMessage": "Envíanos un mensaje",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "affair": "Asunto",
+    "message": "Mensaje",
+    "send": "Enviar mensaje",
+    "sending": "Enviando...",
+    "messages": {
+      "success": "¡Mensaje enviado con éxito! Nos pondremos en contacto contigo pronto.",
+      "serverError": "Ocurrió un error inesperado en el servidor. Por favor, inténtalo de nuevo más tarde.",
+      "rateLimitExceeded": "Demasiados intentos. Por favor, inténtalo de nuevo en un minuto.",
+      "invalidData": "Los datos proporcionados no son válidos.",
+      "submittedTooFast": "Envío detectado como spam (enviado demasiado rápido).",
+      "serviceError": "No se pudo entregar el mensaje a través del servicio de correo."
+    },
+    "errors": {
+      "nameRequired": "El nombre es obligatorio.",
+      "invalidEmail": "Por favor, ingresa un correo electrónico válido.",
+      "affairRequired": "El asunto es obligatorio.",
+      "messageTooShort": "El mensaje debe tener al menos 10 caracteres."
+    }
+  },
+  "LocaleSwitcher": {
+    "change_language": "Cambiar idioma"
+  },
+  "Storefront": {
+    "nav": {
+      "primaryNavigation": "Navegación principal",
+      "catalog": "Catálogo",
+      "search": "Buscar productos",
+      "searchPlaceholder": "Buscar en el catálogo",
+      "account": "Cuenta",
+      "cart": "Carrito"
+    },
+    "home": {
+      "eyebrow": "Base moderna para comercio",
+      "title": "Un storefront preparado para crecer con tu catálogo.",
+      "description": "Una experiencia de compra independiente del proveedor, con descubrimiento claro, localización flexible y una UI responsive lista para integración.",
+      "primaryCta": "Ver catálogo",
+      "secondaryCta": "Explorar la plantilla",
+      "categoriesEyebrow": "Comprar por necesidad",
+      "categoriesTitle": "Pensado para el comercio cotidiano",
+      "categoriesDescription": "Mantén las categorías simples, memorables y fáciles de recorrer en cualquier pantalla.",
+      "viewAll": "Ver todo",
+      "explore": "Explorar",
+      "categoryDescriptions": {
+        "new": "Novedades y productos listos para lanzamiento.",
+        "everyday": "Esenciales confiables para compras recurrentes.",
+        "workspace": "Herramientas y objetos para espacios de trabajo.",
+        "travel": "Piezas portátiles para la vida en movimiento."
+      },
+      "featuredEyebrow": "Destacados",
+      "featuredTitle": "Productos populares, listos para tus datos",
+      "browseCatalog": "Explorar catálogo",
+      "benefitsEyebrow": "Base del storefront",
+      "benefitsTitle": "Enfocado en conversión sin atarte a un proveedor",
+      "benefit1Title": "Descubrimiento rápido",
+      "benefit1Description": "Jerarquía clara y presentación de producto de alto valor informativo.",
+      "benefit2Title": "Componentes reutilizables",
+      "benefit2Description": "Cards, grids, filtros y detalles comparten un mismo lenguaje visual.",
+      "benefit3Title": "Localizado de forma nativa",
+      "benefit3Description": "Cada superficie del storefront está preparada para contenido traducido.",
+      "benefit4Title": "Interacciones accesibles",
+      "benefit4Description": "Controles, etiquetas y estados de foco pensados para teclado y accesibilidad.",
+      "ctaEyebrow": "¿Listo para integrar?",
+      "ctaTitle": "Conecta tu catálogo y conserva la capa visual",
+      "ctaDescription": "La UI consume contratos tipados de comercio para que persistencia e integraciones puedan evolucionar por separado.",
+      "ctaButton": "Ver productos"
+    },
+    "categories": {
+      "jackets": "Chaquetas",
+      "pants": "Pantalones",
+      "shoes": "Calzado",
+      "sweatshirts": "Buzos",
+      "tshirts": "Remeras",
+      "new": "Novedades",
+      "everyday": "Esenciales",
+      "workspace": "Espacio de trabajo",
+      "travel": "Viaje"
+    },
+    "products": {
+      "jacket": {
+        "name": "Chaqueta",
+        "description": "Prenda de abrigo para completar tus conjuntos."
+      },
+      "pants": {
+        "name": "Pantalón",
+        "description": "Diseños cómodos para todos los días."
+      },
+      "shoes": {
+        "name": "Calzado",
+        "description": "Calzado pensado para acompañarte durante todo el día."
+      },
+      "sweatshirt": {
+        "name": "Buzo",
+        "description": "Una capa cómoda y versátil para tu guardarropa."
+      },
+      "tshirt": {
+        "name": "Remera",
+        "description": "Básicos fáciles de combinar para todos los días."
+      },
+      "canvasTote": {
+        "name": "Bolso de lona",
+        "description": "Un bolso estructurado con espacio para esenciales y usos cotidianos."
+      },
+      "arcLamp": {
+        "name": "Lámpara Arc",
+        "description": "Una luz arquitectónica suave pensada para concentrar el espacio de trabajo."
+      },
+      "travelOrganizer": {
+        "name": "Organizador de viaje",
+        "description": "Un organizador compacto para cables, documentos y pequeños accesorios."
+      },
+      "dailyNotebook": {
+        "name": "Cuaderno diario",
+        "description": "Un cuaderno minimalista para planes, notas e ideas recurrentes."
+      },
+      "fieldBottle": {
+        "name": "Botella reutilizable",
+        "description": "Una botella de silueta limpia para trayectos y rutinas diarias."
+      },
+      "deskMat": {
+        "name": "Desk mat",
+        "description": "Una superficie discreta para dar un lugar sereno al teclado y las herramientas."
+      },
+      "utilityPouch": {
+        "name": "Estuche utilitario",
+        "description": "Un estuche versátil para cargadores, herramientas y accesorios pequeños."
+      },
+      "linenCap": {
+        "name": "Gorra de lino",
+        "description": "Una gorra liviana de estructura suave y perfil sobrio."
+      }
+    },
+    "catalog": {
+      "metaTitle": "Catálogo",
+      "metaDescription": "Explora la experiencia de catálogo del storefront e-commerce reutilizable.",
+      "eyebrow": "Catálogo",
+      "title": "Encuentra lo que encaja con tu próxima compra",
+      "description": "Busca, filtra y ordena una colección de productos independiente del proveedor.",
+      "resultCount": "{count, plural, =0 {Sin productos} one {# producto} other {# productos}}",
+      "searchLabel": "Buscar",
+      "searchPlaceholder": "Buscar productos",
+      "categoryLabel": "Categoría",
+      "allCategories": "Todas las categorías",
+      "sortLabel": "Ordenar",
+      "sortFeatured": "Destacados",
+      "sortPriceAsc": "Precio: menor a mayor",
+      "sortPriceDesc": "Precio: mayor a menor",
+      "sortNameAsc": "Nombre: A a Z",
+      "sortRatingDesc": "Mejor valorados",
+      "inStockOnly": "Solo disponibles",
+      "applyFilters": "Aplicar",
+      "emptyTitle": "Ningún producto coincide",
+      "emptyDescription": "Prueba una búsqueda más amplia o elimina algún filtro para ver más productos.",
+      "errorTitle": "No pudimos cargar el catálogo",
+      "errorDescription": "El servicio de catálogo no está disponible. Intenta de nuevo o conecta otro proveedor.",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "outOfStock": "Agotado",
+      "paginationLabel": "Paginación del catálogo",
+      "retry": "Intentar de nuevo"
+    },
+    "product": {
+      "eyebrow": "Detalle de producto",
+      "backToCatalog": "Volver al catálogo",
+      "availability": "Disponibilidad",
+      "inStock": "Disponible",
+      "outOfStock": "Agotado",
+      "quantity": "Cantidad",
+      "size": "Talle",
+      "selectSize": "Elegí un talle",
+      "sizeRequired": "Seleccioná un talle para continuar",
+      "stockAvailable": "{count} disponibles",
+      "decreaseQuantity": "Reducir cantidad",
+      "increaseQuantity": "Aumentar cantidad",
+      "addToCart": "Agregar al carrito",
+      "cartIntegrationNote": "La persistencia del carrito queda intencionalmente en la capa de integración.",
+      "shippingTitle": "Superficie lista para envíos",
+      "shippingDescription": "Reserva los detalles de entrega y fulfillment para el backend de comercio conectado.",
+      "returnsTitle": "Superficie lista para políticas",
+      "returnsDescription": "Mantén devoluciones y soporte configurables por negocio.",
+      "detailsEyebrow": "Información del producto",
+      "detailsTitle": "Bloques de detalle estructurados",
+      "detailOne": "Usa variantes, media e inventario tipados sin acoplar la UI al esquema de un proveedor.",
+      "detailTwo": "Mantén precio y moneda explícitos para que los mercados múltiples sean predecibles.",
+      "detailThree": "Cambia el repositorio demo por un adapter real sin reescribir la capa de presentación."
+    },
+    "footer": {
+      "description": "Un storefront de comercio reutilizable con Next.js pensado para seguir siendo independiente del proveedor mientras evoluciona el backend.",
+      "shopTitle": "Comprar",
+      "catalog": "Catálogo",
+      "about": "Nosotros",
+      "supportTitle": "Soporte",
+      "contact": "Contacto",
+      "account": "Cuenta",
+      "copyright": "© {year} {name}. Todos los derechos reservados.",
+      "note": "El contenido demo está listo para reemplazarse por datos reales del catálogo."
+    }
+  }
+}

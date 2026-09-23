@@ -45,14 +45,16 @@ export default function FavoritesScreen() {
             Tu lista de deseos está vacía
           </Text>
           <Text className="text-gray-500 text-sm mb-6 text-center">
-            Guardá los artículos que más te gusten haciendo clic en el corazón para tenerlos siempre
-            a mano.
+            Guardá los artículos que más te gusten haciendo clic en el corazón
+            para tenerlos siempre a mano.
           </Text>
           <Pressable
             onPress={() => router.push('/')}
             className="w-full bg-indigo-600 h-12 rounded-lg items-center justify-center active:bg-indigo-700 shadow-md"
           >
-            <Text className="text-sm font-bold text-white">Explorar la tienda</Text>
+            <Text className="text-sm font-bold text-white">
+              Explorar la tienda
+            </Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -88,7 +90,10 @@ export default function FavoritesScreen() {
             {item.category || 'Colección'}
           </Text>
 
-          <Text className="text-xs font-bold text-gray-800 mt-1 h-8" numberOfLines={2}>
+          <Text
+            className="text-xs font-bold text-gray-800 mt-1 h-8"
+            numberOfLines={2}
+          >
             {item.title}
           </Text>
 
@@ -104,7 +109,9 @@ export default function FavoritesScreen() {
             handleQuickAdd(item);
           }}
           className={`w-full mt-3 h-10 rounded-lg justify-center items-center shadow-sm ${
-            aviso === item.id ? 'bg-emerald-500' : 'bg-gray-900 active:bg-gray-800'
+            aviso === item.id
+              ? 'bg-emerald-500'
+              : 'bg-gray-900 active:bg-gray-800'
           }`}
         >
           <Text className="text-white text-xs font-bold text-center px-1">
@@ -116,7 +123,10 @@ export default function FavoritesScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['bottom', 'left', 'right']}>
+    <SafeAreaView
+      className="flex-1 bg-gray-50"
+      edges={['bottom', 'left', 'right']}
+    >
       <FlatList
         data={wishlist}
         keyExtractor={(item) => String(item.id)}
@@ -126,7 +136,9 @@ export default function FavoritesScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View className="px-1.5 pt-2 pb-4">
-            <Text className="text-2xl font-black text-gray-900">Mi Lista de Deseos</Text>
+            <Text className="text-2xl font-black text-gray-900">
+              Mi Lista de Deseos
+            </Text>
           </View>
         }
       />

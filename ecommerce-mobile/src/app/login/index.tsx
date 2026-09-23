@@ -23,7 +23,13 @@ const API_BASE_URL =
       : DEFAULT_LOCAL_URL
     : process.env.EXPO_PUBLIC_API_URL || DEFAULT_LOCAL_URL;
 
-function GoogleIcon({ width = 20, height = 20 }: { width?: number; height?: number }) {
+function GoogleIcon({
+  width = 20,
+  height = 20,
+}: {
+  width?: number;
+  height?: number;
+}) {
   return (
     <Svg width={width} height={height} viewBox="0 0 24 24">
       <Path
@@ -57,7 +63,6 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  console.log('WebClientID en runtime:', process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID);
   // Inicialización nativa de Google Sign-In
   useEffect(() => {
     GoogleSignin.configure({
@@ -71,7 +76,7 @@ export default function LoginScreen() {
       const res = await fetch(`${API_BASE_URL}/api/auth/google-mobile`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ idToken }),
       });
@@ -84,7 +89,10 @@ export default function LoginScreen() {
       if (Platform.OS === 'web') {
         window.alert(`¡Bienvenido! Hola ${data.user.name || data.user.email}`);
       } else {
-        Alert.alert('¡Bienvenido!', `Hola ${data.user.name || data.user.email}`);
+        Alert.alert(
+          '¡Bienvenido!',
+          `Hola ${data.user.name || data.user.email}`,
+        );
       }
 
       router.replace('/');
@@ -112,9 +120,13 @@ export default function LoginScreen() {
           body: JSON.stringify({ name, email, password }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Ocurrió un error inesperado');
+        if (!res.ok)
+          throw new Error(data.error || 'Ocurrió un error inesperado');
 
-        Alert.alert('¡Éxito!', 'Cuenta creada correctamente. Procede a iniciar sesión.');
+        Alert.alert(
+          '¡Éxito!',
+          'Cuenta creada correctamente. Procede a iniciar sesión.',
+        );
         setIsLogin(true);
       } catch (err: unknown) {
         if (err instanceof Error) setErrorMsg(err.message);
@@ -142,7 +154,10 @@ export default function LoginScreen() {
         if (Platform.OS === 'web') {
           window.alert('¡Bienvenido! Inicio de sesión exitoso');
         } else {
-          Alert.alert('¡Bienvenido!', `Hola ${data.user.name || data.user.email}`);
+          Alert.alert(
+            '¡Bienvenido!',
+            `Hola ${data.user.name || data.user.email}`,
+          );
         }
 
         router.replace('/');
@@ -167,7 +182,9 @@ export default function LoginScreen() {
       if (idToken) {
         await verifyTokenWithBackend(idToken);
       } else {
-        throw new Error('No se pudo obtener el token de autenticación de Google');
+        throw new Error(
+          'No se pudo obtener el token de autenticación de Google',
+        );
       }
     } catch (err: any) {
       console.error('Error con Google Login:', err);
@@ -192,7 +209,9 @@ export default function LoginScreen() {
             }}
           >
             <Text className="text-xs font-bold text-indigo-600 underline text-center">
-              {isLogin ? '¿No tienes usuario? Regístrate' : '¿Ya eres miembro? Inicia sesión'}
+              {isLogin
+                ? '¿No tienes usuario? Regístrate'
+                : '¿Ya eres miembro? Inicia sesión'}
             </Text>
           </Pressable>
         </View>
@@ -200,7 +219,9 @@ export default function LoginScreen() {
         <View className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm gap-y-4">
           {errorMsg && (
             <View className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-md">
-              <Text className="text-xs text-red-700 font-semibold">⚠️ {errorMsg}</Text>
+              <Text className="text-xs text-red-700 font-semibold">
+                ⚠️ {errorMsg}
+              </Text>
             </View>
           )}
 
@@ -266,7 +287,9 @@ export default function LoginScreen() {
 
           <View className="relative my-2 items-center justify-center">
             <View className="w-full border-t border-gray-200 absolute" />
-            <Text className="bg-white px-3 text-xs text-gray-400 font-medium">O continúa con</Text>
+            <Text className="bg-white px-3 text-xs text-gray-400 font-medium">
+              O continúa con
+            </Text>
           </View>
 
           <Pressable
@@ -277,7 +300,9 @@ export default function LoginScreen() {
             }`}
           >
             <GoogleIcon width={20} height={20} />
-            <Text className="text-sm font-bold text-gray-700">Entrar con Google</Text>
+            <Text className="text-sm font-bold text-gray-700">
+              Entrar con Google
+            </Text>
           </Pressable>
         </View>
       </View>
