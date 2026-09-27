@@ -2,6 +2,7 @@
   "name": "nextjs-e-commerce",
   "version": "0.1.1",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS='--dns-result-order=ipv4first' next dev -H 0.0.0.0 -p 3001 --webpack",
     "dev:next": "NODE_OPTIONS='--dns-result-order=ipv4first' next dev -H 0.0.0.0 -p 3001 --webpack",
@@ -91,6 +92,7 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.22.4",
     "typescript": "^5",
+    "ultracite": "^7.12.0",
     "vitest": "^4.1.9"
   },
   "overrides": {
