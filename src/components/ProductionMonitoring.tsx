@@ -36,7 +36,13 @@ export function ProductionMonitoring(props: { children: React.ReactElement }): R
     props.children
   );
 
-  if (Env.NEXT_PUBLIC_BETTER_STACK_SOURCE_TOKEN && Env.NEXT_PUBLIC_BETTER_STACK_INGESTING_URL) {
+  // Casteo de tipo para evitar que TypeScript falle si las variables no están en el schema de Env
+  const envAny = Env as Record<string, string | undefined>;
+
+  if (
+    envAny.NEXT_PUBLIC_BETTER_STACK_SOURCE_TOKEN &&
+    envAny.NEXT_PUBLIC_BETTER_STACK_INGESTING_URL
+  ) {
     return (
       <>
         {content}

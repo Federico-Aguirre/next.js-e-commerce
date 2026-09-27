@@ -30,5 +30,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "ecommerce-mobile"]
+  "exclude": [
+    "node_modules",
+    "*.config.ts",
+    "checkly.config.ts",
+    "oxlint.config.ts",
+    "ecommerce-mobile"
+  ]
 }

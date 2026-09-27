@@ -11,12 +11,11 @@ export default defineConfig({
   // 2. Dónde guardar artefactos de ejecuciones (capturas, videos, trazas)
   outputDir: '../tests/test-results',
 
-  // 3. Dónde generar el reporte HTML
-  reporter: 'list',
+  // 3. Configuración de reportes (combina consola y HTML)
+  reporter: [['list'], ['html']],
 
   testMatch: '**/*.spec.ts',
   fullyParallel: true,
-  reporter: 'html',
 
   use: {
     baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3001',
@@ -24,7 +23,7 @@ export default defineConfig({
     video: 'off',
   },
 
-  /* Dejamos solo la versión Nova que compila y sirve para CI/CD y local */
+  /* Dejamos solo la versión que compila y sirve para CI/CD y local */
   webServer: {
     command: 'npm run build && npm start',
     url: 'http://localhost:3001',
