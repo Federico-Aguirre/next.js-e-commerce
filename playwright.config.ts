@@ -5,7 +5,14 @@ process.env.PLAYWRIGHT_OUTPUT_DIR = 'test-results';
 process.env.TS_NODE_COMPILER_OPTIONS = '{"module":"commonjs"}';
 
 export default defineConfig({
+  // 1. Dónde están ubicados tus archivos de prueba
   testDir: './tests',
+
+  // 2. Dónde guardar artefactos de ejecuciones (capturas, videos, trazas)
+  outputDir: '../tests/test-results',
+
+  // 3. Dónde generar el reporte HTML
+  reporter: 'list',
 
   testMatch: '**/*.spec.ts',
   fullyParallel: true,

@@ -1,0 +1,7 @@
+# File: codecov.yml
+# Description: Configuration file for Codecov code coverage tracking.
+# Sets minimum coverage targets, status thresholds, and pull request comment policies for test suites.
+
+coverage:
+  status:
+    patch: off

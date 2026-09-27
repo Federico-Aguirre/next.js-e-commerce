@@ -1,0 +1,24 @@
+{
+  "recommendations": [
+    "Codeium.codeium",
+    "ms-ceintl.vscode-language-pack-es",
+    "streetsidesoftware.code-spell-checker",
+    "s-nail.vscode-glassit",
+    "ms-vscode-remote.remote-wsl",
+    "humao.rest-client",
+    "simonsiefke.svg-preview",
+    "dsznajder.es7-react-js-snippets",
+    "bradlc.vscode-tailwindcss",
+    "formulahendry.auto-rename-tag",
+    "ms-playwright.playwright",
+    "vitest.explorer",
+    "storybook.storybook-vscode",
+    "oxc.oxc-vscode",
+    "lokalise.i18n-ally",
+    "ms-azuretools.vscode-docker",
+    "amazonwebservices.aws-toolkit-vscode",
+    "ms-vscode-remote.remote-containers",
+    "yoavbls.pretty-ts-errors",
+    "github.vscode-github-actions"
+  ]
+}

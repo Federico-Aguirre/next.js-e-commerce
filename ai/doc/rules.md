@@ -1,0 +1,24 @@
+# Project Rules
+
+- If a task spans multiple areas, read only the documents needed for those areas. Do not read documentation merely because it exists[cite: 11].
+- Keep changes minimal and consistent with existing code[cite: 11].
+- Always apply these rules. Read `ai/doc/architecture.md` only when creating new modules, modifying project structure, or working across layer boundaries[cite: 11].
+- TypeScript strict; avoid `any` and unnecessary type assertions[cite: 11].
+- Do not exceed 400 lines of code per file. Refactor into modular components or utilities before reaching this limit[cite: 11].
+- Prefer named exports; Next.js pages/layouts may use default exports. Page default exports should end with `Page`[cite: 11].
+- Use `@/` absolute imports unless importing from the same directory[cite: 11].
+- Follow existing ESLint/Oxlint rules; do not reformat unrelated code[cite: 11].
+- Use Tailwind CSS v4 and shared Shadcn/Radix UI components[cite: 11].
+- Server Components by default; use `"use client"` only when required[cite: 11].
+- Use TanStack React Query for async/server state and Zustand for client global state[cite: 11].
+- Never hard-code user-visible strings; use next-intl[cite: 11].
+- Validate inputs with Zod[cite: 11].
+- All environment variables must be defined and validated in `src/lib/Env.ts`; do not access `process.env` directly in app code[cite: 11].
+- Proceed autonomously with the installations, commands, edits, and validations needed for a requested task; do not ask for routine permission or confirmation[cite: 11].
+- Avoid using visual clutter or Markdown bolding symbols in file deliverables and AI responses[cite: 11].
+- Verify external information thoroughly to ensure answers and code rely on up-to-date knowledge[cite: 11].
+- Keep interactive chat conversations in Spanish, but deliver all code, files, inline comments, and project documentation strictly in English[cite: 11].
+- Unless explicitly asked to provide a partial snippet, always return full, un-truncated file contents[cite: 11].
+- Add mandatory explanatory comments whenever writing complex, subtle, or non-intuitive logic to clarify its purpose and behavior[cite: 11].
+- Avoid trivial, redundant, or AI-generated boilerplate comments; ensure all code comments sound natural, professional, and human-written to maintain a clean codebase for code reviews[cite: 11].
+- Web UI components in `src/components/` and localized routes in `src/app/[locale]/` are strictly read-only during mobile development; API routes (`src/app/api/`), domain logic (`src/commerce/`), and proxy middleware (`src/proxy.ts`) may be updated when mobile synchronization or CORS requirements demand it[cite: 1, 4].

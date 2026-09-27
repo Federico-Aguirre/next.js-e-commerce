@@ -1,0 +1,171 @@
+# File: CI.yml
+# Description: Main Continuous Integration (CI) pipeline for GitHub Actions.
+# Executes static code checks, type-checking, linting, unit tests, Storybook tests, and Playwright E2E tests.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/test_db'
+  NEXT_PUBLIC_APP_URL: 'http://localhost:3008'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    name: Build with ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node.js environment
+        uses: ./.github/actions/setup-project
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Restore or cache Next.js build
+        uses: actions/cache@v5
+        with:
+          path: |
+            .next/cache
+          key: nextjs-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('src/**') }}
+
+      - name: Build Next.js
+        run: npm run build-local
+
+      - if: matrix.node-version == '24.x' && success()
+        name: Cache Next.js build output
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            .next
+            next-env.d.ts
+          key: nextjs-build-${{ matrix.node-version }}-${{ github.sha }}
+
+  static:
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    name: Run static checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js environment
+        uses: ./.github/actions/setup-project
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - if: github.event_name == 'pull_request'
+        name: Validate all commits from PR
+        run: npx commitlint --from $BASE_SHA --to $HEAD_SHA --verbose
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+      - name: Linter
+        run: npx next typegen && npm run lint
+
+      - name: Check dependencies
+        run: npm run check:deps
+
+      - name: I18n check
+        run: npm run check:i18n
+
+  unit:
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node.js environment
+        uses: ./.github/actions/setup-project
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Run unit tests
+        uses: docker://mcr.microsoft.com/playwright:v1.62.1
+        with:
+          args: npm run test -- --coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  storybook:
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    name: Run Storybook
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node.js environment
+        uses: ./.github/actions/setup-project
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Run storybook tests
+        uses: docker://mcr.microsoft.com/playwright:v1.62.1
+        with:
+          args: npm run storybook:test
+
+  e2e:
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    name: Run E2E tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build]
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js environment
+        uses: ./.github/actions/setup-project
+        with:
+          node-version: ${{ matrix.node-version }}
+          restore-nextjs-cache: true
+
+      - name: Run E2E tests
+        uses: docker://mcr.microsoft.com/playwright:v1.62.1
+        with:
+          args: sh -c "HOME=/root npm run test:e2e"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7

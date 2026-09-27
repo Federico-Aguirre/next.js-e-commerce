@@ -1,0 +1,18 @@
+# Lockfiles pesados (ahorran espacio de contexto en la IA)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Assets y multimedia que la IA no necesita leer
+public/
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.mp4
+*.webp
+
+# Archivos de datos o dumps masivos
+*.json
+!package.json
+!tsconfig.json

@@ -1,0 +1,32 @@
+# File: .coderabbit.yaml
+# Description: Configuration for CodeRabbit, an AI-powered code review assistant.
+# Customizes automated PR reviews, context rules, tone, and architectural feedback guidelines.
+
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: en-US
+early_access: false
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  path_instructions:
+    - path: '**/*.{ts,tsx}'
+      instructions: |
+        Review the TypeScript and React code for conformity with best practices:
+        - Next.js 16 App Router conventions and Server/Client Components boundary.
+        - React 19 idioms (no unnecessary useMemo/useCallback, proper prop typing).
+        - Strict TypeScript usage (no implicit any, use type narrowing).
+        - Clean code, performance, and modularity.
+  auto_review:
+    enabled: true
+    ignore_title_keywords:
+      - WIP
+      - DO NOT MERGE
+      - DRAFT
+    drafts: false
+chat:
+  auto_reply: true

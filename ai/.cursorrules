@@ -1,0 +1,39 @@
+# Project Context
+
+We are building a mobile app version (React Native + Expo) for an e-commerce platform that already has a functional web version (Next.js). Both applications coexist within the same repository.
+
+# File Boundary Rules
+
+- The src/ directory (Next.js web) is strictly READ-ONLY. Never edit, delete, or move files inside src/. Use it solely as a reference.
+- All new, modified, or adapted code for the mobile app must be written ONLY within the ecommerce-mobile/ directory.
+- Web UI components in src/components/ and localized routes in src/app/[locale]/ are strictly read-only during mobile development; API routes (src/app/api/), domain logic (src/commerce/), and proxy middleware (src/proxy.ts) may be updated when mobile synchronization or CORS requirements demand it.
+
+# Structure & Routing
+
+- Replicate the folder hierarchy of src/app/ inside ecommerce-mobile/src/app/.
+- Convert Next.js page.tsx route files into Expo Router index.tsx (e.g., src/app/cart/page.tsx -> ecommerce-mobile/src/app/cart/index.tsx).
+- Convert Next.js layout.tsx files into Expo Router _layout.tsx.
+- Keep helper component names and interfaces intact (e.g., ProductViewer.tsx).
+
+# React Native Adaptation Rules
+
+1. Components:
+   - HTML tags are strictly prohibited (div, span, p, button, img, h1, etc.).
+   - Mandatory replacements:
+     - div -> View
+     - p, h1, h2, span -> Text
+     - button, onClick -> Pressable (using onPress prop)
+     - img -> React Native Image (always specifying explicit dimensions and resizeMode)
+     - Vertical/Horizontal scroll -> ScrollView or FlatList
+
+2. Routing & Navigation:
+   - Replace next/navigation and next/router with expo-router.
+   - Replace useParams() / useSearchParams() with useLocalSearchParams().
+   - Replace Next.js useRouter() with expo-router's useRouter().
+
+3. Styling & Logic:
+   - Use NativeWind v4 for styling (className="...").
+   - Remember React Native defaults to flex-direction: column.
+   - Maintain Zustand store logic (useCartStore), GraphQL, and TypeScript interfaces identical to web.
+   - Replace browser alert(...) with React Native Alert.alert(...).
+   - API requests must use process.env.EXPO_PUBLIC_... environment variables.

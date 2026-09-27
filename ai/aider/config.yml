@@ -1,0 +1,24 @@
+# -------- ARCHIVOS DE LECTURA AUTOMÁTICA --------
+read: AGENTS.md
+
+# -------- CONTEXTO / REPO MAP --------
+map-tokens: 512
+map-multiplier-no-files: 1
+map-refresh: auto
+
+# -------- CACHÉ --------
+cache-prompts: true
+cache-keepalive-pings: 12
+
+# -------- EDICIÓN --------
+architect: false
+auto-commits: false
+auto-lint: false
+auto-test: false
+
+# -------- AIDERIGNORE --------
+aiderignore: ai/.aiderignore
+
+# -------- PRIVACIDAD / ARRANQUE --------
+analytics-disable: true
+check-update: false

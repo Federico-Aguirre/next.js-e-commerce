@@ -1,6 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# Dependencies & Package Managers
 /node_modules
 /.pnp
 .pnp.*
@@ -10,39 +8,74 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# Next.js, Build, and Cache
 /.next/
 /out/
+/build/
+*.tsbuildinfo
+next-env.d.ts
+.turbo/
+.vercel/
+/src/generated/prisma
 
-# production
-/build
+# Local and Temporary Databases (PGLite / SQLite / Drizzle)
+*.db
+*.db-*
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-*
+.pglite/
+pglite-data/
+/local
 
-# misc
+# Testing, Coverage, and Storybook
+/coverage/
+/vitest-test-results/
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/tests/test-results/
+/tests/playwright-report/
+/tests/test-results/
+/tests/playwright-report/
+/storybook-static/
+*storybook.log
+.last-run.json
+
+# Environment Variables (Keeps .env.example and .env.production)
+.env
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production
+!.env.example
+
+# IDE Configuration (Keeps team settings inside .vscode)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS & Logs
 .DS_Store
+Thumbs.db
 *.pem
-
-# debug
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-/src/generated/prisma
-
-.vercel
-.env*
-
 certificates
+
+# AI Tools
+.aider*
+.continue/

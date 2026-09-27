@@ -1,5 +1,122 @@
 {
+  "editor.tabSize": 2,
+  "editor.detectIndentation": false,
+  "editor.linkedEditing": true,
+
+  "search.exclude": {
+    "package-lock.json": true
+  },
+
+  // Neovim
+  "vscode-neovim.neovimExecutablePaths.linux": "/usr/bin/nvim",
+  "extensions.affinity": {
+    "asvetliakov.vscode-neovim": 1
+  },
+  "remote.extensionKind": {
+    "asvetliakov.vscode-neovim": ["workspace"]
+  },
+
+  // Tailwind CSS
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+
+  // TypeScript
+  "js/ts.preferences.autoImportSpecifierExcludeRegexes": [
+    // useRouter should be imported from `libs/I18nNavigation` instead of `next/router`
+    "next/router",
+
+    // give priority for Link to next/link instead of lucide-react
+    "lucide-react",
+
+    // Not used in the project and conflicts with `use()` from React
+    "chai",
+
+    // Use Zod v4 instead of v3
+    "zod/v3",
+
+    // Use Input from Shadcn UI instead of Input from Postcss
+    "postcss"
+  ],
+
+  // Vitest
+  "testing.automaticallyOpenTestResults": "neverOpen",
+
+  // I18n
+  "i18n-ally.localesPaths": ["src/i18n", "src/locales", "doc/skills/i18n"],
+  "i18n-ally.keystyle": "nested",
+
+  // Oxc
   "editor.defaultFormatter": "oxc.oxc-vscode",
   "editor.formatOnSave": true,
-  "i18n-ally.localesPaths": ["src/i18n", "src/locales", "doc/skills/i18n"]
+  "editor.formatOnSaveMode": "file",
+  "oxc.typeAware": true,
+
+  // Auto fix with Oxc on save
+  "editor.codeActionsOnSave": {
+    "source.addMissingImports": "explicit",
+    "source.fixAll.oxc": "explicit"
+  },
+
+  // Enable eslint for all supported languages
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact",
+    "vue",
+    "html",
+    "markdown",
+    "json",
+    "jsonc",
+    "yaml",
+    "toml",
+    "xml",
+    "gql",
+    "graphql",
+    "astro",
+    "svelte",
+    "css",
+    "less",
+    "scss",
+    "pcss",
+    "postcss",
+    "github-actions-workflow"
+  ],
+
+  // JSON Schema
+  "json.schemaDownload.trustedDomains": {
+    "https://ui.shadcn.com": true
+  },
+
+  // File Nesting
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    ".env": ".env.*",
+    "README.md": "README*",
+    ".gitignore": ".git*",
+    "Dockerfile": ".dockerignore, docker-compose.yml",
+    "codecov.yml": ".coderabbit.yaml, lefthook.yml, crowdin.yml, pnpm-lock.yaml",
+    "package.json": "package-lock.json, vitest.setup.ts, CONTRIBUTING.md, next-env.d.ts, components.json, package-lock.json, bun.lockb, knip.json, knip.ts",
+    "vitest.config.ts": "drizzle.config.ts, .oxfmtrc.json, prisma.config.ts, eslint.config.mjs, checkly.config.ts, oxlint.config.ts, playwright.config.ts, tsconfig.json, tsconfig.tsbuildinfo, knip.config.ts, commitlint.config.ts, .editorconfig, next.config.ts, postcss.config.*, oxfmt.config.ts, yarn.lock, package.json, codecov.yml, Dockerfile, .gitignore, README.md"
+  },
+
+  "files.exclude": {
+    ".cursor*": true,
+    "AGENTS.md": true,
+    "ARCHITECTURE.md": true,
+    "CLAUDE.md": true,
+    "SECURITY.md": true,
+    ".continue": true,
+    "main.py": true,
+    ".aider*": true,
+    "aider*": true,
+    ".bashrc": true
+  },
+
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "editor.snippetSuggestions": "top"
 }
