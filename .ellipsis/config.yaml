@@ -1,0 +1,3 @@
+# .ellipsis/config.yaml
+rules:
+  - 'Debes consultar y seguir estrictamente todas las reglas en AGENTS.md antes de realizar cambios.'

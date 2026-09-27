@@ -1,4 +1,7 @@
-# AGENTS
+---
+title: "AI Agents"
+description: "Instructions and rules for AI assistant tools"
+---
 
 ## Core Rules
 

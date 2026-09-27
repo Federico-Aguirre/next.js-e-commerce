@@ -1,0 +1,38 @@
+---
+title: 'Instalación'
+description: 'Guía paso a paso para configurar y ejecutar el proyecto en tu entorno local.'
+---
+
+## Requisitos previos
+
+Asegúrate de tener instalados los siguientes componentes en tu sistema:
+
+- **Node.js**: v18.0.0 o superior
+- **npm** / **pnpm** / **yarn**
+- **Git**
+
+---
+
+## Pasos para la configuración
+
+### 1. Clonar el repositorio
+
+```bash
+git clone [https://github.com/tu-usuario/next.js-e-commerce.git](https://github.com/tu-usuario/next.js-e-commerce.git)
+cd next.js-e-commerce
+```
+
+2. Instalar dependencias
+   Bash
+   npm install
+3. Configurar variables de entorno
+   Copia el archivo de ejemplo .env.example para crear tu archivo .env.local:
+
+Bash
+cp .env.example .env.local
+Abre .env.local y completa las variables necesarias (claves de base de datos, pasarelas de pago, etc.).
+
+4. Iniciar el servidor de desarrollo
+   Bash
+   npm run dev
+   La aplicación estará disponible en http://localhost:3000.

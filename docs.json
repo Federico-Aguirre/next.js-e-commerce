@@ -1,0 +1,18 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Mi Proyecto Next.js",
+  "theme": "mint",
+  "colors": {
+    "primary": "#0070f3",
+    "light": "#3291ff",
+    "dark": "#0070f3"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Comenzando",
+        "pages": ["introduccion", "instalacion", "ai/agents"]
+      }
+    ]
+  }
+}
