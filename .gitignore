@@ -79,3 +79,6 @@ certificates
 # AI Tools
 .aider*
 .continue/
+.bashrc
+main.py
+ai
