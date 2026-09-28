@@ -245,8 +245,8 @@ export default function ProductViewer({ product }: ProductViewerProps) {
     }
 
     const itemEnCarrito = cart.find(
-      (item: { articleId?: string; size?: string; quantity?: number }) =>
-        item.articleId === selectedSku.articleId && item.size === selectedSku.size,
+      (item) =>
+        String(item.articleId) === String(selectedSku.articleId) && item.size === selectedSku.size,
     );
     const cantidadActual = itemEnCarrito?.quantity ?? 0;
 
