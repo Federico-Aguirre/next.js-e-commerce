@@ -1,10 +1,9 @@
 import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
-
 import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 
-interface OrderItemInput {
+type OrderItemInput = {
   id?: string;
   title: string;
   price: number;
@@ -12,7 +11,7 @@ interface OrderItemInput {
   image?: string;
   size?: string;
   colorName?: string;
-}
+};
 
 export async function POST(request: Request) {
   try {
@@ -43,7 +42,7 @@ export async function POST(request: Request) {
     const nuevaOrden = await prisma.order.create({
       data: {
         id: paymentId,
-        userId: userId,
+        userId,
         total: Number(total),
         status: 'PAID',
         expiresAt: fechaExpiracion,
@@ -146,7 +145,7 @@ export async function GET(request: Request) {
       },
     });
 
-    const ordenesPagadas = ordenes.filter((orden) => orden.status === 'PAID');
+    const ordenesPagadas = ordenes.filter((orden: { status: string }) => orden.status === 'PAID');
 
     return NextResponse.json(ordenes);
   } catch (error: unknown) {

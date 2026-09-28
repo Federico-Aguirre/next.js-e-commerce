@@ -130,7 +130,7 @@ export async function POST(req: Request) {
             }
           }
 
-          const expiredIds = expiredOrders.map((o) => o.id);
+          const expiredIds = expiredOrders.map((o: { id: string }) => o.id);
           await tx.order.updateMany({
             where: { id: { in: expiredIds } },
             data: { status: 'EXPIRED' },

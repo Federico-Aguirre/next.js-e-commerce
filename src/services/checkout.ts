@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 
-interface CheckoutItem {
+type CheckoutItem = {
   productId: string; // El id del modelo Product es String (UUID)
   title: string;
   price: number;
@@ -8,23 +8,20 @@ interface CheckoutItem {
   image: string;
   size?: string; // 🚀 AGREGADO: Opcional para el mapeo
   colorName?: string; // 🚀 AGREGADO: Opcional para el mapeo
-}
+};
 
-export async function processSecureCheckout(
-  userId: string,
-  items: CheckoutItem[],
-) {
-  if (!items || items.length === 0) throw new Error('El carrito está vacío');
+export async function processSecureCheckout(userId: string, items: CheckoutItem[]) {
+  if (!items || items.length === 0) {
+    throw new Error('El carrito está vacío');
+  }
 
   // 1. Evitamos Deadlocks ordenando los strings de los IDs alfabéticamente
-  const sortedItems = [...items].sort((a, b) =>
-    a.productId.localeCompare(b.productId),
-  );
+  const sortedItems = [...items].sort((a, b) => a.productId.localeCompare(b.productId));
 
   try {
     // Iniciamos la transacción interactiva en PostgreSQL
     return await prisma.$transaction(
-      async (tx) => {
+      async (tx: Prisma.TransactionClient) => {
         let totalOrderAmount = 0;
         const orderItemsData = [];
 
@@ -106,14 +103,11 @@ export async function processSecureCheckout(
       },
       {
         maxWait: 5000, // Tiempo máximo esperando que Postgres otorgue una conexión (5s)
-        timeout: 15000, // Tiempo límite para ejecutar todo antes de forzar un Rollback (15s)
+        timeout: 15_000, // Tiempo límite para ejecutar todo antes de forzar un Rollback (15s)
       },
     );
   } catch (error: any) {
-    console.error(
-      '❌ [CHECKOUT ROLLBACK] Compra cancelada de manera segura:',
-      error.message,
-    );
+    console.error('❌ [CHECKOUT ROLLBACK] Compra cancelada de manera segura:', error.message);
     throw error; // Re-lanzamos para que el controlador de la API envíe el mensaje al cliente
   }
 }
