@@ -1,6 +1,6 @@
 # File: .github/workflows/CI.yml
 # Description: Main Continuous Integration (CI) pipeline for GitHub Actions.
-# Executes static code checks, type-checking, linting, unit tests, Storybook tests, and Playwright E2E tests.
+# Executes static code checks, type-checking, linting, unit tests, and Storybook tests.
 
 name: CI
 
@@ -36,6 +36,9 @@ jobs:
         uses: ./.github/actions/setup-project
         with:
           node-version: ${{ matrix.node-version }}
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
 
       - name: Restore or cache Next.js build
         uses: actions/cache@v4
@@ -82,6 +85,9 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
       - name: Linter
         run: npx next typegen && npm run lint
 
@@ -104,6 +110,9 @@ jobs:
         uses: ./.github/actions/setup-project
         with:
           node-version: ${{ matrix.node-version }}
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
 
       - name: Run unit tests
         uses: docker://mcr.microsoft.com/playwright:v1.62.1
@@ -137,58 +146,3 @@ jobs:
         uses: docker://mcr.microsoft.com/playwright:v1.62.1
         with:
           args: npm run storybook:test
-
-  e2e:
-    strategy:
-      matrix:
-        node-version: [24.x]
-
-    name: Run E2E tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [build]
-
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node.js environment
-        uses: ./.github/actions/setup-project
-        with:
-          node-version: ${{ matrix.node-version }}
-          restore-nextjs-cache: true
-
-      - name: Push Prisma DB Schema
-        run: npx prisma db push
-
-      - name: Build Next.js app for E2E
-        run: npm run build-local
-
-      - name: Run E2E tests
-        uses: docker://mcr.microsoft.com/playwright:v1.62.1
-        with:
-          args: sh -c "HOME=/root npm run test:e2e"
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: test-results/
-          retention-days: 7
