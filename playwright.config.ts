@@ -4,31 +4,35 @@ process.env.PLAYWRIGHT_HTML_REPORT = 'playwright-report';
 process.env.PLAYWRIGHT_OUTPUT_DIR = 'test-results';
 process.env.TS_NODE_COMPILER_OPTIONS = '{"module":"commonjs"}';
 
+const PORT = process.env.PORT || 3001;
+const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || `http://localhost:${PORT}`;
+
 export default defineConfig({
-  // 1. Dónde están ubicados tus archivos de prueba
+  // 1. Ubicación de los archivos de prueba
   testDir: './tests',
 
-  // 2. Dónde guardar artefactos de ejecuciones (capturas, videos, trazas)
-  outputDir: '../tests/test-results',
+  // 2. Ubicación de artefactos (capturas, videos, trazas) dentro del proyecto
+  outputDir: './test-results',
 
-  // 3. Configuración de reportes (combina consola y HTML)
+  // 3. Configuración de reportes
   reporter: [['list'], ['html']],
 
   testMatch: '**/*.spec.ts',
   fullyParallel: true,
 
   use: {
-    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3001',
+    baseURL: BASE_URL,
     trace: 'off',
     video: 'off',
   },
 
-  /* Dejamos solo la versión que compila y sirve para CI/CD y local */
+  /* Servidor web para CI/CD y ejecuciones locales */
   webServer: {
-    command: 'npm run build && npm start',
-    url: 'http://localhost:3001',
+    // Forzamos a Next.js a escuchar en el mismo puerto que Playwright consulta (-p 3001)
+    command: `npm run build && npm start -- -p ${PORT}`,
+    url: BASE_URL,
     reuseExistingServer: !process.env.CI,
-    timeout: 1200,
+    timeout: 180 * 1000, // 3 minutos en milisegundos para dar tiempo al build en CI
   },
 
   projects: [
