@@ -1,4 +1,4 @@
-# File: CI.yml
+# File: .github/workflows/CI.yml
 # Description: Main Continuous Integration (CI) pipeline for GitHub Actions.
 # Executes static code checks, type-checking, linting, unit tests, Storybook tests, and Playwright E2E tests.
 
@@ -12,9 +12,11 @@ on:
 
 env:
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/test_db'
-  NEXT_PUBLIC_APP_URL: 'http://localhost:3008'
-  MERCADOPAGO_ACCESS_TOKEN: 'dummy_token_for_build' # <-- AGREGAR ESTA LÍNEA
-  STRIPE_SECRET_KEY: 'sk_test_dummy_key_for_build' # <-- AGREGAR ESTA LÍNEA
+  NEXT_PUBLIC_APP_URL: 'http://localhost:3001'
+  NEXTAUTH_URL: 'http://localhost:3001'
+  NEXTAUTH_SECRET: 'super-secret-key-for-e2e-testing'
+  MERCADOPAGO_ACCESS_TOKEN: 'dummy_token_for_build'
+  STRIPE_SECRET_KEY: 'sk_test_dummy_key_for_build'
 
 jobs:
   build:
@@ -27,7 +29,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Set up Node.js environment
         uses: ./.github/actions/setup-project
@@ -35,7 +37,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Restore or cache Next.js build
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: |
             .next/cache
@@ -46,7 +48,7 @@ jobs:
 
       - if: matrix.node-version == '24.x' && success()
         name: Cache Next.js build output
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v4
         with:
           path: |
             .next
@@ -63,7 +65,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -98,7 +100,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Set up Node.js environment
         uses: ./.github/actions/setup-project
@@ -111,7 +113,7 @@ jobs:
           args: npm run test -- --coverage
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v4
         with:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
@@ -126,7 +128,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Set up Node.js environment
         uses: ./.github/actions/setup-project
@@ -148,8 +150,23 @@ jobs:
     timeout-minutes: 10
     needs: [build]
 
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -159,13 +176,16 @@ jobs:
           node-version: ${{ matrix.node-version }}
           restore-nextjs-cache: true
 
+      - name: Push Prisma DB Schema
+        run: npx prisma db push
+
       - name: Run E2E tests
         uses: docker://mcr.microsoft.com/playwright:v1.62.1
         with:
           args: sh -c "HOME=/root npm run test:e2e"
 
       - name: Upload test results
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
