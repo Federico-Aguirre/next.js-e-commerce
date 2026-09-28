@@ -7,12 +7,12 @@ model_list:
 
   - model_name: daily-groq
     litellm_params:
-      model: groq/qwen-2.5-coder-32b
+      model: groq/llama-3.3-70b-versatile
       api_key: os.environ/GROQ_API_KEY
 
   - model_name: daily-openrouter
     litellm_params:
-      model: openrouter/openrouter/free
+      model: openrouter/auto
       api_key: os.environ/OPENROUTER_API_KEY
 
   # --- PROVEEDORES MENSUALES (RESERVA) ---
@@ -27,14 +27,12 @@ model_list:
       api_key: os.environ/COHERE_API_KEY
 
 router_settings:
-  num_retries: 2
-  cooldown_time: 60
-
+  request_timeout: 15
   fallbacks:
     # Circuito Diario
-    - daily-gemini: ["daily-groq", "daily-openrouter"]
-    - daily-groq: ["daily-gemini", "daily-openrouter"]
-    - daily-openrouter: ["daily-groq", "daily-gemini"]
+    - daily-gemini: ['daily-groq', 'daily-openrouter']
+    - daily-groq: ['daily-gemini', 'daily-openrouter']
+    - daily-openrouter: ['daily-groq', 'daily-gemini']
 
     # Circuito Mensual (Unidireccional)
-    - monthly-main: ["monthly-backup"]
+    - monthly-main: ['monthly-backup']
