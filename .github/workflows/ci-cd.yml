@@ -56,17 +56,17 @@ jobs:
         run: npm run build
         env:
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          NEXTAUTH_URL: http://localhost:3000
+          NEXTAUTH_URL: http://localhost:3001
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Run Playwright tests
         run: npx playwright test
         env:
-          PLAYWRIGHT_TEST_BASE_URL: http://localhost:3000
+          PLAYWRIGHT_TEST_BASE_URL: http://localhost:3001
           NEXT_PUBLIC_POSTHOG_KEY: phc_mock_key_for_testing
           NEXT_PUBLIC_POSTHOG_HOST: https://us.i.posthog.com
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          NEXTAUTH_URL: http://localhost:3000
+          NEXTAUTH_URL: http://localhost:3001
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Upload Playwright report

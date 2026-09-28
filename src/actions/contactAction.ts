@@ -3,7 +3,6 @@
 import 'server-only';
 import { headers } from 'next/headers';
 import { Resend } from 'resend';
-
 import { contactSchema } from '@/lib/schemas/contactSchema';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -36,8 +35,7 @@ export async function sendContactForm(formData: unknown) {
     return { success: false, error: 'invalidData' };
   }
 
-  const { name, email, affair, consultation, hp_company, formTimestamp } =
-    result.data;
+  const { name, email, affair, consultation, hp_company, formTimestamp } = result.data;
 
   // 3. Honeypot check
   if (hp_company && hp_company.length > 0) {
@@ -45,16 +43,14 @@ export async function sendContactForm(formData: unknown) {
   }
 
   // 4. Fill time check (minimum 3 seconds)
-  if (now - formTimestamp < 3000) {
+  if (now - formTimestamp < 3001) {
     return { success: false, error: 'submittedTooFast' };
   }
 
   // 5. Send via Resend API
   try {
     const { error } = await resend.emails.send({
-      from:
-        process.env.RESEND_FROM_EMAIL ??
-        'Portfolio Contact <onboarding@resend.dev>',
+      from: process.env.RESEND_FROM_EMAIL ?? 'Portfolio Contact <onboarding@resend.dev>',
       to: [process.env.CONTACT_RECIPIENT_EMAIL ?? 'tu-correo@gmail.com'],
       replyTo: email,
       subject: `[Contacto Web] ${affair}`,

@@ -10,7 +10,7 @@ export const getBaseUrl = () => {
     return Env.NEXT_PUBLIC_APP_URL;
   }
 
-  return 'http://localhost:3000';
+  return 'http://localhost:3001';
 };
 
 /**
