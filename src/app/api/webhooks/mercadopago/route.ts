@@ -1,18 +1,23 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { NextResponse } from 'next/server';
 
-const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-
-if (!accessToken) {
-  throw new Error('Falta la variable de entorno MERCADOPAGO_ACCESS_TOKEN.');
-}
-
-const client = new MercadoPagoConfig({
-  accessToken,
-});
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Falta la variable de entorno MERCADOPAGO_ACCESS_TOKEN.' },
+        { status: 500 },
+      );
+    }
+
+    const client = new MercadoPagoConfig({
+      accessToken,
+    });
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
     const id = searchParams.get('data.id'); // ID de operación que nos manda MP
@@ -28,13 +33,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // Usamos el NextResponse importado para que no tire error de "defined but never used"
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error: unknown) {
     console.error('❌ Error en el Webhook de Mercado Pago:', error);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

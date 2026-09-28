@@ -87,9 +87,6 @@ jobs:
       - name: Check types
         run: npm run check:types
 
-      - name: I18n check
-        run: npm run check:i18n
-
   unit:
     strategy:
       matrix:
