@@ -79,15 +79,13 @@ function ProductGallery({
         )}
         <div className="absolute top-3 right-3 z-10">
           <WishlistButton
-            product={
-              {
-                id: String(product?.id ?? ''),
-                title: product?.name ?? '',
-                price: Number(product?.price ?? 0),
-                image: images[0]?.url || '',
-                category: product?.category ?? '',
-              } as unknown as Product
-            }
+            product={{
+              id: String(product?.id ?? ''),
+              title: product?.name ?? '',
+              price: Number(product?.price ?? 0),
+              image: images[0]?.url || '',
+              category: product?.category ?? '',
+            }}
           />
         </div>
       </div>
