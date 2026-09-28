@@ -1,14 +1,28 @@
 import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
-
+import StripeSDK from 'stripe';
 import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
-
 export async function POST(request: Request) {
   try {
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+    if (!stripeSecretKey) {
+      console.error('❌ STRIPE_SECRET_KEY no está configurada.');
+      return NextResponse.json(
+        {
+          message: 'Error de configuración en el servidor de pagos.',
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    // Instanciación diferida (Lazy) usando StripeSDK
+    const stripe = new StripeSDK(stripeSecretKey);
+
     const session = await getServerSession(authOptions);
 
     const sessionEmail = session?.user?.email;
@@ -141,10 +155,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Error interno al confirmar el pago.',
+        message: error instanceof Error ? error.message : 'Error interno al confirmar el pago.',
       },
       {
         status: 500,
