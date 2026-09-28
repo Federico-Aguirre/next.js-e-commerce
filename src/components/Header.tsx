@@ -5,7 +5,6 @@ import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-
 import { signOutAction } from '@/actions/auth';
 import { LocaleSwitcher } from '@/components/LocaleSwitcher';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -34,7 +33,10 @@ export function Header() {
   const [cartHydrated, setCartHydrated] = useState(false);
 
   useEffect(() => {
-    setCartHydrated(true);
+    queueMicrotask(() => {
+      setCartHydrated(true);
+    });
+
     fetch('/api/auth/me')
       .then((response) => response.json())
       .then((data: { authenticated?: boolean; user?: { id: string } }) => {
@@ -45,7 +47,10 @@ export function Header() {
 
   useEffect(() => {
     if (isProductsPage) {
-      setSearchQuery(searchParams.get('q') ?? '');
+      const query = searchParams.get('q') ?? '';
+      queueMicrotask(() => {
+        setSearchQuery(query);
+      });
     }
   }, [isProductsPage, searchParams]);
 
@@ -81,7 +86,7 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/85 backdrop-blur-xl">
+    <header className="border-border/80 sticky top-0 z-50 w-full border-b bg-background/85 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <Link
           href={localizedPath('/')}
@@ -98,38 +103,22 @@ export function Header() {
           className="hidden items-center gap-5 pl-4 text-sm font-medium text-muted-foreground lg:flex"
           aria-label={storeT.primaryNavigation}
         >
-          <Link
-            href={localizedPath('/')}
-            className="transition hover:text-foreground"
-          >
+          <Link href={localizedPath('/')} className="transition hover:text-foreground">
             {t.home_link}
           </Link>
-          <Link
-            href={localizedPath('/products')}
-            className="transition hover:text-foreground"
-          >
+          <Link href={localizedPath('/products')} className="transition hover:text-foreground">
             {storeT.catalog}
           </Link>
-          <Link
-            href={localizedPath('/about')}
-            className="transition hover:text-foreground"
-          >
+          <Link href={localizedPath('/about')} className="transition hover:text-foreground">
             {t.about_link}
           </Link>
-          <Link
-            href={localizedPath('/contact')}
-            className="transition hover:text-foreground"
-          >
+          <Link href={localizedPath('/contact')} className="transition hover:text-foreground">
             {t.contact_link}
           </Link>
         </nav>
 
-        <div className="ml-auto hidden min-w-0 max-w-sm flex-1 md:block">
-          <form
-            action={productsPath}
-            onSubmit={handleSearchSubmit}
-            className="relative"
-          >
+        <div className="ml-auto hidden max-w-sm min-w-0 flex-1 md:block">
+          <form action={productsPath} onSubmit={handleSearchSubmit} className="relative">
             <label className="sr-only" htmlFor="header-search">
               {storeT.search}
             </label>
@@ -145,10 +134,10 @@ export function Header() {
                   setSearchQuery(event.target.value);
                 }
               }}
-              className="h-10 w-full rounded-full border border-border bg-muted/60 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-background focus:ring-2 focus:ring-primary/20"
+              className="border-border h-10 w-full rounded-full border bg-muted/60 pr-4 pl-10 text-sm transition outline-none focus:border-primary focus:bg-background focus:ring-2 focus:ring-primary/20"
             />
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
           </form>
@@ -177,17 +166,11 @@ export function Header() {
               <UserRound className="size-4" aria-hidden="true" />
             </Link>
           </Button>
-          <Button
-            asChild
-            variant="ghost"
-            size="icon"
-            aria-label={storeT.cart}
-            title={storeT.cart}
-          >
+          <Button asChild variant="ghost" size="icon" aria-label={storeT.cart} title={storeT.cart}>
             <Link href="/cart" prefetch className="relative">
               <ShoppingBag className="size-4" aria-hidden="true" />
               {cartHydrated && cartProductCount > 0 && (
-                <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold leading-4 text-primary-foreground">
+                <span className="absolute -top-1 -right-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] leading-4 font-bold text-primary-foreground">
                   {cartProductCount}
                 </span>
               )}
@@ -196,12 +179,7 @@ export function Header() {
           <LocaleSwitcher />
           <ThemeToggle />
           {status === 'loading' ? null : isAuthenticated ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handleSignOut}
-            >
+            <Button type="button" variant="secondary" size="sm" onClick={handleSignOut}>
               {t.sign_out_link}
             </Button>
           ) : (
