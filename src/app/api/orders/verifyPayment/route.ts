@@ -1,26 +1,28 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { NextResponse } from 'next/server';
 
-const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-
-if (!accessToken) {
-  throw new Error('Falta la variable de entorno MERCADOPAGO_ACCESS_TOKEN.');
-}
-
-const client = new MercadoPagoConfig({
-  accessToken,
-});
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Falta la variable de entorno MERCADOPAGO_ACCESS_TOKEN.' },
+        { status: 500 },
+      );
+    }
+
+    const client = new MercadoPagoConfig({
+      accessToken,
+    });
+
     const { searchParams } = new URL(request.url);
     const paymentId = searchParams.get('paymentId');
 
     if (!paymentId) {
-      return NextResponse.json(
-        { error: 'paymentId requerido' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'paymentId requerido' }, { status: 400 });
     }
 
     // Consultamos de servidor a servidor la realidad del pago
