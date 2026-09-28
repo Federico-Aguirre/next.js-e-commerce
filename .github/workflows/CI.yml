@@ -14,6 +14,7 @@ env:
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/test_db'
   NEXT_PUBLIC_APP_URL: 'http://localhost:3001'
   NEXTAUTH_URL: 'http://localhost:3001'
+  PLAYWRIGHT_TEST_BASE_URL: 'http://localhost:3001'
   NEXTAUTH_SECRET: 'super-secret-key-for-e2e-testing'
   MERCADOPAGO_ACCESS_TOKEN: 'dummy_token_for_build'
   STRIPE_SECRET_KEY: 'sk_test_dummy_key_for_build'
@@ -175,6 +176,9 @@ jobs:
 
       - name: Push Prisma DB Schema
         run: npx prisma db push
+
+      - name: Build Next.js app for E2E
+        run: npm run build-local
 
       - name: Run E2E tests
         uses: docker://mcr.microsoft.com/playwright:v1.62.1
