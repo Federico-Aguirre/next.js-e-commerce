@@ -8,6 +8,7 @@
     "dev:next": "NODE_OPTIONS='--dns-result-order=ipv4first' next dev -H 0.0.0.0 -p 3001 --webpack",
     "build:next": "next build",
     "build": "prisma generate && next build",
+    "build-local": "npm run build",
     "start": "next start",
     "start:standalone": "node .next/standalone/server.js",
     "clean": "rimraf .next out coverage",
