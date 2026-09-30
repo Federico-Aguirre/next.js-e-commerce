@@ -13,8 +13,8 @@ description: "Instructions and rules for AI assistant tools"
 - `ai/doc/architecture.md` — monorepo architecture, layer responsibilities, and directory structure.
 - `ai/doc/typescript.md` — TypeScript, imports, types, functions.
 - `ai/doc/react.md` — React components, state, effects, composition.
-- `ai/doc/nextjs.md` — Next.js App Router, server/client boundaries, performance.
-- `ai/doc/tailwindStyles.md` — Tailwind, responsive UI, accessibility.
+- `ai/skills/nextjs-feature/SKILL.md` — Next.js App Router, server/client boundaries, performance.
+- `ai/skills/ui-styling/tailwind/SKILL.md` — Tailwind, responsive UI, accessibility.
 - `ai/doc/testing.md` — testing strategy and validation.
 - `ai/doc/security.md` — validation, secrets, authorization, security.
 - `ai/doc/validation.md` — persistent validation checkpoints.

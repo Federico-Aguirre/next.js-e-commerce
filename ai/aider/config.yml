@@ -1,5 +1,5 @@
 # -------- ARCHIVOS DE LECTURA AUTOMÁTICA --------
-read: AGENTS.md
+read: agents.md
 
 # -------- CONTEXTO / REPO MAP --------
 map-tokens: 512
@@ -17,7 +17,7 @@ auto-lint: false
 auto-test: false
 
 # -------- AIDERIGNORE --------
-aiderignore: ai/.aiderignore
+aiderignore: ai/aider/.aiderignore
 
 # -------- PRIVACIDAD / ARRANQUE --------
 analytics-disable: true
