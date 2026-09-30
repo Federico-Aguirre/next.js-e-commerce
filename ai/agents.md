@@ -19,7 +19,7 @@ description: "Instructions and rules for AI assistant tools"
 
 ## Task Skills
 
-- `ai/skills/commerce-domain/SKILL.md` — pricing, promotions, contracts, catalog models, and customer session verification.
+- `ai/skills/ecommerce-domain/SKILL.md` — pricing, promotions, contracts, catalog models, and customer session verification.
 - `ai/skills/mobile-api-sync/SKILL.md` — backend API routes, CORS compatibility, and mobile app synchronization.
 - `ai/skills/nextjs-feature/SKILL.md` — App Router pages, layouts, Server Actions, and data fetching boundaries.
 - `ai/skills/reactjs-feature/SKILL.md` — React components, state, effects, composition.
