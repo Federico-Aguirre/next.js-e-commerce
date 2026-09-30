@@ -1,7 +1,7 @@
-AGENTS.md
-ARCHITECTURE.md
-CLAUDE.md
-SECURITY.md
+agents.md
+architecture.md
+claude.md
+security.md
 README.md
 node_modules/
 .next/

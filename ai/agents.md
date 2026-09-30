@@ -12,9 +12,6 @@ description: "Instructions and rules for AI assistant tools"
 
 - `ai/doc/architecture.md` — monorepo architecture, layer responsibilities, and directory structure.
 - `ai/doc/typescript.md` — TypeScript, imports, types, functions.
-- `ai/doc/react.md` — React components, state, effects, composition.
-- `ai/skills/nextjs-feature/SKILL.md` — Next.js App Router, server/client boundaries, performance.
-- `ai/skills/ui-styling/tailwind/SKILL.md` — Tailwind, responsive UI, accessibility.
 - `ai/doc/testing.md` — testing strategy and validation.
 - `ai/doc/security.md` — validation, secrets, authorization, security.
 - `ai/doc/validation.md` — persistent validation checkpoints.
@@ -25,7 +22,9 @@ description: "Instructions and rules for AI assistant tools"
 - `ai/skills/commerce-domain/SKILL.md` — pricing, promotions, contracts, catalog models, and customer session verification.
 - `ai/skills/mobile-api-sync/SKILL.md` — backend API routes, CORS compatibility, and mobile app synchronization.
 - `ai/skills/nextjs-feature/SKILL.md` — App Router pages, layouts, Server Actions, and data fetching boundaries.
+- `ai/skills/reactjs-feature/SKILL.md` — React components, state, effects, composition.
+- `ai/skills/nextjs-feature/SKILL.md` — Next.js App Router, server/client boundaries, performance.
 - `ai/skills/database-postgresql/SKILL.md` — Prisma ORM models, migrations, seeds, and database queries.
-- `ai/skills/testing/SKILL.md` — unit/component tests with Vitest and E2E browser tests with Playwright.
+- `ai/skills/ui-styling/tailwind/SKILL.md` — Tailwind CSS v4, responsive UI, accessibility, and mobile app integration.
 - `ai/skills/i18n/SKILL.md` — localization dictionaries (en.json, es.json), routing, and next-intl formatting.
 - `ai/skills/ui-styling/SKILL.md` — Tailwind CSS v4, shared Radix/Shadcn UI components, and responsive layout.

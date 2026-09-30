@@ -23,6 +23,6 @@ Keep the summary short, specific, and imperative.
 
 ## Documentation
 
-Keep `AGENTS.md` concise. Put detailed, reusable technical guidance in `doc/` and read it only when relevant.
+Keep `agents.md` concise. Put detailed, reusable technical guidance in `doc/` and read it only when relevant.
 
 Project-specific decisions should be documented in project-specific documentation rather than added to the base template.

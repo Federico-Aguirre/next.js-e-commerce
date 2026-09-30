@@ -106,10 +106,10 @@
 
   "files.exclude": {
     ".cursor*": true,
-    "AGENTS.md": true,
-    "ARCHITECTURE.md": true,
-    "CLAUDE.md": true,
-    "SECURITY.md": true,
+    "agents.md": true,
+    "architecture.md": true,
+    "claude.md": true,
+    "security.md": true,
     ".continue": true,
     "main.py": true,
     ".aider*": true,
