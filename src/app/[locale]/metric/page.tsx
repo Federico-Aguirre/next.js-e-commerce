@@ -1,24 +1,41 @@
 import { getServerSession } from 'next-auth';
-import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth-options';
+import { prisma } from '@/lib/prisma';
+import MetricsClient from './MetricsClient';
 
-export default async function MetricsPage() {
-  const cookieStore = await cookies();
-  const rawCookies = cookieStore.getAll().map((c) => c.name);
+export default async function MetricsPage({ params }: { params: Promise<{ locale: string }> }) {
+  const resolvedParams = await params;
   const session = await getServerSession(authOptions);
 
-  return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
-      <h2>Diagnóstico de Servidor</h2>
-      <p>
-        <strong>Cookies que recibe el servidor:</strong>
-      </p>
-      <pre>{JSON.stringify(rawCookies, null, 2)}</pre>
+  if (!session || !session.user?.isAdmin) {
+    redirect(`/${resolvedParams.locale}/login`);
+  }
 
-      <p>
-        <strong>Sesión desencriptada por NextAuth:</strong>
-      </p>
-      <pre>{JSON.stringify(session, null, 2)}</pre>
-    </div>
-  );
+  // Fetch metrics from PostHog
+  const postHogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
+  const postHogResponse = await fetch(`${postHogHost}/api/projects/1/events?limit=100`, {
+    headers: {
+      Authorization: `Bearer ${process.env.POSTHOG_API_KEY}`,
+    },
+  });
+
+  let monthlyVisits = 0;
+  if (postHogResponse.ok) {
+    const postHogData = await postHogResponse.json();
+    monthlyVisits = postHogData.results.length;
+  } else {
+    console.error('Failed to fetch from PostHog, using fallback data');
+  }
+
+  // Fetch total users from Prisma
+  const totalUsers = await prisma.user.count();
+
+  const metrics = {
+    totalUsers,
+    monthlyVisits,
+    accessStatus: 'Online',
+  };
+
+  return <MetricsClient metrics={metrics} />;
 }

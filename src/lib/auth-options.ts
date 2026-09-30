@@ -1,12 +1,12 @@
-import bcrypt from 'bcryptjs';
-import type { DefaultSession, NextAuthOptions } from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import FacebookProvider from 'next-auth/providers/facebook';
+import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import { Env } from '@/lib/Env';
+import FacebookProvider from 'next-auth/providers/facebook';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from '@/lib/prisma';
+import { compare } from 'bcryptjs';
+import { Env } from '@/lib/env';
 
-// 1. Ampliación de tipos de NextAuth para TypeScript
 declare module 'next-auth' {
   type User = {
     isAdmin?: boolean;
@@ -27,6 +27,11 @@ declare module 'next-auth/jwt' {
 }
 
 export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
+  secret: process.env.NEXTAUTH_SECRET || Env.NEXTAUTH_SECRET || 'dev_secret_key_123456789',
+  session: {
+    strategy: 'jwt',
+  },
   providers: [
     GoogleProvider({
       clientId: Env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '',
@@ -52,48 +57,46 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user || !user.password) {
-          throw new Error('Usuario no encontrado o autenticado con proveedor');
+          throw new Error('Usuario no encontrado');
         }
 
-        const isValid = await bcrypt.compare(credentials.password, user.password);
+        const isValidPassword = await compare(credentials.password, user.password);
 
-        if (!isValid) {
+        if (!isValidPassword) {
           throw new Error('Contraseña incorrecta');
         }
 
-        // 2. Retornamos isAdmin en el objeto del usuario
         return {
           id: user.id,
-          name: user.name,
           email: user.email,
+          name: user.name,
           isAdmin: user.isAdmin,
         };
       },
     }),
   ],
-  session: {
-    strategy: 'jwt',
-  },
   callbacks: {
-    // 3. Guardamos isAdmin en el JWT cuando el usuario se autentica
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.isAdmin = user.isAdmin;
+      } else if (token.email && token.isAdmin === undefined) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+          select: { isAdmin: true },
+        });
+        token.isAdmin = dbUser?.isAdmin;
       }
       return token;
     },
-    // 4. Pasamos el id e isAdmin del token hacia la sesión del cliente/servidor
     async session({ session, token }) {
-      if (session.user) {
+      if (token.id) {
         session.user.id = token.id as string;
+      }
+      if (token.isAdmin !== undefined) {
         session.user.isAdmin = token.isAdmin as boolean;
       }
       return session;
     },
   },
-  pages: {
-    signIn: '/login',
-  },
-  secret: Env.NEXTAUTH_SECRET || process.env.NEXTAUTH_SECRET,
 };
