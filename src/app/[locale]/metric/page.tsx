@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { AlertCircle } from 'lucide-react';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { useLocale } from 'next-intl';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
-import { useLocale } from 'next-intl';
+import { authOptions } from '@/lib/auth-options';
 
 export default function MetricsPage({ params }: { params: Promise<{ locale: string }> }) {
   const [resolvedParams, setResolvedParams] = useState<{ locale: string } | null>(null);
@@ -31,7 +31,9 @@ export default function MetricsPage({ params }: { params: Promise<{ locale: stri
   }, [params]);
 
   useEffect(() => {
-    if (!resolvedParams) return;
+    if (!resolvedParams) {
+      return;
+    }
 
     async function checkAuthAndFetchMetrics() {
       try {
@@ -68,9 +70,9 @@ export default function MetricsPage({ params }: { params: Promise<{ locale: stri
           monthlyVisits,
           accessStatus: 'Online',
         });
-      } catch (err) {
+      } catch (error) {
         setError('Failed to load metrics. Please try again later.');
-        console.error(err);
+        console.error(error);
       } finally {
         setIsLoading(false);
       }
@@ -81,7 +83,7 @@ export default function MetricsPage({ params }: { params: Promise<{ locale: stri
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+      <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 lg:grid-cols-3">
         {[...Array(3)].map((_, i) => (
           <Card key={i}>
             <CardHeader>
@@ -121,7 +123,7 @@ export default function MetricsPage({ params }: { params: Promise<{ locale: stri
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+    <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 lg:grid-cols-3">
       <Card>
         <CardHeader>
           <CardTitle>Total Users</CardTitle>
