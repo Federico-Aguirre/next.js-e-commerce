@@ -2,14 +2,16 @@ import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import StripeSDK from 'stripe';
 import { authOptions } from '@/lib/auth-options';
+import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
+import { stripePaymentConfig } from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    const { secretKey: stripeSecretKey } = stripePaymentConfig();
 
     if (!stripeSecretKey) {
-      console.error('❌ STRIPE_SECRET_KEY no está configurada.');
+      console.error('❌ Stripe no está configurado.');
       return NextResponse.json(
         {
           message: 'Error de configuración en el servidor de pagos.',
@@ -137,14 +139,26 @@ export async function POST(request: Request) {
       });
     }
 
+    if (order.status !== 'PENDING') {
+      return NextResponse.json(
+        { message: 'La reserva ya no está disponible para confirmar.' },
+        { status: 409 },
+      );
+    }
+
     const updatedOrder = await prisma.order.update({
       where: {
         id: order.id,
       },
       data: {
         status: 'PAID',
+        paymentProvider: 'STRIPE',
+        paymentExternalId: paymentIntent.id,
       },
     });
+
+    void sendPaidOrderAlert(updatedOrder.id);
+    await sendLowStockAlerts();
 
     return NextResponse.json({
       success: true,

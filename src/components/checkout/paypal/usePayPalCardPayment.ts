@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CartItem, PayPalCardSession, PayPalSDK } from './types';
 
-const PAYPAL_SCRIPT = 'https://www.sandbox.paypal.com/web-sdk/v6/core';
+const PAYPAL_SCRIPT =
+  process.env.NEXT_PUBLIC_PAYPAL_ENVIRONMENT === 'production'
+    ? 'https://www.paypal.com/web-sdk/v6/core'
+    : 'https://www.sandbox.paypal.com/web-sdk/v6/core';
 
 declare global {
   interface Window {
@@ -23,10 +25,7 @@ type UsePayPalCardPaymentParams = {
   onSuccess: () => void;
 };
 
-export function usePayPalCardPayment({
-  cartItems,
-  onSuccess,
-}: UsePayPalCardPaymentParams) {
+export function usePayPalCardPayment({ cartItems, onSuccess }: UsePayPalCardPaymentParams) {
   const [sdkLoaded, setSdkLoaded] = useState(false);
 
   const [session, setSession] = useState<PayPalCardSession | null>(null);
@@ -38,6 +37,8 @@ export function usePayPalCardPayment({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [paypalOrderId, setPaypalOrderId] = useState<string | null>(null);
+
+  const checkoutKeyRef = useRef<string | null>(null);
 
   const loadSDK = useCallback(() => {
     setSdkLoaded(true);
@@ -59,20 +60,15 @@ export function usePayPalCardPayment({
         setErrorMessage(null);
         setReady(false);
 
-        const tokenResponse = await fetch(
-          '/api/paypal/auth/browser-safe-client-token',
-          {
-            method: 'GET',
-            cache: 'no-store',
-          },
-        );
+        const configResponse = await fetch('/api/paypal/auth/browser-safe-client-token', {
+          method: 'GET',
+          cache: 'no-store',
+        });
 
-        const tokenData = await tokenResponse.json();
+        const configData = await configResponse.json();
 
-        if (!tokenResponse.ok || !tokenData.accessToken) {
-          throw new Error(
-            tokenData.message || 'No se pudo obtener el token de PayPal.',
-          );
+        if (!configResponse.ok || !configData.clientToken) {
+          throw new Error(configData.message || 'No se pudo obtener el client token de PayPal.');
         }
 
         if (cancelled) {
@@ -80,7 +76,7 @@ export function usePayPalCardPayment({
         }
 
         const sdk = await window.paypal!.createInstance({
-          clientToken: tokenData.accessToken,
+          clientToken: configData.clientToken,
           components: ['card-fields'],
           pageType: 'checkout',
         });
@@ -90,9 +86,7 @@ export function usePayPalCardPayment({
         });
 
         if (!eligibility.isEligible('advanced_cards')) {
-          throw new Error(
-            'Los pagos con tarjeta de PayPal no están disponibles para esta cuenta Sandbox.',
-          );
+          throw new Error('Los pagos con tarjeta de PayPal no están disponibles para esta cuenta.');
         }
 
         const cardSession = sdk.createCardFieldsOneTimePaymentSession();
@@ -107,9 +101,7 @@ export function usePayPalCardPayment({
 
         if (!cancelled) {
           setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : 'No se pudo inicializar PayPal.',
+            error instanceof Error ? error.message : 'No se pudo inicializar PayPal.',
           );
         }
       }
@@ -127,6 +119,7 @@ export function usePayPalCardPayment({
       articleId: item.articleId ?? item.productId ?? item.id,
 
       productId: item.productId ?? item.articleId ?? item.id,
+      variantId: item.variantId,
 
       title: item.title,
       price: Number(item.price),
@@ -144,15 +137,14 @@ export function usePayPalCardPayment({
       body: JSON.stringify({
         items: itemsPayload,
         paymentMethod: 'paypal',
+        checkoutKey: checkoutKeyRef.current || (checkoutKeyRef.current = crypto.randomUUID()),
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok || !data.paypalOrderId || !data.orderId) {
-      throw new Error(
-        data.error || data.message || 'No se pudo crear la orden de PayPal.',
-      );
+      throw new Error(data.error || data.message || 'No se pudo crear la orden de PayPal.');
     }
 
     setPaypalOrderId(data.paypalOrderId);
@@ -172,32 +164,28 @@ export function usePayPalCardPayment({
     setLoading(true);
     setErrorMessage(null);
 
+    let localOrderId: string | null = null;
+    let cardSubmissionSucceeded = false;
+
     try {
       const order = await createPayPalOrder();
+      localOrderId = order.localOrderId;
 
       const result = await session.submit(order.paypalOrderId, {
         billingAddress: {
-          addressLine1: '123 Market Street',
-          addressLine2: 'Suite 400',
-          adminArea1: 'CA',
-          adminArea2: 'San Francisco',
-          countryCode: 'US',
-          postalCode: '94105',
+          postalCode: '95131',
         },
       });
 
       if (result.state === 'canceled') {
-        setErrorMessage('La operación con PayPal fue cancelada.');
-
-        return;
+        throw new Error('La operación con PayPal fue cancelada.');
       }
 
       if (result.state !== 'succeeded') {
-        throw new Error(
-          result.data?.message || 'PayPal no pudo completar el pago.',
-        );
+        throw new Error(result.data?.message || 'PayPal no pudo completar el pago.');
       }
 
+      cardSubmissionSucceeded = true;
       const capturedPaypalOrderId = result.data?.orderId || order.paypalOrderId;
 
       const captureResponse = await fetch('/api/paypal/capture-order', {
@@ -215,9 +203,7 @@ export function usePayPalCardPayment({
       const captureResult = await captureResponse.json();
 
       if (!captureResponse.ok) {
-        throw new Error(
-          captureResult.message || 'No se pudo confirmar el pago de PayPal.',
-        );
+        throw new Error(captureResult.message || 'No se pudo confirmar el pago de PayPal.');
       }
 
       alert('¡Compra realizada con éxito!');
@@ -226,8 +212,25 @@ export function usePayPalCardPayment({
     } catch (error: unknown) {
       console.error('❌ Error procesando PayPal:', error);
 
+      if (localOrderId && !cardSubmissionSucceeded) {
+        try {
+          await fetch('/api/checkout', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: localOrderId }),
+          });
+        } catch (cleanupError) {
+          console.error('No se pudo liberar la reserva fallida de PayPal:', cleanupError);
+        }
+        checkoutKeyRef.current = null;
+        setPaypalOrderId(null);
+      }
+
+      const message = error instanceof Error ? error.message : 'No se pudo procesar el pago.';
       setErrorMessage(
-        error instanceof Error ? error.message : 'No se pudo procesar el pago.',
+        message.includes('PAYER_CANNOT_PAY')
+          ? 'PayPal Sandbox rechazó el pago (PAYER_CANNOT_PAY). La reserva fue liberada; no es necesario cambiar de tarjeta.'
+          : message,
       );
     } finally {
       setLoading(false);

@@ -14,7 +14,9 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false,
   },
-  connectionTimeoutMillis: 5000, // Tiempo límite de 5s para no bloquear Next.js si la DB duerme
+  max: 5,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
 });
 
 const adapter = new PrismaPg(pool);

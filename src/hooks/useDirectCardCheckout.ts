@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-
 import {
   checkoutSchema,
   type CheckoutFormData,
@@ -34,10 +33,7 @@ export function useDirectCardCheckout() {
 
   const [loading, setLoading] = useState(false);
 
-  const cartTotal = cartItems.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0,
-  );
+  const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
 
   const handleAutofill = () => {
     setFormData({
@@ -55,9 +51,7 @@ export function useDirectCardCheckout() {
     setFormErrors({});
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
     setFormData((previous) => ({
@@ -116,7 +110,8 @@ export function useDirectCardCheckout() {
       });
 
       const paymentSuccessful =
-        result.status === 'processed' && result.status_detail === 'accredited';
+        (result.status === 'processed' || result.status === 'approved') &&
+        result.status_detail === 'accredited';
 
       if (!paymentSuccessful) {
         alert(
@@ -128,28 +123,8 @@ export function useDirectCardCheckout() {
         return;
       }
 
-      if (result.id) {
-        const confirmResponse = await fetch('/api/orders/confirm', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            paymentId: result.id,
-            orderId: result.order_id,
-            total: cartTotal,
-            items: cartItems.map((item) => ({
-              id: item.id,
-              articleId: item.articleId,
-              title: item.title,
-              price: item.price,
-              image: item.image,
-              colorName: item.colorName,
-              size: item.size,
-              quantity: item.quantity,
-            })),
-          }),
-        });
+      if (!result.orderId) {
+        throw new Error('El pago fue aprobado pero no se confirmó la orden local.');
       }
 
       localStorage.removeItem('last_pending_order_id');

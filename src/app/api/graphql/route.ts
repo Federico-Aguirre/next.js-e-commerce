@@ -1,5 +1,4 @@
 import { createSchema, createYoga } from 'graphql-yoga';
-
 import { prisma } from '@/lib/prisma';
 import { prismaWithRetry } from '@/lib/prisma-retry';
 import { processSecureCheckout } from '@/services/checkout';
@@ -36,6 +35,10 @@ const typeDefs = `
   type CartItem {
     id: String!
     productId: Int!
+    articleId: Int!
+    rootProductId: Int
+    variantId: String
+    colorName: String
     title: String!
     price: Float!
     quantity: Int!
@@ -80,14 +83,41 @@ const typeDefs = `
 `;
 
 const resolvers = {
+  CartItem: {
+    articleId: (item: { productId: number }) => Number(item.productId),
+    rootProductId: async (item: { productId: number }) => {
+      const sku = await prisma.productSku.findUnique({
+        where: { articleId: Number(item.productId) },
+        select: { variant: { select: { productId: true } } },
+      });
+      return sku?.variant.productId ?? null;
+    },
+    variantId: async (item: { productId: number }) => {
+      const sku = await prisma.productSku.findUnique({
+        where: { articleId: Number(item.productId) },
+        select: { variantId: true },
+      });
+      return sku?.variantId ?? null;
+    },
+    colorName: async (item: { productId: number }) => {
+      const sku = await prisma.productSku.findUnique({
+        where: { articleId: Number(item.productId) },
+        select: { variant: { select: { colorName: true } } },
+      });
+      return sku?.variant.colorName ?? null;
+    },
+  },
   Query: {
     products: async (_root: unknown, args: { category?: string }) => {
       try {
         return await prismaWithRetry(() =>
           prisma.product.findMany({
             where: args.category
-              ? { category: { equals: args.category, mode: 'insensitive' } }
-              : undefined,
+              ? {
+                  isActive: true,
+                  category: { equals: args.category, mode: 'insensitive' },
+                }
+              : { isActive: true },
             include: {
               variants: {
                 include: {
@@ -107,8 +137,8 @@ const resolvers = {
     product: async (_root: unknown, args: { id: number }) => {
       try {
         return await prismaWithRetry(() =>
-          prisma.product.findUnique({
-            where: { id: args.id },
+          prisma.product.findFirst({
+            where: { id: args.id, isActive: true },
             include: {
               variants: {
                 include: {
@@ -275,14 +305,9 @@ const resolvers = {
       }
     },
 
-    checkout: async (
-      _root: unknown,
-      args: { userId: string; items: any[] },
-    ) => {
+    checkout: async (_root: unknown, args: { userId: string; items: any[] }) => {
       try {
-        return await prismaWithRetry(() =>
-          processSecureCheckout(args.userId, args.items),
-        );
+        return await prismaWithRetry(() => processSecureCheckout(args.userId, args.items));
       } catch (err: any) {
         throw new Error(err.message);
       }

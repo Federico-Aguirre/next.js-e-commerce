@@ -1,38 +1,8 @@
-model_list:
-  # --- PROVEEDORES DIARIOS (24h) ---
-  - model_name: daily-gemini
-    litellm_params:
-      model: gemini/gemini-1.5-flash
-      api_key: os.environ/GEMINI_API_KEY
+# Auto-testing y validación de TypeScript
+test-cmd: npm run check:types
+auto-test: true
 
-  - model_name: daily-groq
-    litellm_params:
-      model: groq/llama-3.1-70b-versatile
-      api_key: os.environ/GROQ_API_KEY
-
-  - model_name: daily-openrouter
-    litellm_params:
-      model: openrouter/meta-llama/llama-3.1-70b-instruct
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  # --- PROVEEDORES MENSUALES (RESERVA) ---
-  - model_name: monthly-main
-    litellm_params:
-      model: mistral/codestral-latest
-      api_key: os.environ/MISTRAL_API_KEY
-
-  - model_name: monthly-backup
-    litellm_params:
-      model: cohere/command-r-plus
-      api_key: os.environ/COHERE_API_KEY
-
-router_settings:
-  request_timeout: 15
-  fallbacks:
-    # Circuito Diario
-    - daily-gemini: ['daily-groq', 'daily-openrouter']
-    - daily-groq: ['daily-gemini', 'daily-openrouter']
-    - daily-openrouter: ['daily-groq', 'daily-gemini']
-
-    # Circuito Mensual (Unidireccional)
-    - monthly-main: ['monthly-backup']
+# Conexión con tu proxy de LiteLLM
+openai-api-base: http://localhost:4000/v1
+openai-api-key: dummy
+model: openai/daily-gemini

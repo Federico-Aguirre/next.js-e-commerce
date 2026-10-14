@@ -3,8 +3,8 @@
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
-
 import { AuthRequiredNotice } from '@/components/checkout/AuthRequiredNotice';
+import DeliveryAddressSummary from '@/components/checkout/DeliveryAddressSummary';
 import PayPalCardForm from '@/components/checkout/paypal/PayPalCardForm';
 import { useCartStore } from '@/store/useCartStore';
 
@@ -16,10 +16,7 @@ export default function PayPalCheckoutPage() {
 
   const [completed, setCompleted] = useState(false);
 
-  const cartTotal = cartItems.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0,
-  );
+  const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
 
   const handleSuccess = useCallback(() => {
     setCompleted(true);
@@ -45,9 +42,7 @@ export default function PayPalCheckoutPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
-          <p className="mb-4 text-lg font-bold text-gray-900">
-            Tu carrito está vacío
-          </p>
+          <p className="mb-4 text-lg font-bold text-gray-900">Tu carrito está vacío</p>
 
           <Link
             href="/cart"
@@ -67,31 +62,22 @@ export default function PayPalCheckoutPage() {
           <div className="mb-6 flex items-center justify-between gap-4">
             <h1 className="text-xl font-bold text-gray-900">Pago con PayPal</h1>
 
-            <Link
-              href="/cart"
-              className="text-sm font-semibold text-gray-500 hover:text-gray-700"
-            >
+            <Link href="/cart" className="text-sm font-semibold text-gray-500 hover:text-gray-700">
               ← Volver
             </Link>
           </div>
 
           <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-600">
-                Total:
-              </span>
+              <span className="text-sm font-semibold text-gray-600">Total:</span>
 
-              <span className="text-xl font-extrabold text-gray-900">
-                ${cartTotal.toFixed(2)}
-              </span>
+              <span className="text-xl font-extrabold text-gray-900">${cartTotal.toFixed(2)}</span>
             </div>
           </div>
 
-          <PayPalCardForm
-            amount={cartTotal}
-            cartItems={cartItems}
-            onSuccess={handleSuccess}
-          />
+          <PayPalCardForm amount={cartTotal} cartItems={cartItems} onSuccess={handleSuccess} />
+
+          <DeliveryAddressSummary />
         </div>
       </div>
     </main>

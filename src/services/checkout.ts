@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { sendPaidOrderAlert } from '@/lib/order-alerts';
 import { prisma } from '@/lib/prisma';
 
 type CheckoutItem = {
@@ -21,7 +22,7 @@ export async function processSecureCheckout(userId: string, items: CheckoutItem[
 
   try {
     // Iniciamos la transacción interactiva en PostgreSQL
-    return await prisma.$transaction(
+    const result = await prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
         let totalOrderAmount = 0;
         const orderItemsData = [];
@@ -107,6 +108,9 @@ export async function processSecureCheckout(userId: string, items: CheckoutItem[
         timeout: 15_000, // Tiempo límite para ejecutar todo antes de forzar un Rollback (15s)
       },
     );
+
+    void sendPaidOrderAlert(result.orderId);
+    return result;
   } catch (error: any) {
     console.error('❌ [CHECKOUT ROLLBACK] Compra cancelada de manera segura:', error.message);
     throw error; // Re-lanzamos para que el controlador de la API envíe el mensaje al cliente

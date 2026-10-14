@@ -1,15 +1,16 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { NextResponse } from 'next/server';
+import { mercadoPagoPaymentConfig } from '@/lib/payments/platform-config';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+    const { accessToken } = mercadoPagoPaymentConfig();
 
     if (!accessToken) {
       return NextResponse.json(
-        { error: 'Falta la variable de entorno MERCADOPAGO_ACCESS_TOKEN.' },
+        { error: 'Falta configurar Mercado Pago del comercio.' },
         { status: 500 },
       );
     }

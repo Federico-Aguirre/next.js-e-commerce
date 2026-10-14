@@ -3,18 +3,40 @@ import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { authOptions } from '@/lib/auth-options';
+import { resolveCartSku, restoreOrderStock } from '@/lib/checkout/inventory';
+import {
+  mercadoPagoPaymentConfig,
+  paypalAuthAssertion,
+  paypalPaymentConfig,
+  platformFee,
+  stripePaymentConfig,
+} from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-const PAYPAL_API_BASE = 'https://api-m.sandbox.paypal.com';
+const PAYPAL_API_BASE =
+  process.env.PAYPAL_ENVIRONMENT === 'production'
+    ? 'https://api-m.paypal.com'
+    : 'https://api-m.sandbox.paypal.com';
+
+function getRequestOrigin(request: Request) {
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+
+  if (forwardedHost) {
+    return `${forwardedProto || 'https'}://${forwardedHost}`;
+  }
+
+  const origin = request.headers.get('origin');
+  return origin || new URL(request.url).origin;
+}
 
 async function generatePayPalAccessToken() {
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  const { clientId, clientSecret } = paypalPaymentConfig();
 
   if (!clientId || !clientSecret) {
-    throw new Error('Faltan PAYPAL_CLIENT_ID o PAYPAL_CLIENT_SECRET.');
+    throw new Error('Falta configurar la cuenta de PayPal para cobrar.');
   }
 
   const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
@@ -37,10 +59,57 @@ async function generatePayPalAccessToken() {
   return data.access_token;
 }
 
+async function cleanupLegacyPendingOrders(userId: string) {
+  const legacyOrders = await prisma.order.findMany({
+    where: {
+      userId,
+      status: 'PENDING',
+      checkoutKey: null,
+    },
+    include: { items: true },
+  });
+
+  for (const order of legacyOrders) {
+    let canRelease = false;
+
+    if (order.paymentProvider === 'MERCADOPAGO' && !order.paymentExternalId) {
+      canRelease = true;
+    } else if (order.paymentProvider === 'STRIPE' && order.paymentExternalId) {
+      const { secretKey: stripeSecretKey } = stripePaymentConfig();
+      if (!stripeSecretKey) continue;
+
+      const stripe = new Stripe(stripeSecretKey);
+      const paymentIntent = await stripe.paymentIntents.retrieve(order.paymentExternalId);
+      if (paymentIntent.status === 'succeeded') continue;
+      if (paymentIntent.status !== 'canceled') {
+        await stripe.paymentIntents.cancel(paymentIntent.id);
+      }
+      canRelease = true;
+    }
+
+    if (!canRelease) continue;
+
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.order.findUnique({
+        where: { id: order.id },
+        include: { items: true },
+      });
+      if (!current || current.status !== 'PENDING') return;
+      await restoreOrderStock(tx, current.items);
+      await tx.order.update({
+        where: { id: current.id },
+        data: { status: 'EXPIRED' },
+      });
+    });
+  }
+}
+
 type CartItem = {
   id?: string;
   articleId?: string | number;
   productId?: string | number;
+  variantId?: string;
+  colorName?: string;
   title: string;
   price: number;
   quantity: number;
@@ -89,7 +158,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { items, paymentMethod } = body as {
       items: CartItem[];
-      paymentMethod: 'mercadopago' | 'stripe' | 'paypal';
+      paymentMethod: 'mercadopago' | 'mercadopago-card' | 'stripe' | 'paypal';
+      checkoutKey?: string;
     };
 
     const dbUser = await resolveUser(body);
@@ -102,7 +172,63 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Cart is empty.' }, { status: 400 });
     }
 
-    const total = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    const checkoutKey = typeof body.checkoutKey === 'string' ? body.checkoutKey.trim() : '';
+    const paymentProvider = paymentMethod.startsWith('mercadopago')
+      ? 'MERCADOPAGO'
+      : paymentMethod.toUpperCase();
+
+    if (checkoutKey) {
+      const existingOrder = await prisma.order.findUnique({
+        where: { checkoutKey },
+      });
+
+      if (existingOrder) {
+        if (
+          existingOrder.userId !== dbUser.id ||
+          existingOrder.paymentProvider !== paymentProvider
+        ) {
+          return NextResponse.json({ error: 'Checkout key inválida.' }, { status: 409 });
+        }
+
+        if (existingOrder.status !== 'PENDING') {
+          return NextResponse.json(
+            { error: 'Este intento de checkout ya terminó. Iniciá uno nuevo.' },
+            { status: 409 },
+          );
+        }
+
+        if (paymentMethod === 'mercadopago-card') {
+          return NextResponse.json({ orderId: existingOrder.id, total: existingOrder.total });
+        }
+
+        if (paymentMethod === 'stripe' && existingOrder.paymentExternalId) {
+          const { secretKey: stripeSecretKey } = stripePaymentConfig();
+          if (!stripeSecretKey) throw new Error('Falta configurar Stripe.');
+          const stripe = new Stripe(stripeSecretKey);
+          const paymentIntent = await stripe.paymentIntents.retrieve(
+            existingOrder.paymentExternalId,
+          );
+          if (!paymentIntent.client_secret) {
+            throw new Error('Stripe no devolvió un client_secret para la reserva existente.');
+          }
+          return NextResponse.json({
+            clientSecret: paymentIntent.client_secret,
+            paymentIntentId: paymentIntent.id,
+            orderId: existingOrder.id,
+          });
+        }
+
+        if (paymentMethod === 'paypal' && existingOrder.paymentExternalId) {
+          return NextResponse.json({
+            paypalOrderId: existingOrder.paymentExternalId,
+            orderId: existingOrder.id,
+          });
+        }
+      }
+    }
+
+    await cleanupLegacyPendingOrders(dbUser.id);
+
     const now = new Date();
     const expirationTime = new Date(now.getTime() + 15 * 60 * 1000); // 15 Minutos
 
@@ -119,15 +245,7 @@ export async function POST(req: Request) {
       await prisma.$transaction(
         async (tx: any) => {
           for (const oldOrder of expiredOrders) {
-            for (const oldItem of oldOrder.items) {
-              await tx.productSku.updateMany({
-                where: {
-                  articleId: Number(oldItem.productId),
-                  size: oldItem.size,
-                },
-                data: { stock: { increment: oldItem.quantity } },
-              });
-            }
+            await restoreOrderStock(tx, oldOrder.items);
           }
 
           const expiredIds = expiredOrders.map((o: { id: string }) => o.id);
@@ -141,80 +259,140 @@ export async function POST(req: Request) {
     }
 
     // 🔒 TRANSACCIÓN PRINCIPAL DE COMPRA
+    // El navegador puede tener un carrito viejo. Aiven es la fuente de verdad para
+    // SKU, precio y stock; nunca confiamos en esos valores enviados por el cliente.
     const order = await prisma.$transaction(
-      async (tx: any) => {
+      async (tx) => {
+        const groupedItems = new Map<
+          string,
+          {
+            skuId: string;
+            articleId: number;
+            title: string;
+            price: number;
+            quantity: number;
+            image: string;
+            size: string;
+          }
+        >();
+
         for (const item of items) {
-          const rawId = String(item.articleId || item.productId || item.id || '');
-          if (!rawId) {
-            throw new Error(`Estructura de producto inválida.`);
+          const quantity = Number(item.quantity);
+          if (!Number.isInteger(quantity) || quantity <= 0) {
+            throw new Error(`Cantidad inválida para "${item.title}".`);
           }
 
-          const numericArticleId = Number(rawId.replaceAll(/\D/g, ''));
-          const sku = await tx.productSku.findFirst({
-            where: { articleId: numericArticleId, size: item.size },
-          });
-
-          if (!sku || sku.stock < item.quantity) {
+          const sku = await resolveCartSku(tx, item);
+          if (!sku) {
             throw new Error(
-              `Lo sentimos, no hay stock suficiente de "${item.title}" en talle ${item.size ? item.size.toUpperCase() : 'N/A'}.`,
+              `No pudimos identificar el talle ${item.size || 'N/A'} de "${item.title}". Quitá el producto del carrito y volvé a agregarlo.`,
             );
           }
 
-          await tx.productSku.update({
-            where: { id: sku.id },
-            data: { stock: sku.stock - item.quantity },
-          });
+          const existing = groupedItems.get(sku.id);
+          if (existing) {
+            // El carrito garantiza una sola línea por SKU. Si llegan filas
+            // duplicadas por una sincronización vieja, no las cobramos dos veces.
+            existing.quantity = Math.max(existing.quantity, quantity);
+          } else {
+            groupedItems.set(sku.id, {
+              skuId: sku.id,
+              articleId: sku.articleId,
+              title: sku.variant.product.name,
+              price: Number(sku.variant.product.price),
+              quantity,
+              image: item.image || '',
+              size: sku.size,
+            });
+          }
         }
 
-        return await tx.order.create({
+        const resolvedItems = Array.from(groupedItems.values()).map(
+          ({ skuId: _skuId, ...item }) => ({
+            productId: String(item.articleId),
+            title: item.title,
+            price: item.price,
+            quantity: item.quantity,
+            image: item.image,
+            size: item.size,
+          }),
+        );
+
+        for (const item of groupedItems.values()) {
+          const reserved = await tx.productSku.updateMany({
+            where: {
+              id: item.skuId,
+              stock: { gte: item.quantity },
+            },
+            data: { stock: { decrement: item.quantity } },
+          });
+
+          if (reserved.count !== 1) {
+            throw new Error(
+              `Lo sentimos, no hay stock suficiente de "${item.title}" en talle ${item.size.toUpperCase()}.`,
+            );
+          }
+        }
+
+        const total = resolvedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+        return tx.order.create({
           data: {
             userId: dbUser.id,
             total,
             status: 'PENDING',
+            checkoutKey: checkoutKey || null,
+            paymentProvider,
             expiresAt: expirationTime,
+            deliveryFirstName: dbUser.firstName,
+            deliveryLastName: dbUser.lastName,
+            deliveryPhone: dbUser.phone,
+            deliveryDni: dbUser.dni,
+            deliveryStreet: dbUser.shippingStreet,
+            deliveryNumber: dbUser.shippingNumber,
+            deliveryApartment: dbUser.shippingApartment,
+            deliveryCity: dbUser.shippingCity,
+            deliveryProvince: dbUser.shippingProvince,
+            deliveryPostalCode: dbUser.shippingPostalCode,
+            deliveryCountry: dbUser.shippingCountry,
             items: {
-              create: items.map((item) => {
-                const rawId = String(item.articleId || item.productId || item.id || '');
-                return {
-                  productId: String(rawId.replaceAll(/\D/g, '')),
-                  title: item.title,
-                  price: item.price,
-                  quantity: item.quantity,
-                  image: item.image,
-                  size: item.size || 'UNICO',
-                };
-              }),
+              create: resolvedItems,
             },
           },
+          include: { items: true },
         });
       },
       { maxWait: 10_000, timeout: 20_000 },
     );
 
+    const total = order.total;
+
     // 💳 PASARELAS DE PAGO
+    if (paymentMethod === 'mercadopago-card') {
+      return NextResponse.json({ orderId: order.id, total: order.total });
+    }
+
     if (paymentMethod === 'mercadopago') {
-      const mpToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+      const { accessToken: mpToken, splitEnabled: mercadoPagoSplitEnabled } =
+        mercadoPagoPaymentConfig();
       if (!mpToken) {
-        throw new Error('Falta la variable MERCADOPAGO_ACCESS_TOKEN.');
+        throw new Error('Falta configurar la cuenta de Mercado Pago del comercio.');
       }
 
       const client = new MercadoPagoConfig({ accessToken: mpToken });
       const preference = new Preference(client);
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3001';
+      const baseUrl = getRequestOrigin(req);
       const isHttps = baseUrl.startsWith('https://');
 
       const responseMP = await preference.create({
         body: {
-          items: items.map((item) => {
-            const rawId = String(item.articleId || item.productId || item.id || '');
-            return {
-              id: String(rawId.replaceAll(/\D/g, '')) || 'item',
-              title: `${item.title} ${item.size ? `(${item.size.toUpperCase()})` : ''}`.trim(),
-              unit_price: Number(item.price),
-              quantity: Number(item.quantity),
-              currency_id: 'ARS',
-            };
-          }),
+          items: order.items.map((item) => ({
+            id: item.productId,
+            title: `${item.title} (${item.size.toUpperCase()})`,
+            unit_price: Number(item.price),
+            quantity: Number(item.quantity),
+            currency_id: 'ARS',
+          })),
           payer: {
             email: 'comprador.test@gmail.com',
           },
@@ -227,6 +405,7 @@ export async function POST(req: Request) {
           },
           external_reference: order.id,
           expiration_date_to: expirationTime.toISOString(),
+          marketplace_fee: mercadoPagoSplitEnabled ? platformFee(order.total) : undefined,
         },
       });
 
@@ -239,17 +418,28 @@ export async function POST(req: Request) {
     }
 
     if (paymentMethod === 'stripe') {
-      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+      const {
+        secretKey: stripeSecretKey,
+        splitEnabled: stripeSplitEnabled,
+        connectedAccountId,
+      } = stripePaymentConfig();
       if (!stripeSecretKey) {
-        throw new Error('Falta configurar STRIPE_SECRET_KEY.');
+        throw new Error('Falta configurar Stripe.');
       }
 
       const stripe = new Stripe(stripeSecretKey);
+      const feeAmount = Math.round(platformFee(total) * 100);
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(total * 100),
         currency: 'usd',
         payment_method_types: ['card'],
+        ...(stripeSplitEnabled && connectedAccountId
+          ? {
+              application_fee_amount: feeAmount,
+              transfer_data: { destination: connectedAccountId },
+            }
+          : {}),
         metadata: {
           orderId: order.id,
           userId: dbUser.id,
@@ -260,6 +450,11 @@ export async function POST(req: Request) {
         throw new Error('Stripe no devolvió un client_secret.');
       }
 
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { paymentProvider: 'STRIPE', paymentExternalId: paymentIntent.id },
+      });
+
       return NextResponse.json({
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
@@ -269,31 +464,54 @@ export async function POST(req: Request) {
 
     if (paymentMethod === 'paypal') {
       const paypalAccessToken = await generatePayPalAccessToken();
+      const paypalConfig = paypalPaymentConfig();
+      const paypalSplitEnabled =
+        paypalConfig.splitEnabled && paypalConfig.clientId && paypalConfig.sellerMerchantId;
+      const paypalAssertion = paypalSplitEnabled
+        ? paypalAuthAssertion(paypalConfig.clientId!, paypalConfig.sellerMerchantId!)
+        : undefined;
 
-      const paypalOrderResponse = await fetch(
-        'https://api-m.sandbox.paypal.com/v2/checkout/orders',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${paypalAccessToken}`,
-            'Content-Type': 'application/json',
-            'PayPal-Request-Id': `${order.id}-create`,
-          },
-          body: JSON.stringify({
-            intent: 'CAPTURE',
-            purchase_units: [
-              {
-                reference_id: order.id,
-                custom_id: order.id,
-                amount: {
-                  currency_code: 'USD',
-                  value: total.toFixed(2),
-                },
-              },
-            ],
-          }),
+      const paypalOrderResponse = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${paypalAccessToken}`,
+          'Content-Type': 'application/json',
+          'PayPal-Request-Id': `${order.id}-create`,
+          ...(paypalConfig.partnerAttributionId
+            ? { 'PayPal-Partner-Attribution-Id': paypalConfig.partnerAttributionId }
+            : {}),
+          ...(paypalAssertion ? { 'PayPal-Auth-Assertion': paypalAssertion } : {}),
         },
-      );
+        body: JSON.stringify({
+          intent: 'CAPTURE',
+          purchase_units: [
+            {
+              reference_id: order.id,
+              custom_id: order.id,
+              ...(paypalSplitEnabled
+                ? {
+                    payee: { merchant_id: paypalConfig.sellerMerchantId },
+                    payment_instruction: {
+                      disbursement_mode: 'INSTANT',
+                      platform_fees: [
+                        {
+                          amount: {
+                            currency_code: 'USD',
+                            value: platformFee(total).toFixed(2),
+                          },
+                        },
+                      ],
+                    },
+                  }
+                : {}),
+              amount: {
+                currency_code: 'USD',
+                value: total.toFixed(2),
+              },
+            },
+          ],
+        }),
+      });
 
       const paypalOrder = await paypalOrderResponse.json();
 
@@ -302,6 +520,11 @@ export async function POST(req: Request) {
 
         throw new Error(paypalOrder?.message || 'No se pudo crear la orden de PayPal.');
       }
+
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { paymentProvider: 'PAYPAL', paymentExternalId: paypalOrder.id },
+      });
 
       return NextResponse.json({
         paypalOrderId: paypalOrder.id,
@@ -356,14 +579,31 @@ export async function DELETE(req: Request) {
       );
     }
 
+    if (orderToCancel.paymentProvider === 'STRIPE' && orderToCancel.paymentExternalId) {
+      const { secretKey: stripeSecretKey } = stripePaymentConfig();
+      if (!stripeSecretKey) {
+        return NextResponse.json(
+          { error: 'No se puede liberar la reserva de Stripe: falta configuración.' },
+          { status: 500 },
+        );
+      }
+
+      const stripe = new Stripe(stripeSecretKey);
+      const paymentIntent = await stripe.paymentIntents.retrieve(orderToCancel.paymentExternalId);
+      if (paymentIntent.status === 'succeeded') {
+        return NextResponse.json(
+          { error: 'El pago ya fue cobrado y la reserva no se puede liberar.' },
+          { status: 409 },
+        );
+      }
+      if (paymentIntent.status !== 'canceled') {
+        await stripe.paymentIntents.cancel(paymentIntent.id);
+      }
+    }
+
     await prisma.$transaction(
       async (tx: any) => {
-        for (const item of orderToCancel.items) {
-          await tx.productSku.updateMany({
-            where: { articleId: Number(item.productId), size: item.size },
-            data: { stock: { increment: item.quantity } },
-          });
-        }
+        await restoreOrderStock(tx, orderToCancel.items);
 
         await tx.order.update({
           where: { id: orderToCancel.id },

@@ -1,10 +1,6 @@
 'use client';
 
-import {
-  PaymentElement,
-  useElements,
-  useStripe,
-} from '@stripe/react-stripe-js';
+import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { useState } from 'react';
 
 type StripePaymentFormProps = {
@@ -64,21 +60,6 @@ export default function StripePaymentForm({
     try {
       const { error } = await stripe.confirmPayment({
         elements,
-
-        confirmParams: {
-          payment_method_data: {
-            billing_details: {
-              address: {
-                country: 'US',
-                postal_code: '94105',
-                line1: '123 Market Street',
-                city: 'San Francisco',
-                state: 'CA',
-              },
-            },
-          },
-        },
-
         redirect: 'if_required',
       });
 
@@ -109,9 +90,7 @@ export default function StripePaymentForm({
     } catch (error: unknown) {
       console.error('Error Stripe:', error);
 
-      setErrorMessage(
-        error instanceof Error ? error.message : 'Error al procesar el pago.',
-      );
+      setErrorMessage(error instanceof Error ? error.message : 'Error al procesar el pago.');
     } finally {
       setLoading(false);
     }
@@ -125,8 +104,7 @@ export default function StripePaymentForm({
           <h3 className="text-sm font-bold text-indigo-900">Datos de prueba</h3>
 
           <p className="mt-1 text-xs text-indigo-600">
-            Stripe está configurado en modo de prueba. Podés utilizar estos
-            datos.
+            Stripe está configurado en modo de prueba. Podés utilizar estos datos.
           </p>
         </div>
 
@@ -134,7 +112,7 @@ export default function StripePaymentForm({
           {/* Número */}
           <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-white px-3 py-2">
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">
                 Número de tarjeta
               </p>
 
@@ -155,13 +133,11 @@ export default function StripePaymentForm({
           {/* Fecha */}
           <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-white px-3 py-2">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">
                 Fecha de caducidad
               </p>
 
-              <p className="text-sm font-semibold text-gray-800">
-                {testData.expiration}
-              </p>
+              <p className="text-sm font-semibold text-gray-800">{testData.expiration}</p>
             </div>
 
             <button
@@ -176,13 +152,11 @@ export default function StripePaymentForm({
           {/* CVC */}
           <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-white px-3 py-2">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">
                 Código de seguridad
               </p>
 
-              <p className="text-sm font-semibold text-gray-800">
-                {testData.cvc}
-              </p>
+              <p className="text-sm font-semibold text-gray-800">{testData.cvc}</p>
             </div>
 
             <button
@@ -197,35 +171,27 @@ export default function StripePaymentForm({
           {/* País */}
           <div className="flex items-center justify-between rounded-lg border border-indigo-100 bg-white px-3 py-2">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">
                 País
               </p>
 
-              <p className="text-sm font-semibold text-gray-800">
-                {testData.country}
-              </p>
+              <p className="text-sm font-semibold text-gray-800">{testData.country}</p>
             </div>
 
-            <span className="text-[11px] font-semibold text-indigo-500">
-              Automático
-            </span>
+            <span className="text-[11px] font-semibold text-indigo-500">Automático</span>
           </div>
 
           {/* Código postal */}
           <div className="flex items-center justify-between rounded-lg border border-indigo-100 bg-white px-3 py-2">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">
                 Código postal
               </p>
 
-              <p className="text-sm font-semibold text-gray-800">
-                {testData.postalCode}
-              </p>
+              <p className="text-sm font-semibold text-gray-800">{testData.postalCode}</p>
             </div>
 
-            <span className="text-[11px] font-semibold text-indigo-500">
-              Automático
-            </span>
+            <span className="text-[11px] font-semibold text-indigo-500">Automático</span>
           </div>
         </div>
       </div>
@@ -238,7 +204,7 @@ export default function StripePaymentForm({
           options={{
             fields: {
               billingDetails: {
-                address: 'never',
+                address: 'auto',
               },
             },
           }}

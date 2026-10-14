@@ -45,6 +45,8 @@ pglite-data/
 
 # Environment Variables (Keeps .env.example and .env.production)
 .env
+.dev.vars*
+**/.dev.vars*
 .env*.local
 .env.local
 .env.development.local

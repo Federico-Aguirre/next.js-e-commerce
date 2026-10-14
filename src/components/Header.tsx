@@ -5,7 +5,6 @@ import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { signOutAction } from '@/actions/auth';
 import { LocaleSwitcher } from '@/components/LocaleSwitcher';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -23,12 +22,11 @@ export function Header() {
   const t = messages.RootLayout;
   const storeT = messages.Storefront.nav;
   const { data: session, status } = useSession();
-  const [customUser, setCustomUser] = useState<{ id: string } | null>(null);
   const cartProductCount = useCartStore((state) => state.getCartCount());
   const productsPath = locale === 'es' ? '/es/products' : '/products';
   const localizedPath = (path: string) =>
     locale === 'es' ? `/es${path === '/' ? '' : path}` : path;
-  const isAuthenticated = !!session?.user || !!customUser;
+  const isAuthenticated = !!session?.user;
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') ?? '');
   const [cartHydrated, setCartHydrated] = useState(false);
 
@@ -36,13 +34,6 @@ export function Header() {
     queueMicrotask(() => {
       setCartHydrated(true);
     });
-
-    fetch('/api/auth/me')
-      .then((response) => response.json())
-      .then((data: { authenticated?: boolean; user?: { id: string } }) => {
-        setCustomUser(data.authenticated && data.user ? data.user : null);
-      })
-      .catch(() => setCustomUser(null));
   }, []);
 
   useEffect(() => {
@@ -78,9 +69,7 @@ export function Header() {
   };
 
   const handleSignOut = async () => {
-    await signOutAction();
     await signOut({ redirect: false });
-    setCustomUser(null);
     router.push(localizedPath('/'));
     router.refresh();
   };
@@ -115,6 +104,14 @@ export function Header() {
           <Link href={localizedPath('/contact')} className="transition hover:text-foreground">
             {t.contact_link}
           </Link>
+          <Link href={localizedPath('/historial')} className="transition hover:text-foreground">
+            Historial
+          </Link>
+          {isAuthenticated && session?.user?.isAdmin && (
+            <Link href={localizedPath('/dashboard')} className="transition hover:text-foreground">
+              {t.dashboard_link}
+            </Link>
+          )}
         </nav>
 
         <div className="ml-auto hidden max-w-sm min-w-0 flex-1 md:block">
@@ -162,7 +159,7 @@ export function Header() {
             aria-label={storeT.account}
             title={storeT.account}
           >
-            <Link href={localizedPath('/sign-in')}>
+            <Link href={localizedPath(isAuthenticated ? '/account' : '/sign-in')}>
               <UserRound className="size-4" aria-hidden="true" />
             </Link>
           </Button>

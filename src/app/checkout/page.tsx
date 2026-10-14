@@ -1,8 +1,9 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-
+import { useEffect } from 'react';
 import { AuthRequiredNotice } from '@/components/checkout/AuthRequiredNotice';
+import DeliveryAddressSummary from '@/components/checkout/DeliveryAddressSummary';
 import CheckoutForm from '@/components/checkout/mercado-pago/CheckoutForm';
 import TestCardButton from '@/components/checkout/mercado-pago/TestCardButton';
 import OrderSummary from '@/components/checkout/OrderSummary';
@@ -20,6 +21,24 @@ export default function DirectCardCheckoutPage() {
     handleChange,
     handleSubmit,
   } = useDirectCardCheckout();
+
+  useEffect(() => {
+    if (
+      window.location.protocol === 'https:' ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1'
+    ) {
+      return;
+    }
+
+    const secureSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    if (!secureSiteUrl?.startsWith('https://')) return;
+
+    const target = new URL(secureSiteUrl);
+    target.pathname = window.location.pathname;
+    target.search = window.location.search;
+    window.location.replace(target.toString());
+  }, []);
 
   if (status === 'loading') {
     return <div className="p-8 text-center">Cargando...</div>;
@@ -52,6 +71,8 @@ export default function DirectCardCheckoutPage() {
           onChange={handleChange}
           onSubmit={handleSubmit}
         />
+
+        <DeliveryAddressSummary />
       </div>
     </div>
   );

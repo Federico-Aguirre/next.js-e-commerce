@@ -40,18 +40,30 @@ model Session {
 }
 
 model User {
-  id            String     @id @default(uuid())
-  name          String?
-  email         String?    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String? // es opcional porque los de Google no tienen contraseña
-  createdAt     DateTime   @default(now())
+  id                 String     @id @default(uuid())
+  name               String?
+  firstName          String?
+  lastName           String?
+  phone              String?
+  dni                String?
+  shippingStreet     String?
+  shippingNumber     String?
+  shippingApartment  String?
+  shippingCity       String?
+  shippingProvince   String?
+  shippingPostalCode String?
+  shippingCountry    String?    @default("Argentina")
+  email              String?    @unique
+  emailVerified      DateTime?
+  image              String?
+  password           String? // es opcional porque los de Google no tienen contraseña
+  createdAt          DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   accounts      Account[]
   sessions      Session[]
   orders        Order[]
   cartItems     CartItem[]
+  isAdmin       Boolean    @default(false)
 }
 
 model WishlistItem {
@@ -96,6 +108,7 @@ model Product {
   description String           @db.Text
   price       Float
   category    String
+  isActive    Boolean          @default(true)
   variants    ProductVariant[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -118,24 +131,65 @@ model VariantImage {
 }
 
 model ProductSku {
-  id        String         @id @default(uuid())
-  articleId Int            @unique
-  size      String
-  stock     Int            @default(10)
-  variantId String
-  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade) // 🌟 Corregido: [id]
+  id                  String         @id @default(uuid())
+  articleId           Int            @unique
+  size                String
+  stock               Int            @default(10)
+  shippingWeightGrams Int?
+  shippingLengthCm    Int?
+  shippingWidthCm     Int?
+  shippingHeightCm    Int?
+  lowStockAlertSent   Boolean        @default(false)
+  lowStockAlertedAt   DateTime?
+  variantId           String
+  variant             ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade) // 🌟 Corregido: [id]
 }
 
 model Order {
-  id        String      @id @default(uuid())
-  userId    String
-  total     Float
-  status    String // "PENDING", "PAID", "EXPIRED"
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  expiresAt DateTime
-  user      User        @relation(fields: [userId], references: [id])
-  items     OrderItem[]
+  id                 String      @id @default(uuid())
+  orderNumber        Int         @unique @default(autoincrement())
+  userId             String
+  total              Float
+  status             String // Payment status: "PENDING", "PAID", "REFUND_PENDING", "REFUNDED", "EXPIRED"
+  checkoutKey        String?     @unique
+  paymentProvider     String?
+  paymentExternalId   String?
+  refundExternalId    String?
+  refundStatus        String?
+  refundedAt          DateTime?
+  cancelledAt         DateTime?
+  deliveredAt         DateTime?
+  fulfillmentStatus   String      @default("PENDING")
+  trackingCode        String?
+  estimatedDeliveryAt DateTime?
+  lastDeliveryAlertAt DateTime?
+  shippingProvider    String?
+  shippingMode        String?
+  shippingExternalId  String?
+  shippingCarrier     String?
+  shippingService     String?
+  shippingRate        Float?
+  shippingCurrency    String?
+  shippingLabelUrl    String?
+  shippingTrackingUrl String?
+  shippingStatus      String?
+  shippingError       String?       @db.Text
+  deliveryFirstName   String?
+  deliveryLastName    String?
+  deliveryPhone       String?
+  deliveryDni         String?
+  deliveryStreet      String?
+  deliveryNumber      String?
+  deliveryApartment   String?
+  deliveryCity        String?
+  deliveryProvince    String?
+  deliveryPostalCode  String?
+  deliveryCountry     String?
+  createdAt           DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  expiresAt          DateTime
+  user               User        @relation(fields: [userId], references: [id])
+  items              OrderItem[]
 }
 
 // 🛒 items comprados, es el historial
@@ -160,4 +214,31 @@ model OrderOrReservation {
   status    String // "PENDING_PAYMENT", "PAID", "EXPIRED"
   createdAt DateTime @default(now())
   expiresAt DateTime // 🌟 La clave: createdAt + 10 minutos
+}
+
+model AnalyticsVisit {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  device    String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([device, createdAt])
+}
+
+model InventoryAlertSettings {
+  id        String   @id @default("default")
+  enabled   Boolean  @default(false)
+  threshold Int      @default(5)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StoreSubscription {
+  id                String    @id @default("default")
+  status            String    @default("ACTIVE")
+  nextPaymentAt     DateTime?
+  commissionPercent Float     @default(10)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }

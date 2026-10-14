@@ -18,10 +18,9 @@ export type PayPalCardSession = {
     orderId: string,
     options?: {
       billingAddress?: {
-        addressLine1?: string;
-        addressLine2?: string;
-        adminArea1?: string;
-        adminArea2?: string;
+        streetAddress?: string;
+        city?: string;
+        state?: string;
         countryCode?: string;
         postalCode?: string;
       };

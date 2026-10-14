@@ -32,8 +32,6 @@ export type {
   SearchProvider,
   SearchQuery,
   SearchResult,
-  SessionAuth,
-  SessionUser,
   ShippingGateway,
   ShippingOption,
   TaxGateway,
@@ -66,11 +64,5 @@ export type {
   PromotionRepository,
 } from './domain';
 export { calculatePromotionDiscount } from './domain';
-export { assertCustomerOwnership, sessionAuth } from './session';
 export { assertIdempotencyKey } from './validation';
-export {
-  calculateCartSubtotal,
-  calculateOrderTotal,
-  calculateTaxTotal,
-  sumMoney,
-} from './pricing';
+export { calculateCartSubtotal, calculateOrderTotal, calculateTaxTotal, sumMoney } from './pricing';

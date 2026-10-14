@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "ecommerce-order-alert-cron",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-10-05",
+  "workers_dev": true,
+  "triggers": {
+    "crons": ["*/30 * * * *"],
+  },
+  "secrets": {
+    "required": ["ALERTS_ENDPOINT_URL", "CRON_SECRET"],
+  },
+}

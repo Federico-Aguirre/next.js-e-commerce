@@ -14,28 +14,12 @@ const COLOR_RULES = [
   {
     name: 'Gray',
     id: 'gray',
-    aliases: [
-      'grey',
-      'gray',
-      'aluminum',
-      'silver',
-      'slate',
-      'graphite',
-      'steel',
-    ],
+    aliases: ['grey', 'gray', 'aluminum', 'silver', 'slate', 'graphite', 'steel'],
   },
   {
     name: 'Blue',
     id: 'blue',
-    aliases: [
-      'blue',
-      'navy',
-      'royal blue',
-      'cobalt',
-      'aqua',
-      'turquoise',
-      'teal',
-    ],
+    aliases: ['blue', 'navy', 'royal blue', 'cobalt', 'aqua', 'turquoise', 'teal'],
   },
   {
     name: 'Green',
@@ -90,8 +74,7 @@ type ColorMatch = {
   index: number;
 };
 
-const escapeRegExp = (value: string) =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const findColorMatches = (value: string): ColorMatch[] => {
   const lowerValue = value.toLowerCase();
@@ -99,9 +82,7 @@ const findColorMatches = (value: string): ColorMatch[] => {
 
   for (const rule of COLOR_RULES) {
     for (const alias of rule.aliases) {
-      const index = lowerValue.search(
-        new RegExp(`\\b${escapeRegExp(alias)}\\b`, 'i'),
-      );
+      const index = lowerValue.search(new RegExp(`\\b${escapeRegExp(alias)}\\b`, 'i'));
 
       if (index >= 0) {
         matches.push({
@@ -165,65 +146,17 @@ const MATERIALS_BY_CATEGORY: Record<string, string[]> = {
   jackets: ['Nylon', 'Polyester', 'Wool Blend', 'Leather', 'Softshell'],
   pants: ['Cotton', 'Denim', 'Twill', 'Viscose', 'Corduroy', 'Wool Blend'],
   tshirts: ['Cotton', 'Modal', 'Linen', 'Jersey', 'Bamboo', 'Cotton Blend'],
-  hoodies: [
-    'Fleece',
-    'French Terry',
-    'Cotton',
-    'Polyester',
-    'Sherpa',
-    'Wool Blend',
-  ],
-  sneakers: [
-    'Mesh',
-    'Knit Textile',
-    'Synthetic Leather',
-    'Suede',
-    'Leather',
-    'Canvas',
-  ],
-  'mens-shirts': [
-    'Cotton',
-    'Linen',
-    'Flannel',
-    'Viscose',
-    'Oxford Cotton',
-    'Denim',
-  ],
-  'womens-dresses': [
-    'Cotton',
-    'Linen',
-    'Satin',
-    'Silk',
-    'Viscose',
-    'Chiffon',
-    'Rayon',
-  ],
+  hoodies: ['Fleece', 'French Terry', 'Cotton', 'Polyester', 'Sherpa', 'Wool Blend'],
+  sneakers: ['Mesh', 'Knit Textile', 'Synthetic Leather', 'Suede', 'Leather', 'Canvas'],
+  'mens-shirts': ['Cotton', 'Linen', 'Flannel', 'Viscose', 'Oxford Cotton', 'Denim'],
+  'womens-dresses': ['Cotton', 'Linen', 'Satin', 'Silk', 'Viscose', 'Chiffon', 'Rayon'],
   tops: ['Cotton', 'Modal', 'Rayon', 'Linen', 'Jersey', 'Viscose'],
-  'mens-shoes': [
-    'Mesh',
-    'Leather',
-    'Synthetic Leather',
-    'Suede',
-    'Canvas',
-    'Knit Textile',
-  ],
-  'womens-shoes': [
-    'Leather',
-    'Suede',
-    'Synthetic Leather',
-    'Mesh',
-    'Canvas',
-    'Satin',
-  ],
+  'mens-shoes': ['Mesh', 'Leather', 'Synthetic Leather', 'Suede', 'Canvas', 'Knit Textile'],
+  'womens-shoes': ['Leather', 'Suede', 'Synthetic Leather', 'Mesh', 'Canvas', 'Satin'],
 };
 
 const getMaterial = (category: string, index: number) => {
-  const materials = MATERIALS_BY_CATEGORY[category] ?? [
-    'Cotton',
-    'Polyester',
-    'Nylon',
-    'Viscose',
-  ];
+  const materials = MATERIALS_BY_CATEGORY[category] ?? ['Cotton', 'Polyester', 'Nylon', 'Viscose'];
 
   return materials[index % materials.length]!;
 };
@@ -613,9 +546,7 @@ const rawProductsData: Product[] = [
       {
         id: 'v22',
         colorName: 'Grey',
-        images: [
-          { id: 'angle-10-1a', url: '/images/products/sweatshirt2-1a.webp' },
-        ],
+        images: [{ id: 'angle-10-1a', url: '/images/products/sweatshirt2-1a.webp' }],
         skus: [
           { id: 's65', articleId: 65, size: 'S', stock: 15 },
           { id: 's66', articleId: 66, size: 'M', stock: 22 },
@@ -625,9 +556,7 @@ const rawProductsData: Product[] = [
       {
         id: 'v23',
         colorName: 'Red',
-        images: [
-          { id: 'angle-10-1b', url: '/images/products/sweatshirt2-1b.webp' },
-        ],
+        images: [{ id: 'angle-10-1b', url: '/images/products/sweatshirt2-1b.webp' }],
         skus: [
           { id: 's68', articleId: 68, size: 'S', stock: 6 },
           { id: 's69', articleId: 69, size: 'M', stock: 11 },
@@ -671,24 +600,10 @@ const importedClothingProductsData: readonly ImportedClothingRow[] = [
   [89, 'Nike Baseball Cleats', 'mens-shoes', 'Men', 84.99, 'Nike'],
   [90, 'Puma Future Rider Trainers', 'mens-shoes', 'Unisex', 79.99, 'Puma'],
   [91, 'Sports Sneakers Off White & Red', 'mens-shoes', 'Men', 69.99, 'Adidas'],
-  [
-    92,
-    'Sports Sneakers Off White Red',
-    'mens-shoes',
-    'Unisex',
-    74.99,
-    'Adidas',
-  ],
+  [92, 'Sports Sneakers Off White Red', 'mens-shoes', 'Unisex', 74.99, 'Adidas'],
 
   [185, 'Black & Brown Slipper', 'womens-shoes', 'Women', 44.99, 'H&M'],
-  [
-    186,
-    'Calvin Klein Heel Shoes',
-    'womens-shoes',
-    'Women',
-    109.99,
-    'Calvin Klein',
-  ],
+  [186, 'Calvin Klein Heel Shoes', 'womens-shoes', 'Women', 109.99, 'Calvin Klein'],
   [187, 'Golden Shoes Woman', 'womens-shoes', 'Women', 94.99, 'Zara'],
   [188, 'Pampi Shoes', 'womens-shoes', 'Women', 59.99, 'H&M'],
   [189, 'Red Shoes', 'womens-shoes', 'Women', 64.99, 'Zara'],
@@ -741,52 +656,47 @@ const importedClothingProducts: Product[] = importedClothingProductsData.map(
   }),
 );
 
-export const productsData: Product[] = [
-  ...rawProductsData,
-  ...importedClothingProducts,
-].map((product, index) => ({
-  ...product,
+export const productsData: Product[] = [...rawProductsData, ...importedClothingProducts].map(
+  (product, index) => ({
+    ...product,
 
-  slug:
-    product.slug ||
-    `${product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${product.id}`,
+    slug: product.slug || `${product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${product.id}`,
 
-  gender:
-    product.gender ??
-    (product.category === 'jackets' || product.category === 'sneakers'
-      ? 'Men'
-      : 'Unisex'),
+    gender:
+      product.gender ??
+      (product.category === 'jackets' || product.category === 'sneakers' ? 'Men' : 'Unisex'),
 
-  material: product.material ?? getMaterial(product.category, index),
+    material: product.material ?? getMaterial(product.category, index),
 
-  brand:
-    product.brand ?? ['Adidas', 'Nike', 'Columbia', 'Under Armour'][index % 4]!,
+    brand: product.brand ?? ['Adidas', 'Nike', 'Columbia', 'Under Armour'][index % 4]!,
 
-  sku: product.sku ?? `NOVA-${product.id}`,
+    sku: product.sku ?? `NOVA-${product.id}`,
 
-  rating: product.rating ?? Number((4 + (index % 10) / 10).toFixed(1)),
+    rating: product.rating ?? Number((4 + (index % 10) / 10).toFixed(1)),
 
-  discount: product.discount ?? [0, 5, 10, 15][index % 4]!,
+    discount: product.discount ?? [0, 5, 10, 15][index % 4]!,
 
-  variants: product.variants.map((variant) => {
-    const normalizedColor = normalizeColor(variant.colorName);
+    variants: product.variants.map((variant) => {
+      const normalizedColor = normalizeColor(variant.colorName);
 
-    return {
-      ...variant,
+      return {
+        ...variant,
 
-      colorName: normalizedColor.name,
+        sourceColorName: variant.colorName,
+        colorName: normalizedColor.name,
 
-      colorGroup: normalizedColor.group,
+        colorGroup: normalizedColor.group,
 
-      color: {
-        id: normalizedColor.id,
-        name: normalizedColor.name,
-      },
+        color: {
+          id: normalizedColor.id,
+          name: normalizedColor.name,
+        },
 
-      images: variant.images.map((image) => ({
-        ...image,
-        url: image.url.replace(/^\/images\//, '/assets/images/'),
-      })),
-    };
+        images: variant.images.map((image) => ({
+          ...image,
+          url: image.url.replace(/^\/images\//, '/assets/images/'),
+        })),
+      };
+    }),
   }),
-}));
+);

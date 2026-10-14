@@ -2,7 +2,6 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
-  phone?: string;
   shippingAddress?: {
     street: string;
     city: string;

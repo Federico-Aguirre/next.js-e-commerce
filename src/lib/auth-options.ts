@@ -1,36 +1,20 @@
-import { NextAuthOptions } from 'next-auth';
-import GoogleProvider from 'next-auth/providers/google';
-import FacebookProvider from 'next-auth/providers/facebook';
-import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
+import bcrypt from 'bcryptjs';
+import type { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import FacebookProvider from 'next-auth/providers/facebook';
+import GoogleProvider from 'next-auth/providers/google';
+import { Env } from '@/lib/Env';
 import { prisma } from '@/lib/prisma';
-import { compare } from 'bcryptjs';
-import { Env } from '@/lib/env';
-
-declare module 'next-auth' {
-  type User = {
-    isAdmin?: boolean;
-  };
-  type Session = {
-    user: {
-      id: string;
-      isAdmin?: boolean;
-    } & DefaultSession['user'];
-  };
-}
-
-declare module 'next-auth/jwt' {
-  type JWT = {
-    id?: string;
-    isAdmin?: boolean;
-  };
-}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET || Env.NEXTAUTH_SECRET || 'dev_secret_key_123456789',
+  // En desarrollo la app puede abrirse por localhost/HTTP o por ngrok/HTTPS.
+  // No fijamos Secure en ese entorno para que la sesión funcione en ambos casos.
+  useSecureCookies: process.env.NODE_ENV === 'production',
   session: {
-    strategy: 'jwt',
+    strategy: 'jwt', // Necesario para combinar PrismaAdapter con CredentialsProvider
   },
   providers: [
     GoogleProvider({
@@ -57,19 +41,19 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user || !user.password) {
-          throw new Error('Usuario no encontrado');
+          throw new Error('Usuario no encontrado o autenticado con proveedor');
         }
 
-        const isValidPassword = await compare(credentials.password, user.password);
+        const isValid = await bcrypt.compare(credentials.password, user.password);
 
-        if (!isValidPassword) {
+        if (!isValid) {
           throw new Error('Contraseña incorrecta');
         }
 
         return {
           id: user.id,
-          email: user.email,
           name: user.name,
+          email: user.email,
           isAdmin: user.isAdmin,
         };
       },
@@ -90,13 +74,18 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (token.id) {
-        session.user.id = token.id as string;
-      }
-      if (token.isAdmin !== undefined) {
-        session.user.isAdmin = token.isAdmin as boolean;
+      if (session.user) {
+        if (token.id) {
+          session.user.id = token.id as string;
+        }
+        if (token.isAdmin !== undefined) {
+          session.user.isAdmin = token.isAdmin as boolean;
+        }
       }
       return session;
     },
+  },
+  pages: {
+    signIn: '/sign-in',
   },
 };

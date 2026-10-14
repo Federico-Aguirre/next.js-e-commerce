@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth-options';
+import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
 import { prisma } from '@/lib/prisma';
 
 type OrderItemInput = {
@@ -35,6 +36,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const orderUser = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!orderUser) {
+      return NextResponse.json({ message: 'Usuario no encontrado' }, { status: 404 });
+    }
+
     const fechaExpiracion = new Date();
 
     fechaExpiracion.setDate(fechaExpiracion.getDate() + 7);
@@ -45,7 +54,20 @@ export async function POST(request: Request) {
         userId,
         total: Number(total),
         status: 'PAID',
+        paymentProvider: 'MERCADOPAGO',
+        paymentExternalId: paymentId,
         expiresAt: fechaExpiracion,
+        deliveryFirstName: orderUser.firstName,
+        deliveryLastName: orderUser.lastName,
+        deliveryPhone: orderUser.phone,
+        deliveryDni: orderUser.dni,
+        deliveryStreet: orderUser.shippingStreet,
+        deliveryNumber: orderUser.shippingNumber,
+        deliveryApartment: orderUser.shippingApartment,
+        deliveryCity: orderUser.shippingCity,
+        deliveryProvince: orderUser.shippingProvince,
+        deliveryPostalCode: orderUser.shippingPostalCode,
+        deliveryCountry: orderUser.shippingCountry,
 
         items: {
           create: items.map((item: OrderItemInput) => ({
@@ -65,6 +87,9 @@ export async function POST(request: Request) {
         items: true,
       },
     });
+
+    void sendPaidOrderAlert(nuevaOrden.id);
+    await sendLowStockAlerts();
 
     return NextResponse.json(nuevaOrden, {
       status: 201,
@@ -138,6 +163,20 @@ export async function GET(request: Request) {
 
       include: {
         items: true,
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            phone: true,
+            shippingStreet: true,
+            shippingNumber: true,
+            shippingApartment: true,
+            shippingCity: true,
+            shippingProvince: true,
+            shippingPostalCode: true,
+            shippingCountry: true,
+          },
+        },
       },
 
       orderBy: {
@@ -145,9 +184,35 @@ export async function GET(request: Request) {
       },
     });
 
-    const ordenesPagadas = ordenes.filter((orden: { status: string }) => orden.status === 'PAID');
+    const ordenesPagadas = ordenes
+      .filter((orden: { status: string }) =>
+        ['PAID', 'REFUND_PENDING', 'REFUNDED'].includes(orden.status),
+      )
+      .map((orden) => ({
+        ...orden,
+        deliveryFirstName: orden.deliveryFirstName ?? orden.user.firstName,
+        deliveryLastName: orden.deliveryLastName ?? orden.user.lastName,
+        deliveryPhone: orden.deliveryPhone ?? orden.user.phone,
+        deliveryStreet: orden.deliveryStreet ?? orden.user.shippingStreet,
+        deliveryNumber: orden.deliveryNumber ?? orden.user.shippingNumber,
+        deliveryApartment: orden.deliveryApartment ?? orden.user.shippingApartment,
+        deliveryCity: orden.deliveryCity ?? orden.user.shippingCity,
+        deliveryProvince: orden.deliveryProvince ?? orden.user.shippingProvince,
+        deliveryPostalCode: orden.deliveryPostalCode ?? orden.user.shippingPostalCode,
+        deliveryCountry: orden.deliveryCountry ?? orden.user.shippingCountry,
+        canCancel:
+          orden.status === 'PAID' &&
+          orden.fulfillmentStatus === 'PENDING' &&
+          !orden.shippingExternalId,
+        paymentExternalId: undefined,
+        refundExternalId: undefined,
+        shippingExternalId: undefined,
+        shippingLabelUrl: undefined,
+        shippingError: undefined,
+        user: undefined,
+      }));
 
-    return NextResponse.json(ordenes);
+    return NextResponse.json(ordenesPagadas);
   } catch (error: unknown) {
     console.error('❌ Error al traer historial desde Aiven:', error);
 

@@ -2,15 +2,13 @@
 
 import { useSession } from 'next-auth/react';
 import { useEffect, useRef } from 'react';
-
 import { useCartStore } from '@/store/useCartStore';
 
 export default function CartSynchronizer() {
   const { data: session, status } = useSession();
   const { cart, setCart } = useCartStore();
 
-  const currentUserId =
-    (session?.user as any)?.id || session?.user?.email || '';
+  const currentUserId = (session?.user as any)?.id || session?.user?.email || '';
 
   const lastUserIdRef = useRef<string>('');
   const isInitialMergeDone = useRef<boolean>(false);
@@ -61,6 +59,10 @@ export default function CartSynchronizer() {
           mutation MergeCart($userId: String!, $localCart: [LocalCartItemInput!]!, $isInitial: Boolean) {
             mergeCart(userId: $userId, localCart: $localCart, isInitial: $isInitial) {
               productId
+              articleId
+              rootProductId
+              variantId
+              colorName
               title
               price
               size
@@ -79,9 +81,7 @@ export default function CartSynchronizer() {
               userId: currentUserId,
               isInitial,
               localCart: items.map((item) => {
-                const cleanId = Number(
-                  item.articleId || item.productId || item.id || 0,
-                );
+                const cleanId = Number(item.articleId || item.productId || item.id || 0);
                 return {
                   id: cleanId,
                   productId: cleanId,
@@ -119,12 +119,15 @@ export default function CartSynchronizer() {
 
         if (dbServerCart && Array.isArray(dbServerCart)) {
           dbServerCart.forEach((dbItem: any) => {
-            const finalId = Number(dbItem.productId || dbItem.id);
-            const key = `${finalId}-${dbItem.size.toUpperCase()}`;
+            const articleId = Number(dbItem.articleId || dbItem.productId || dbItem.id);
+            const productId = Number(dbItem.rootProductId || articleId);
+            const key = `${articleId}-${dbItem.size.toUpperCase()}`;
             consolidatedMap.set(key, {
-              id: finalId,
-              productId: finalId,
-              articleId: finalId,
+              id: productId,
+              productId,
+              articleId,
+              variantId: dbItem.variantId || undefined,
+              colorName: dbItem.colorName || '',
               title: dbItem.title,
               price: Number(dbItem.price),
               size: dbItem.size,
@@ -135,22 +138,20 @@ export default function CartSynchronizer() {
         }
 
         anonymousLocalCart.forEach((localItem: any) => {
-          const finalId = Number(
-            localItem.articleId || localItem.productId || localItem.id,
-          );
-          const key = `${finalId}-${localItem.size.toUpperCase()}`;
+          const articleId = Number(localItem.articleId || localItem.productId || localItem.id);
+          const productId = Number(localItem.productId || localItem.id || articleId);
+          const key = `${articleId}-${localItem.size.toUpperCase()}`;
 
           if (consolidatedMap.has(key)) {
             const existing = consolidatedMap.get(key);
-            existing.quantity = Math.max(
-              existing.quantity,
-              Number(localItem.quantity),
-            );
+            existing.quantity = Math.max(existing.quantity, Number(localItem.quantity));
           } else {
             consolidatedMap.set(key, {
-              id: finalId,
-              productId: finalId,
-              articleId: finalId,
+              id: productId,
+              productId,
+              articleId,
+              variantId: localItem.variantId,
+              colorName: localItem.colorName || '',
               title: localItem.title,
               price: Number(localItem.price),
               size: localItem.size,

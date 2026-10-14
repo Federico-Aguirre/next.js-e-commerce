@@ -1,8 +1,7 @@
 export const dynamic = 'force-dynamic';
 import 'dotenv/config';
+import { hash } from 'bcryptjs';
 import { NextResponse } from 'next/server';
-
-import { hashPassword } from '@/lib/auth-utils';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
@@ -10,10 +9,7 @@ export async function POST(request: Request) {
     const { name, email, password } = await request.json();
 
     if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: 'Todos los campos son obligatorios' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Todos los campos son obligatorios' }, { status: 400 });
     }
 
     // 1. Validar si el email ya existe en el servidor
@@ -29,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Encriptar la contraseña de forma segura
-    const hashedPassword = await hashPassword(password);
+    const hashedPassword = await hash(password, 10);
 
     // 3. Crear el registro en la base de datos
     const newUser = await prisma.user.create({
@@ -54,10 +50,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Error interno al registrar el usuario',
+        error: error instanceof Error ? error.message : 'Error interno al registrar el usuario',
       },
       { status: 500 },
     );

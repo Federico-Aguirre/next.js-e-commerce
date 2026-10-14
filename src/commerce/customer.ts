@@ -4,7 +4,6 @@ export type CustomerProfile = {
   id: string;
   email: string;
   name?: string;
-  phone?: string;
 };
 
 export type CustomerAddress = Address & {

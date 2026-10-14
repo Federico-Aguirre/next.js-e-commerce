@@ -46,7 +46,7 @@ export type CatalogVariant = ProductVariant & {
   compareAtPrice?: Money;
   inventory: CatalogInventory;
   media: readonly CatalogMedia[];
-  sizeStock?: Readonly<Record<string, { articleId: number; stock: number }>>;
+  sizeStock?: Readonly<Record<string, { articleId: number; stock: number; variantId: string }>>;
 };
 
 export type CatalogProduct = Omit<Product, 'variants'> & {

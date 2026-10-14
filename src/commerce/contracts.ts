@@ -152,12 +152,7 @@ export type PaymentRequest = {
   idempotencyKey: string;
 };
 
-export type PaymentStatus =
-  | 'pending'
-  | 'authorized'
-  | 'captured'
-  | 'failed'
-  | 'cancelled';
+export type PaymentStatus = 'pending' | 'authorized' | 'captured' | 'failed' | 'cancelled';
 
 export type PaymentResult = {
   status: PaymentStatus;
@@ -169,12 +164,6 @@ export type SearchQuery = Omit<CatalogQuery, 'query'> & {
 };
 
 export type SearchResult = CatalogResult;
-
-export type SessionUser = {
-  id: CustomerId;
-  email: string;
-  name?: string;
-};
 
 export type CommerceRepository = {
   getProduct: (productId: ProductId) => Promise<Product | null>;
@@ -195,10 +184,7 @@ export type PaymentGateway = {
 };
 
 export type ShippingGateway = {
-  listOptions: (input: {
-    cart: Cart;
-    address: Address;
-  }) => Promise<readonly ShippingOption[]>;
+  listOptions: (input: { cart: Cart; address: Address }) => Promise<readonly ShippingOption[]>;
 };
 
 export type TaxGateway = {
@@ -213,26 +199,15 @@ export type SearchProvider = {
   search: (query: SearchQuery) => Promise<SearchResult>;
 };
 
-export type SessionAuth = {
-  getCurrentUser: () => Promise<SessionUser | null>;
-  requireCurrentUser: () => Promise<SessionUser>;
-};
-
 export type CheckoutRepository = {
   getSession: (sessionId: CheckoutSessionId) => Promise<CheckoutSession | null>;
   saveSession: (session: CheckoutSession) => Promise<void>;
 };
 
 export type CheckoutService = {
-  createSession: (
-    cartId: CartId,
-    customerId?: CustomerId,
-  ) => Promise<CheckoutSession>;
+  createSession: (cartId: CartId, customerId?: CustomerId) => Promise<CheckoutSession>;
   refreshTotals: (sessionId: CheckoutSessionId) => Promise<CheckoutSession>;
-  placeOrder: (
-    sessionId: CheckoutSessionId,
-    idempotencyKey: string,
-  ) => Promise<Order>;
+  placeOrder: (sessionId: CheckoutSessionId, idempotencyKey: string) => Promise<Order>;
 };
 
 export type CacheStrategy = {

@@ -1,10 +1,10 @@
 'use client';
 
+import { signIn } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { useActionState } from 'react';
-
-import { signInAction, signUpAction } from '@/actions/auth';
+import { signUpAction } from '@/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,26 +25,41 @@ export function CredentialsForm({ mode }: CredentialsFormProps) {
   const searchParams = useSearchParams();
   const isRegistered = searchParams.get('registered') === 'true';
 
-  const action = mode === 'sign-in' ? signInAction : signUpAction;
-
   const [state, formAction, isPending] = useActionState(
     async (prevState: ActionResult, formData: FormData) => {
-      const result = await action(prevState, formData);
+      if (mode === 'sign-in') {
+        const email = String(formData.get('email') ?? '');
+        const password = String(formData.get('password') ?? '');
+
+        const result = await signIn('credentials', {
+          redirect: false,
+          email,
+          password,
+        });
+
+        if (result?.error) {
+          return {
+            error: result.error === 'CredentialsSignin' ? 'Credenciales inválidas.' : result.error,
+          };
+        }
+
+        router.push({
+          pathname: '/',
+          query: { loggedIn: 'true' },
+        });
+        router.refresh();
+        return { success: true };
+      }
+
+      const result = await signUpAction(prevState, formData);
 
       if (result?.success) {
-        if (mode === 'sign-up') {
-          router.push({
-            pathname: '/sign-in',
-            query: { registered: 'true' },
-          });
-        } else {
-          router.push({
-            pathname: '/',
-            query: { loggedIn: 'true' },
-          });
-          router.refresh();
-        }
+        router.push({
+          pathname: '/sign-in',
+          query: { registered: 'true' },
+        });
       }
+
       return result;
     },
     null,
@@ -72,36 +87,18 @@ export function CredentialsForm({ mode }: CredentialsFormProps) {
       {mode === 'sign-up' && (
         <div className="space-y-2">
           <Label htmlFor="name">{t('nameLabel')}</Label>
-          <Input
-            id="name"
-            name="name"
-            type="text"
-            required
-            placeholder="John Doe"
-          />
+          <Input id="name" name="name" type="text" required placeholder="John Doe" />
         </div>
       )}
 
       <div className="space-y-2">
         <Label htmlFor="email">{t('emailLabel')}</Label>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          required
-          placeholder="tu@email.com"
-        />
+        <Input id="email" name="email" type="email" required placeholder="tu@email.com" />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="password">{t('passwordLabel')}</Label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          required
-          placeholder="••••••••"
-        />
+        <Input id="password" name="password" type="password" required placeholder="••••••••" />
       </div>
 
       <Button type="submit" disabled={isPending} className="w-full">

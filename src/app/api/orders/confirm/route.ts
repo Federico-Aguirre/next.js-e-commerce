@@ -1,8 +1,9 @@
-import { MercadoPagoConfig, Order, Payment } from 'mercadopago';
+import { MercadoPagoConfig, Order } from 'mercadopago';
 import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
-
 import { authOptions } from '@/lib/auth-options';
+import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
+import { mercadoPagoPaymentConfig } from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
 
 interface OrderItemInput {
@@ -23,10 +24,6 @@ interface ConfirmOrderBody {
   total: number;
 }
 
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '',
-});
-
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -46,13 +43,7 @@ export async function POST(request: Request) {
 
     const { paymentId, orderId, items, total } = body;
 
-    if (
-      !paymentId ||
-      !orderId ||
-      !items ||
-      items.length === 0 ||
-      typeof total !== 'number'
-    ) {
+    if (!paymentId || !orderId || !items || items.length === 0 || typeof total !== 'number') {
       return NextResponse.json(
         {
           message: 'Datos incompletos.',
@@ -62,6 +53,14 @@ export async function POST(request: Request) {
     }
 
     // Verificar la Order directamente con Mercado Pago.
+    const { accessToken } = mercadoPagoPaymentConfig();
+    if (!accessToken) {
+      return NextResponse.json(
+        { message: 'Falta configurar Mercado Pago del comercio.' },
+        { status: 500 },
+      );
+    }
+    const client = new MercadoPagoConfig({ accessToken });
     const orderClient = new Order(client);
 
     const mercadoPagoOrder = await orderClient.get({
@@ -97,6 +96,14 @@ export async function POST(request: Request) {
       return NextResponse.json(existingOrder, { status: 200 });
     }
 
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!dbUser) {
+      return NextResponse.json({ message: 'No se encontró el usuario.' }, { status: 404 });
+    }
+
     const fechaExpiracion = new Date();
 
     fechaExpiracion.setDate(fechaExpiracion.getDate() + 7);
@@ -107,7 +114,20 @@ export async function POST(request: Request) {
         userId,
         total: Number(total),
         status: 'PAID',
+        paymentProvider: 'MERCADOPAGO',
+        paymentExternalId: paymentId,
         expiresAt: fechaExpiracion,
+        deliveryFirstName: dbUser.firstName,
+        deliveryLastName: dbUser.lastName,
+        deliveryPhone: dbUser.phone,
+        deliveryDni: dbUser.dni,
+        deliveryStreet: dbUser.shippingStreet,
+        deliveryNumber: dbUser.shippingNumber,
+        deliveryApartment: dbUser.shippingApartment,
+        deliveryCity: dbUser.shippingCity,
+        deliveryProvince: dbUser.shippingProvince,
+        deliveryPostalCode: dbUser.shippingPostalCode,
+        deliveryCountry: dbUser.shippingCountry,
 
         items: {
           create: items.map((item) => ({
@@ -129,12 +149,14 @@ export async function POST(request: Request) {
       },
     });
 
+    void sendPaidOrderAlert(nuevaOrden.id);
+    await sendLowStockAlerts();
+
     return NextResponse.json(nuevaOrden, { status: 201 });
   } catch (error: unknown) {
     console.error('❌ Error confirmando la orden:', error);
 
-    const message =
-      error instanceof Error ? error.message : 'Error interno del servidor.';
+    const message = error instanceof Error ? error.message : 'Error interno del servidor.';
 
     return NextResponse.json(
       {

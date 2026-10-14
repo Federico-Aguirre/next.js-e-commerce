@@ -2,76 +2,36 @@
 
 ## Purpose
 
-This repository is a reusable Next.js e-commerce starting point. It provides the application shell, internationalization, authentication, database tooling, testing, and replaceable commerce boundaries without assuming a specific store, catalog provider, payment processor, shipping service, or CMS.
+This repository is a reusable Next.js e-commerce starting point with a web storefront, an Expo mobile app, internationalization, authentication, PostgreSQL/Prisma persistence, testing, and replaceable commerce boundaries.
 
-## Replaceable configuration
+## Authentication
 
-`src/utils/StoreConfig.ts` is the small provider-neutral configuration surface for storefront identity and monetary presentation defaults.
+The web application uses NextAuth as the single browser authentication and session system. Do not create parallel browser cookies, custom JWT session helpers, or a second web login/logout flow.
 
-Adapt `StoreConfig.name`, `StoreConfig.currency`, `StoreConfig.locale`, and `StoreConfig.currencyDisplay` for each project.
+The database `User.isAdmin` field is the source of truth for current administrative authorization. Protected server routes must validate the authenticated identity and authorization server-side.
 
-`formatStorePrice()` is presentation-only. It does not calculate taxes, discounts, shipping, payment totals, or inventory.
+The Expo app may use the dedicated mobile authentication endpoints under `src/app/api/auth/`. These exist for native-client interoperability and are separate from the browser UI flow.
 
-## Recommended boundaries
+## Replaceable boundaries
 
-### Domain and persistence
+Keep catalog, variants, inventory, cart, checkout, orders, addresses, pricing, promotions, and payments behind typed domain or service boundaries. UI components should not own provider SDK calls or database credentials.
 
-Keep catalog, variants, inventory, cart, checkout, orders, and addresses in typed domain modules. Database schemas and repositories own persistence concerns; UI components consume domain contracts rather than database tables directly.
+## Pricing and checkout
 
-### Storefront
+Server-side totals are authoritative. Client state is untrusted for prices, discounts, tax, shipping, stock, and final order totals. Payment/order attempts should use idempotency where supported.
 
-Pages and components own layout, interaction, accessibility, and localized presentation. They should not contain payment-provider SDK calls or database credentials.
+## Configuration and secrets
 
-### Commerce integrations
-
-Payment, shipping, tax, search, analytics, CMS, and external catalog systems belong behind narrow provider-neutral interfaces. A deterministic fake adapter is preferred for development and tests.
-
-### Authentication and authorization
-
-Server-side commerce operations must authorize ownership for carts, addresses, and orders before reading or mutating user-specific records.
-
-### Configuration and secrets
-
-Environment variables belong in `src/lib/Env.ts`. Public configuration may use `NEXT_PUBLIC_*` only when intentionally browser-safe. Provider secrets remain server-only.
-
-## Commerce integration ports
-
-`src/commerce/contracts.ts` is the provider-neutral integration boundary for the commerce domain. It defines replaceable ports for catalog/cart/order persistence, checkout sessions, customer sessions, payments, shipping, tax, search, caching, and idempotency. Concrete providers must implement these contracts rather than being imported by pages or components.
-
-`src/commerce/session.ts` is the server-only session boundary for the existing authenticated customer cookie. Ownership checks belong at the server/domain boundary, before customer-specific carts, addresses, checkout sessions, or orders are read or mutated.
-
-`src/commerce/pricing.ts` contains pure server-side monetary calculations. Client state must not be treated as authoritative for prices, taxes, discounts, shipping, or order totals.
-
-Checkout integrations should use an idempotency key for every order/payment attempt. The key is part of the normalized payment request and order contract so a concrete provider can implement safe retries without leaking provider-specific semantics into the storefront.
-
-## Payment boundary
-
-The base template exposes a provider-neutral payment contract: create a payment request from an immutable order total, return normalized status and provider reference, and keep provider-specific payloads inside the adapter.
-
-Stripe, Mercado Pago, PayPal, or another provider must never become a prerequisite of the base template.
-
-## Benchmark integration findings
-
-The current official benchmark set converges on a server-first commerce architecture: Vercel Commerce uses Server Components, Server Actions, Suspense and optimistic UI while isolating provider code; Saleor Paper uses a server-first cart/checkout, BFF session boundary, explicit cache invalidation and an extensible payment registry; Vendure's Next.js starter covers accounts, addresses, orders, search facets, promotions, checkout and multi-currency; Medusa's DTC starter covers multi-region commerce, promotion codes, checkout, accounts, addresses and order management.
-
-The reusable improvements implemented here are the provider-neutral equivalents of those boundaries rather than copies of any benchmark implementation: typed commerce repository ports, payment/shipping/tax/search/session/checkout/cache ports, explicit idempotency state, server-side ownership checks, and pure server-side money calculations.adding a live commerce SDK or provider credentials.
-
-## Database portability
-
-Production can use PostgreSQL through the same domain and repository boundaries. Avoid unnecessary database-specific assumptions.
+Environment variables must be validated centrally through `src/lib/Env.ts`. Secrets remain server-only. Never commit or document real credentials.
 
 ## Internationalization
 
-User-visible text belongs in `src/locales/en.json` and `src/locales/es.json` (or additional configured locales). Commerce components should use the existing `next-intl` infrastructure instead of hard-coded storefront copy.
+User-visible web strings belong in `src/locales/en.json`, `src/locales/es.json`, and any additional configured locale files. Use next-intl rather than hard-coded storefront copy.
 
-## Testing contract
+## Testing
 
-Keep unit tests for pure domain helpers and validation, integration/component tests for catalog/cart/checkout behavior, and Playwright E2E tests for the critical buyer journey.
+Prefer the smallest test level that proves the behavior. Use unit/integration tests for deterministic business logic and Playwright for critical browser flows. Do not require paid services or live payment transactions for normal tests.
 
-External providers should be mocked or replaced by deterministic local adapters. Tests should not require paid accounts, external API tokens, or live payment transactions.
+## Template adaptation
 
-## Adaptation checklist
-
-When creating a real project from the template, replace generic store configuration, add project-specific catalog data, choose shipping/tax/payment adapters, configure production environment variables, and retain provider-neutral boundaries.
-
-Do not copy provider SDK calls into pages or components. Keep integration-specific concerns behind the smallest possible adapter so providers can be substituted without redesigning the storefront.
+When turning this into a concrete store, replace generic storefront configuration, add project catalog data, choose provider adapters, configure production environment variables, and preserve the provider-neutral boundaries.

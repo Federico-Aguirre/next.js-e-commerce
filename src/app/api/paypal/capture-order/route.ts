@@ -1,23 +1,23 @@
 import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
-
 import { authOptions } from '@/lib/auth-options';
+import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
+import { paypalAuthAssertion, paypalPaymentConfig } from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
 
-const PAYPAL_API_BASE = 'https://api-m.sandbox.paypal.com';
+const PAYPAL_API_BASE =
+  process.env.PAYPAL_ENVIRONMENT === 'production'
+    ? 'https://api-m.paypal.com'
+    : 'https://api-m.sandbox.paypal.com';
 
 async function getPayPalAccessToken() {
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  const { clientId, clientSecret } = paypalPaymentConfig();
 
   if (!clientId || !clientSecret) {
-    throw new Error('Faltan PAYPAL_CLIENT_ID o PAYPAL_CLIENT_SECRET.');
+    throw new Error('Falta configurar PayPal.');
   }
 
-  const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString(
-    'base64',
-  );
+  const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
   const response = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
     method: 'POST',
@@ -37,11 +37,7 @@ async function getPayPalAccessToken() {
       data,
     });
 
-    throw new Error(
-      data.error_description ||
-        data.message ||
-        'No se pudo autenticar con PayPal.',
-    );
+    throw new Error(data.error_description || data.message || 'No se pudo autenticar con PayPal.');
   }
 
   return data.access_token as string;
@@ -152,17 +148,31 @@ export async function POST(request: Request) {
       );
     }
 
+    if (order.status !== 'PENDING') {
+      return NextResponse.json(
+        { message: 'La reserva ya no está disponible para capturar.' },
+        { status: 409 },
+      );
+    }
+
     const accessToken = await getPayPalAccessToken();
+    const paypalConfig = paypalPaymentConfig();
+    const paypalAssertion =
+      paypalConfig.splitEnabled && paypalConfig.clientId && paypalConfig.sellerMerchantId
+        ? paypalAuthAssertion(paypalConfig.clientId, paypalConfig.sellerMerchantId)
+        : undefined;
 
     const captureResponse = await fetch(
-      `${PAYPAL_API_BASE}/v2/checkout/orders/${encodeURIComponent(
-        paypalOrderId,
-      )}/capture`,
+      `${PAYPAL_API_BASE}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}/capture`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
+          ...(paypalConfig.partnerAttributionId
+            ? { 'PayPal-Partner-Attribution-Id': paypalConfig.partnerAttributionId }
+            : {}),
+          ...(paypalAssertion ? { 'PayPal-Auth-Assertion': paypalAssertion } : {}),
         },
         body: JSON.stringify({}),
       },
@@ -203,17 +213,30 @@ export async function POST(request: Request) {
       );
     }
 
+    const captureId = captureData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+    if (!captureId) {
+      return NextResponse.json(
+        { message: 'PayPal completó el pago pero no devolvió el capture ID.' },
+        { status: 502 },
+      );
+    }
+
     const updatedOrder = await prisma.order.update({
       where: {
         id: localOrderId,
       },
       data: {
         status: 'PAID',
+        paymentProvider: 'PAYPAL',
+        paymentExternalId: captureId,
       },
       include: {
         items: true,
       },
     });
+
+    void sendPaidOrderAlert(updatedOrder.id);
+    await sendLowStockAlerts();
 
     console.log('✅ ORDEN PAYPAL CONFIRMADA', {
       localOrderId,
@@ -237,9 +260,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         message:
-          error instanceof Error
-            ? error.message
-            : 'Error interno al capturar el pago de PayPal.',
+          error instanceof Error ? error.message : 'Error interno al capturar el pago de PayPal.',
       },
       {
         status: 500,

@@ -1,3 +1,5 @@
-# INSTRUCCIONES DE PROYECTO
+# Project AI Instructions
 
-- consulta y segui estrictamente todas las instrucciones de `agents.md` antes de generar o proponer cambios de código.
+Read and follow `ai/agents.md` before generating or proposing code changes.
+
+Use the task-routing and token-efficient workflow defined there; do not scan unrelated generated or dependency directories.

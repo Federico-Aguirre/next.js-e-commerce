@@ -14,6 +14,8 @@ export interface ProductSku {
 
 export interface ProductVariant {
   id: string;
+  sourceColorName?: string; // Nombre exacto original, usado para vincular con la variante de DB
+  colorGroup?: string;
   color?: {
     id: string;
     name: string;

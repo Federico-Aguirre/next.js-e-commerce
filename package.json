@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS='--dns-result-order=ipv4first' next dev -H 0.0.0.0 -p 3001 --webpack",
-    "dev:next": "NODE_OPTIONS='--dns-result-order=ipv4first' next dev -H 0.0.0.0 -p 3001 --webpack",
+    "dev:next": "concurrently -k -n \"NEXT,NGROK\" -c \"cyan,magenta\" \"NODE_OPTIONS='--dns-result-order=ipv4first' next dev -H 0.0.0.0 -p 3001 --webpack\" \"npx ngrok http 3001\"",
+    "tunnel": "npx ngrok http 3001",
     "build:next": "next build",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
@@ -26,6 +27,9 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
+    "notifications:telegram-chat-id": "tsx scripts/telegram-chat-id.ts",
+    "notifications:cloudflare:dev": "wrangler --cwd cloudflare/order-alert-cron dev --test-scheduled",
+    "notifications:cloudflare:deploy": "wrangler --cwd cloudflare/order-alert-cron deploy",
     "prepare": "husky"
   },
   "dependencies": {
@@ -87,6 +91,7 @@
     "@vitest/coverage-v8": "^4.1.11",
     "babel-plugin-react-compiler": "1.0.0",
     "checkly": "^9.5.0",
+    "concurrently": "^10.0.6",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "husky": "^9.1.7",
@@ -103,7 +108,8 @@
     "tsx": "^4.22.4",
     "typescript": "^5",
     "ultracite": "^7.12.0",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "wrangler": "^4.147.0"
   },
   "overrides": {
     "picomatch": "4.0.4"

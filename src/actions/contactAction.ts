@@ -5,7 +5,6 @@ import { headers } from 'next/headers';
 import { Resend } from 'resend';
 import { contactSchema } from '@/lib/schemas/contactSchema';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
 
 export async function sendContactForm(formData: unknown) {
@@ -47,11 +46,26 @@ export async function sendContactForm(formData: unknown) {
     return { success: false, error: 'submittedTooFast' };
   }
 
-  // 5. Send via Resend API
+  // 5. Validate email configuration before trying to send
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const recipientEmail = process.env.CONTACT_RECIPIENT_EMAIL?.trim();
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL?.trim() || 'Portfolio Contact <onboarding@resend.dev>';
+
+  if (!apiKey || !recipientEmail) {
+    console.error('Contact email configuration is incomplete.', {
+      hasResendApiKey: Boolean(apiKey),
+      hasRecipientEmail: Boolean(recipientEmail),
+    });
+    return { success: false, error: 'configurationError' };
+  }
+
+  // 6. Send via Resend API
   try {
+    const resend = new Resend(apiKey);
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL ?? 'Portfolio Contact <onboarding@resend.dev>',
-      to: [process.env.CONTACT_RECIPIENT_EMAIL ?? 'tu-correo@gmail.com'],
+      from: fromEmail,
+      to: [recipientEmail],
       replyTo: email,
       subject: `[Contacto Web] ${affair}`,
       html: `

@@ -3,22 +3,15 @@
 import { Minus, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
-
 import { Button } from '@/components/ui/button';
 
 type QuantitySelectorProps = {
   max?: number;
   value?: number;
   onChange?: (value: number) => void;
-  stockLabel?: string;
 };
 
-export function QuantitySelector({
-  max = 99,
-  value,
-  onChange,
-  stockLabel,
-}: QuantitySelectorProps) {
+export function QuantitySelector({ max = 99, value, onChange }: QuantitySelectorProps) {
   const t = useTranslations('Storefront.product');
   const [internalQuantity, setInternalQuantity] = useState(1);
   const quantity = value ?? internalQuantity;
@@ -31,7 +24,7 @@ export function QuantitySelector({
 
   return (
     <div className="space-y-2">
-      <div className="inline-flex items-center rounded-lg border border-border p-1">
+      <div className="border-border inline-flex items-center rounded-lg border p-1">
         <Button
           variant="ghost"
           size="icon"
@@ -53,9 +46,7 @@ export function QuantitySelector({
           onChange={(event) => {
             const parsed = Number(event.target.value);
             updateQuantity(
-              Number.isFinite(parsed)
-                ? Math.min(max, Math.max(1, Math.floor(parsed)))
-                : 1,
+              Number.isFinite(parsed) ? Math.min(max, Math.max(1, Math.floor(parsed))) : 1,
             );
           }}
           className="h-9 w-14 appearance-none bg-transparent px-1 text-center text-sm font-medium outline-none"
@@ -73,9 +64,7 @@ export function QuantitySelector({
           <Plus className="size-4" aria-hidden="true" />
         </Button>
       </div>
-      {stockLabel && (
-        <p className="text-xs text-muted-foreground">{stockLabel}</p>
-      )}
+      <p className="text-xs text-muted-foreground">{t('stockAvailable', { count: max })}</p>
     </div>
   );
 }

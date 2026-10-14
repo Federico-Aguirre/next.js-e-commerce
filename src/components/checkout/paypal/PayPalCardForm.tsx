@@ -2,18 +2,13 @@
 
 import Script from 'next/script';
 import { useCallback } from 'react';
-
 import PayPalCardFields from './PayPalCardFields';
 import PayPalPaymentButton from './PayPalPaymentButton';
 import PayPalTestData from './PayPalTestData';
 import type { PayPalCardFormProps } from './types';
 import { usePayPalCardPayment } from './usePayPalCardPayment';
 
-export default function PayPalCardForm({
-  amount,
-  cartItems,
-  onSuccess,
-}: PayPalCardFormProps) {
+export default function PayPalCardForm({ amount, cartItems, onSuccess }: PayPalCardFormProps) {
   const {
     scriptUrl,
     loadSDK,
@@ -53,11 +48,7 @@ export default function PayPalCardForm({
 
       <PayPalTestData />
 
-      <PayPalCardFields
-        session={session}
-        onReady={handleFieldsReady}
-        onError={handleFieldsError}
-      />
+      <PayPalCardFields session={session} onReady={handleFieldsReady} onError={handleFieldsError} />
 
       {errorMessage && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3">

@@ -1,5 +1,4 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-
 import type { CatalogProduct } from '@/commerce/catalog-domain';
 import { createProductCatalog } from '@/commerce/demo-catalog';
 import { CatalogFilters } from '@/components/ecommerce/CatalogFilters';
@@ -33,24 +32,18 @@ function filterAndSort(
   const sort = firstParam(searchParams.sort) ?? 'featured';
 
   const filtered = products.filter((product) => {
-    const categoryMatch =
-      !category || product.categories.some((item) => item.slug === category);
+    const categoryMatch = !category || product.categories.some((item) => item.slug === category);
 
     const searchMatch =
-      !q ||
-      product.name.toLowerCase().includes(q) ||
-      product.description.toLowerCase().includes(q);
+      !q || product.name.toLowerCase().includes(q) || product.description.toLowerCase().includes(q);
 
     const stockMatch =
-      availability !== 'in-stock' ||
-      product.variants.some((variant) => variant.available);
+      availability !== 'in-stock' || product.variants.some((variant) => variant.available);
 
     const colorMatch =
-      !color ||
-      product.variants.some((variant) => variant.optionValues.color === color);
+      !color || product.variants.some((variant) => variant.optionValues.color === color);
 
-    const sizeMatch =
-      !size || product.variants.some((variant) => variant.sizeStock?.[size]);
+    const sizeMatch = !size || product.variants.some((variant) => variant.sizeStock?.[size]);
 
     const brandMatch = !brand || product.brand === brand;
 
@@ -116,7 +109,7 @@ export default async function ProductsPage(props: ProductsPageProps) {
 
   setRequestLocale(locale);
 
-  const { products, categories } = createProductCatalog(homeT);
+  const { products, categories } = await createProductCatalog(homeT);
 
   const productsPath = locale === 'en' ? '/products' : `/${locale}/products`;
 
@@ -128,10 +121,7 @@ export default async function ProductsPage(props: ProductsPageProps) {
 
   const safePage = Math.min(page, pageCount);
 
-  const visible = filtered.slice(
-    (safePage - 1) * pageSize,
-    safePage * pageSize,
-  );
+  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const query: Record<string, string | undefined> = {
     q: firstParam(rawSearchParams.q),
@@ -148,15 +138,13 @@ export default async function ProductsPage(props: ProductsPageProps) {
   return (
     <div className="space-y-10 py-8 sm:py-12">
       <section className="space-y-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+        <p className="text-xs font-semibold tracking-[0.2em] text-primary uppercase">
           {t('eyebrow')}
         </p>
 
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div className="max-w-3xl">
-            <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-              {t('title')}
-            </h1>
+            <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{t('title')}</h1>
 
             <p className="mt-3 text-base leading-7 text-muted-foreground sm:text-lg">
               {t('description')}
@@ -192,9 +180,7 @@ export default async function ProductsPage(props: ProductsPageProps) {
               sizes: [
                 ...new Set(
                   products.flatMap((product) =>
-                    product.variants.flatMap((variant) =>
-                      Object.keys(variant.sizeStock ?? {}),
-                    ),
+                    product.variants.flatMap((variant) => Object.keys(variant.sizeStock ?? {})),
                   ),
                 ),
               ],
