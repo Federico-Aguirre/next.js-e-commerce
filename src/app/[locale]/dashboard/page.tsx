@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import DashboardClient from './DashboardClient';
-import { getDashboardAdmin, getDashboardData } from './data';
+import { getDashboardAdmin, getDashboardData, getPlatformOwner } from './data';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +12,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
     redirect(`/${locale}/sign-in`);
   }
 
-  const data = await getDashboardData();
+  const platformOwner = await getPlatformOwner();
+  const canManagePaymentConnections = Boolean(platformOwner);
+  const data = await getDashboardData(canManagePaymentConnections);
 
-  return <DashboardClient data={data} />;
+  return <DashboardClient data={data} canManagePaymentConnections={canManagePaymentConnections} />;
 }

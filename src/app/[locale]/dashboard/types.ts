@@ -77,6 +77,12 @@ export type DashboardData = {
     threshold: number;
     telegramConfigured: boolean;
   };
+  paymentConnections: {
+    mercadoPago: string | null;
+    paypal: string | null;
+    stripe: string | null;
+    stripeError: string | null;
+  };
   recentOrders: DashboardOrder[];
   subscription: {
     status: string;

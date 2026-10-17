@@ -42,7 +42,7 @@ export function useDirectCardCheckout() {
       cardExpirationMonth: '11',
       cardExpirationYear: '2030',
       securityCode: '123',
-      email: 'test@testuser.com',
+      email: 'test_user_3883667030725929354@testuser.com',
       docType: 'DNI',
       docNumber: '12345678',
       installments: '1',

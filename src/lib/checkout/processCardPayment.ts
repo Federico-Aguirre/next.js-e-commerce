@@ -25,16 +25,20 @@ export async function processCardPayment({
   formData,
   cartItems,
 }: ProcessCardPaymentParams): Promise<PaymentResult> {
+  const configResponse = await fetch('/api/mercadopago/client-config', { cache: 'no-store' });
+  const clientConfig = (await configResponse.json()) as {
+    publicKey?: string;
+    mode?: 'standalone' | 'split';
+    message?: string;
+  };
+
+  if (!configResponse.ok || !clientConfig.publicKey) {
+    throw new Error(clientConfig.message || 'Falta configurar Mercado Pago.');
+  }
+
   await loadMercadoPago();
 
-  const publicKey =
-    process.env.NEXT_PUBLIC_DEVELOPER_MERCADOPAGO_PUBLIC_KEY ||
-    process.env.NEXT_PUBLIC_STORE_MERCADOPAGO_PUBLIC_KEY ||
-    process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
-
-  if (!publicKey) {
-    throw new Error('Falta NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY.');
-  }
+  const publicKey = clientConfig.publicKey;
 
   const MercadoPago = (window as any).MercadoPago;
 
@@ -93,6 +97,7 @@ export async function processCardPayment({
         identificationType: tokenResponse.cardholder?.identification?.type ?? null,
         identificationNumber: tokenResponse.cardholder?.identification?.number ?? null,
         publicKeyMatches: tokenResponse.public_key ? tokenResponse.public_key === publicKey : null,
+        mode: clientConfig.mode ?? null,
       },
     }),
   });

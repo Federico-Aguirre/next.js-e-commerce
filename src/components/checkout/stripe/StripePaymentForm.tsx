@@ -1,9 +1,16 @@
 'use client';
 
-import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
+import {
+  CardCvcElement,
+  CardExpiryElement,
+  CardNumberElement,
+  useElements,
+  useStripe,
+} from '@stripe/react-stripe-js';
 import { useState } from 'react';
 
 type StripePaymentFormProps = {
+  clientSecret: string;
   orderId: string;
   paymentIntentId: string;
   amount: number;
@@ -11,6 +18,7 @@ type StripePaymentFormProps = {
 };
 
 export default function StripePaymentForm({
+  clientSecret,
   orderId,
   paymentIntentId,
   amount,
@@ -29,8 +37,6 @@ export default function StripePaymentForm({
     cardNumber: '4242 4242 4242 4242',
     expiration: '12/34',
     cvc: '123',
-    country: 'Estados Unidos',
-    postalCode: '94105',
   };
 
   const copyToClipboard = async (value: string, field: string) => {
@@ -54,13 +60,20 @@ export default function StripePaymentForm({
       return;
     }
 
+    const cardNumberElement = elements.getElement(CardNumberElement);
+    if (!cardNumberElement) {
+      setErrorMessage('El campo del número de tarjeta no está disponible.');
+      return;
+    }
+
     setLoading(true);
     setErrorMessage(null);
 
     try {
-      const { error } = await stripe.confirmPayment({
-        elements,
-        redirect: 'if_required',
+      const { error } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardNumberElement,
+        },
       });
 
       if (error) {
@@ -167,48 +180,75 @@ export default function StripePaymentForm({
               {copiedField === 'cvc' ? '✓ Copiado' : 'Copiar'}
             </button>
           </div>
-
-          {/* País */}
-          <div className="flex items-center justify-between rounded-lg border border-indigo-100 bg-white px-3 py-2">
-            <div>
-              <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">
-                País
-              </p>
-
-              <p className="text-sm font-semibold text-gray-800">{testData.country}</p>
-            </div>
-
-            <span className="text-[11px] font-semibold text-indigo-500">Automático</span>
-          </div>
-
-          {/* Código postal */}
-          <div className="flex items-center justify-between rounded-lg border border-indigo-100 bg-white px-3 py-2">
-            <div>
-              <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">
-                Código postal
-              </p>
-
-              <p className="text-sm font-semibold text-gray-800">{testData.postalCode}</p>
-            </div>
-
-            <span className="text-[11px] font-semibold text-indigo-500">Automático</span>
-          </div>
         </div>
       </div>
 
-      {/* STRIPE */}
-      <div>
-        <p className="mb-2 text-sm font-bold text-gray-800">Datos de tarjeta</p>
+      {/* Stripe: solo campos de tarjeta, sin selector de otros medios de pago ni dirección de facturación. */}
+      <div className="space-y-4">
+        <p className="text-sm font-bold text-gray-800">Datos de tarjeta</p>
 
-        <PaymentElement
-          options={{
-            fields: {
-              billingDetails: {
-                address: 'auto',
-              },
-            },
-          }}
-        />
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">Número de tarjeta</label>
+          <div className="rounded-lg border border-gray-300 bg-white px-3 py-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+            <CardNumberElement
+              options={{
+                placeholder: '4242 4242 4242 4242',
+                style: {
+                  base: {
+                    color: '#1f2937',
+                    fontSize: '14px',
+                    '::placeholder': { color: '#9ca3af' },
+                  },
+                  invalid: { color: '#dc2626' },
+                },
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Fecha de caducidad
+            </label>
+            <div className="rounded-lg border border-gray-300 bg-white px-3 py-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+              <CardExpiryElement
+                options={{
+                  placeholder: 'MM / YY',
+                  style: {
+                    base: {
+                      color: '#1f2937',
+                      fontSize: '14px',
+                      '::placeholder': { color: '#9ca3af' },
+                    },
+                    invalid: { color: '#dc2626' },
+                  },
+                }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Código de seguridad
+            </label>
+            <div className="rounded-lg border border-gray-300 bg-white px-3 py-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+              <CardCvcElement
+                options={{
+                  placeholder: 'CVC',
+                  style: {
+                    base: {
+                      color: '#1f2937',
+                      fontSize: '14px',
+                      '::placeholder': { color: '#9ca3af' },
+                    },
+                    invalid: { color: '#dc2626' },
+                  },
+                }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {errorMessage && (

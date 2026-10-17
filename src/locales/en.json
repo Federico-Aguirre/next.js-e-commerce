@@ -113,6 +113,22 @@
     "monthlyCompletedRevenue": "Completed sales this month",
     "monthlyCompletedRevenueHint": "Only PAID + DELIVERED orders completed this month.",
     "monthlyServiceShare": "Service share ({percent}%)",
+    "paymentConnections": "Payment connections",
+    "paymentConnectionsSubtitle": "Payments are enabled only with a valid sandbox connection and the platform fee applied.",
+    "paymentConnectionProtected": "Active connection. Payments are forced through the platform split.",
+    "paymentConnectionRequired": "This payment method stays blocked until the platform connection is completed.",
+    "paymentConnectionNoDisconnect": "This dashboard does not expose a provider disconnect action. If an external authorization becomes invalid, checkout blocks that payment method instead of charging without a platform fee.",
+    "connectPaymentProvider": "Connect {provider}",
+    "continuePaymentProvider": "Continue {provider}",
+    "stripePlatformProfile": "Configure Stripe platform profile",
+    "paymentConnectionStatus": {
+      "connected": "Connected",
+      "pending": "Onboarding pending",
+      "requiresAction": "Action required",
+      "blocked": "Blocked",
+      "error": "Error",
+      "notConnected": "Not connected"
+    },
     "saving": "Saving..."
   },
   "About": {

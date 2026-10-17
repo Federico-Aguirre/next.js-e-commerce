@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { paypalPaymentConfig } from '@/lib/payments/platform-config';
+import { paypalAuthAssertion, paypalPaymentConfig } from '@/lib/payments/platform-config';
 
 const PAYPAL_API_BASE =
   process.env.PAYPAL_ENVIRONMENT === 'production'
@@ -9,10 +9,14 @@ const PAYPAL_API_BASE =
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const { clientId, clientSecret } = paypalPaymentConfig();
+  const { clientId, clientSecret, sellerMerchantId, partnerAttributionId, splitEnabled } =
+    await paypalPaymentConfig();
 
-  if (!clientId || !clientSecret) {
-    return NextResponse.json({ message: 'Falta configurar PayPal.' }, { status: 500 });
+  if (!clientId || !clientSecret || !sellerMerchantId || !splitEnabled) {
+    return NextResponse.json(
+      { message: 'PayPal está bloqueado hasta completar el onboarding sandbox del comercio.' },
+      { status: 503 },
+    );
   }
 
   const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
@@ -27,6 +31,8 @@ export async function GET() {
     headers: {
       Authorization: `Basic ${credentials}`,
       'Content-Type': 'application/x-www-form-urlencoded',
+      'PayPal-Auth-Assertion': paypalAuthAssertion(clientId, sellerMerchantId),
+      ...(partnerAttributionId ? { 'PayPal-Partner-Attribution-Id': partnerAttributionId } : {}),
     },
     body: form,
     cache: 'no-store',

@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     }
 
     // Verificar la Order directamente con Mercado Pago.
-    const { accessToken } = mercadoPagoPaymentConfig();
+    const { accessToken } = await mercadoPagoPaymentConfig();
     if (!accessToken) {
       return NextResponse.json(
         { message: 'Falta configurar Mercado Pago del comercio.' },

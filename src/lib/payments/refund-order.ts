@@ -17,7 +17,7 @@ function required(value: string | undefined, name: string) {
 }
 
 async function refundStripe(paymentIntentId: string, orderId: string): Promise<RefundResult> {
-  const config = stripePaymentConfig();
+  const config = await stripePaymentConfig();
   const stripe = new Stripe(required(config.secretKey, 'Stripe'));
   const refund = await stripe.refunds.create(
     {
@@ -38,7 +38,7 @@ const PAYPAL_API_BASE =
     : 'https://api-m.sandbox.paypal.com';
 
 async function paypalAccessToken() {
-  const config = paypalPaymentConfig();
+  const config = await paypalPaymentConfig();
   const clientId = required(config.clientId, 'PayPal Client ID');
   const clientSecret = required(config.clientSecret, 'PayPal Client Secret');
   const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
@@ -60,7 +60,7 @@ async function paypalAccessToken() {
 
 async function refundPayPal(captureId: string, orderId: string): Promise<RefundResult> {
   const token = await paypalAccessToken();
-  const config = paypalPaymentConfig();
+  const config = await paypalPaymentConfig();
   const assertion =
     config.splitEnabled && config.clientId && config.sellerMerchantId
       ? paypalAuthAssertion(config.clientId, config.sellerMerchantId)
@@ -91,7 +91,7 @@ async function refundPayPal(captureId: string, orderId: string): Promise<RefundR
 }
 
 async function refundMercadoPago(paymentId: string, orderId: string): Promise<RefundResult> {
-  const { accessToken } = mercadoPagoPaymentConfig();
+  const { accessToken } = await mercadoPagoPaymentConfig();
   const token = required(accessToken, 'Mercado Pago del comercio');
   const response = await fetch(
     `https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}/refunds`,

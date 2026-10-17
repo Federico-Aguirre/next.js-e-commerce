@@ -11,7 +11,7 @@ const PAYPAL_API_BASE =
     : 'https://api-m.sandbox.paypal.com';
 
 async function getPayPalAccessToken() {
-  const { clientId, clientSecret } = paypalPaymentConfig();
+  const { clientId, clientSecret } = await paypalPaymentConfig();
 
   if (!clientId || !clientSecret) {
     throw new Error('Falta configurar PayPal.');
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
     }
 
     const accessToken = await getPayPalAccessToken();
-    const paypalConfig = paypalPaymentConfig();
+    const paypalConfig = await paypalPaymentConfig();
     const paypalAssertion =
       paypalConfig.splitEnabled && paypalConfig.clientId && paypalConfig.sellerMerchantId
         ? paypalAuthAssertion(paypalConfig.clientId, paypalConfig.sellerMerchantId)

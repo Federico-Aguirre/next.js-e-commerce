@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const { accessToken } = mercadoPagoPaymentConfig();
+    const { accessToken } = await mercadoPagoPaymentConfig();
 
     if (!accessToken) {
       return NextResponse.json(

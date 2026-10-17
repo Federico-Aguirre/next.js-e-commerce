@@ -2,11 +2,7 @@
 
 import { useState } from 'react';
 
-const testCards = [
-  { label: 'Visa principal', number: '4012888888881881' },
-  { label: 'Visa alternativa 1', number: '4012000033330026' },
-  { label: 'Visa alternativa 2', number: '4217651111111119' },
-] as const;
+const testCards = [{ label: 'Visa principal', number: '4012888888881881' }] as const;
 
 const expiration = '12/30';
 const cvv = '123';
@@ -28,11 +24,6 @@ export default function PayPalTestData() {
     <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
       <h3 className="text-sm font-bold text-blue-900">Datos de prueba</h3>
       <p className="mt-1 text-xs text-blue-700">PayPal está configurado en modo Sandbox.</p>
-      <p className="mt-2 text-xs font-medium text-amber-700">
-        Las tarjetas son alternativas oficiales de Sandbox. Si PayPal devuelve PAYER_CANNOT_PAY, la
-        app libera la reserva automáticamente.
-      </p>
-
       <div className="mt-3 space-y-2">
         {testCards.map((card, index) => {
           const field = `card-${index}`;

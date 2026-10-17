@@ -113,6 +113,22 @@
     "monthlyCompletedRevenue": "Ventas completadas del mes",
     "monthlyCompletedRevenueHint": "Sólo pedidos PAID + DELIVERED cerrados este mes.",
     "monthlyServiceShare": "Participación del servicio ({percent}%)",
+    "paymentConnections": "Conexiones de pago",
+    "paymentConnectionsSubtitle": "Los cobros sólo se habilitan con una conexión sandbox válida y la comisión de plataforma aplicada.",
+    "paymentConnectionProtected": "Conexión activa. Los pagos pasan obligatoriamente por el split de la plataforma.",
+    "paymentConnectionRequired": "Este medio permanece bloqueado hasta completar la conexión con la plataforma.",
+    "paymentConnectionNoDisconnect": "Este panel no ofrece una acción para desconectar proveedores. Si una autorización externa deja de ser válida, el checkout bloquea ese medio de pago en lugar de cobrar sin comisión.",
+    "connectPaymentProvider": "Conectar {provider}",
+    "continuePaymentProvider": "Continuar {provider}",
+    "stripePlatformProfile": "Configurar perfil de plataforma en Stripe",
+    "paymentConnectionStatus": {
+      "connected": "Conectado",
+      "pending": "Onboarding pendiente",
+      "requiresAction": "Requiere acción",
+      "blocked": "Bloqueado",
+      "error": "Error",
+      "notConnected": "No conectado"
+    },
     "saving": "Guardando..."
   },
   "About": {

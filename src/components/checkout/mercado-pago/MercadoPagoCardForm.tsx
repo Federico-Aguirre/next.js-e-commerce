@@ -66,11 +66,20 @@ export default function MercadoPagoCardForm({ cartItems, cartTotal }: Props) {
 
     async function initializeCardForm() {
       try {
-        const publicKey =
-          process.env.NEXT_PUBLIC_DEVELOPER_MERCADOPAGO_PUBLIC_KEY ||
-          process.env.NEXT_PUBLIC_STORE_MERCADOPAGO_PUBLIC_KEY ||
-          process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
-        if (!publicKey) throw new Error('Falta NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY.');
+        const configResponse = await fetch('/api/mercadopago/client-config', {
+          cache: 'no-store',
+        });
+        const config = (await configResponse.json()) as {
+          publicKey?: string;
+          mode?: 'split' | 'standalone';
+          message?: string;
+        };
+        const publicKey = config.publicKey?.trim();
+        if (!configResponse.ok || !publicKey) {
+          throw new Error(
+            config.message || 'Mercado Pago no tiene una clave pública válida para el checkout.',
+          );
+        }
 
         await loadMercadoPago();
         if (cancelled) return;

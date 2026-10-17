@@ -6,6 +6,7 @@ import { StoreConfig } from '@/utils/StoreConfig';
 import { updateCatalog } from './actions';
 import CatalogRow from './CatalogRow';
 import OrderRow from './OrderRow';
+import PaymentConnectionsCard from './PaymentConnectionsCard';
 import SubscriptionCard from './SubscriptionCard';
 import type { DashboardData } from './types';
 
@@ -60,7 +61,13 @@ function sortCatalogItems<T extends DashboardData['catalogControls'][number]>(
   });
 }
 
-export default function DashboardClient({ data }: { data: DashboardData }) {
+export default function DashboardClient({
+  data,
+  canManagePaymentConnections,
+}: {
+  data: DashboardData;
+  canManagePaymentConnections: boolean;
+}) {
   const t = useTranslations('Dashboard');
   const locale = useLocale();
   const [catalogSort, setCatalogSort] = useState<CatalogSort>('name-asc');
@@ -335,6 +342,10 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
           </button>
         </div>
       </section>
+
+      {canManagePaymentConnections && (
+        <PaymentConnectionsCard connections={data.paymentConnections} />
+      )}
 
       <section className="rounded-2xl border p-5">
         <div>

@@ -10,12 +10,7 @@ import DeliveryAddressSummary from '@/components/checkout/DeliveryAddressSummary
 import StripePaymentForm from '@/components/checkout/stripe/StripePaymentForm';
 import { useCartStore } from '@/store/useCartStore';
 
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_DEVELOPER_STRIPE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_STORE_STRIPE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
-    '',
-);
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_DEVELOPER_STRIPE_PUBLISHABLE_KEY || '');
 
 type StripeCheckoutData = {
   clientSecret: string;
@@ -194,6 +189,7 @@ export default function StripeCheckoutPage() {
               }}
             >
               <StripePaymentForm
+                clientSecret={stripeData.clientSecret}
                 orderId={stripeData.orderId}
                 paymentIntentId={stripeData.paymentIntentId}
                 amount={cartTotal}

@@ -64,6 +64,7 @@ model User {
   orders        Order[]
   cartItems     CartItem[]
   isAdmin       Boolean    @default(false)
+  isPlatformOwner Boolean    @default(false)
 }
 
 model WishlistItem {
@@ -241,4 +242,16 @@ model StoreSubscription {
   commissionPercent Float     @default(10)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+}
+
+model StorePaymentConnection {
+  provider              String    @id
+  externalAccountId     String?
+  accessTokenEncrypted  String?   @db.Text
+  refreshTokenEncrypted String?   @db.Text
+  tokenExpiresAt        DateTime?
+  status                String    @default("CONNECTED")
+  metadata              Json?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }

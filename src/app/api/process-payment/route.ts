@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth-options';
 import { restoreOrderStock } from '@/lib/checkout/inventory';
 import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
-import { mercadoPagoPaymentConfig, platformFee } from '@/lib/payments/platform-config';
+import { mercadoPagoPaymentConfig, platformFeeForProducts } from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +18,41 @@ type MercadoPagoPayment = {
   message?: string;
   error?: string;
   cause?: unknown;
+};
+
+type MercadoPagoOrderPayment = {
+  id?: string;
+  status?: string;
+  status_detail?: string;
+  payment_method?: {
+    id?: string;
+    type?: string;
+  };
+};
+
+type MercadoPagoOrderError = {
+  code?: string;
+  message?: string;
+  details?: string | string[] | Record<string, unknown>;
+};
+
+type MercadoPagoOrder = {
+  id?: string;
+  status?: string;
+  status_detail?: string;
+  external_reference?: string;
+  transactions?: {
+    payments?: MercadoPagoOrderPayment[];
+  };
+  message?: string;
+  error?: string;
+  cause?: unknown;
+  errors?: MercadoPagoOrderError[];
+};
+
+type MercadoPagoPaymentMethod = {
+  id?: string;
+  payment_type_id?: string;
 };
 
 type MercadoPagoHttpResult<T> = {
@@ -120,6 +155,47 @@ async function mercadoPagoRequest<T>({
   });
 }
 
+async function mercadoPagoPaymentType(accessToken: string, paymentMethodId: string) {
+  const response = await mercadoPagoRequest<MercadoPagoPaymentMethod[]>({
+    accessToken,
+    path: '/v1/payment_methods',
+  });
+  if (response.status < 200 || response.status >= 300) return 'credit_card';
+  return (
+    response.data.find((method) => method.id === paymentMethodId)?.payment_type_id || 'credit_card'
+  );
+}
+
+async function findProcessedMercadoPagoOrder(accessToken: string, externalReference: string) {
+  const now = Date.now();
+  const beginDate = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+  const endDate = new Date(now + 5 * 60 * 1000).toISOString();
+  const query = new URLSearchParams({
+    begin_date: beginDate,
+    end_date: endDate,
+    external_reference: externalReference,
+    type: 'online',
+  });
+  const response = await mercadoPagoRequest<{ data?: MercadoPagoOrder[] }>({
+    accessToken,
+    path: `/v1/orders?${query.toString()}`,
+  });
+  if (response.status < 200 || response.status >= 300) return null;
+
+  return (
+    response.data.data?.find((order) => {
+      const transaction = order.transactions?.payments?.[0];
+      return (
+        order.external_reference === externalReference &&
+        order.status === 'processed' &&
+        order.status_detail === 'accredited' &&
+        transaction?.status === 'processed' &&
+        transaction.status_detail === 'accredited'
+      );
+    }) ?? null
+  );
+}
+
 async function findApprovedMercadoPagoPayment(accessToken: string, externalReference: string) {
   const response = await mercadoPagoRequest<{ results?: MercadoPagoPayment[] }>({
     accessToken,
@@ -143,11 +219,11 @@ export async function POST(req: Request) {
   let paymentWasApproved = false;
 
   try {
-    const { accessToken, splitEnabled } = mercadoPagoPaymentConfig();
-    if (!accessToken) {
+    const { accessToken, chargeEnabled, splitEnabled } = await mercadoPagoPaymentConfig();
+    if (!accessToken || !chargeEnabled) {
       return NextResponse.json(
-        { message: 'Falta configurar la cuenta de Mercado Pago del comercio.' },
-        { status: 500 },
+        { message: 'Mercado Pago no tiene credenciales válidas para cobrar.' },
+        { status: 503 },
       );
     }
 
@@ -226,40 +302,127 @@ export async function POST(req: Request) {
       tokenMetadata: body.tokenMetadata ?? null,
     });
 
-    const client = new MercadoPagoConfig({ accessToken });
-    const payment = new Payment(client);
-    const paymentResponse = await payment.create({
-      body: {
-        transaction_amount: Number(order.total.toFixed(2)),
-        application_fee: splitEnabled ? platformFee(order.total) : undefined,
-        token: body.token,
-        description: body.description || `Orden ${order.id}`,
-        installments: Number(body.installments || 1),
-        payment_method_id: body.payment_method_id,
+    let paymentResponse: MercadoPagoPayment;
+
+    if (splitEnabled) {
+      const client = new MercadoPagoConfig({ accessToken });
+      const payment = new Payment(client);
+      paymentResponse = await payment.create({
+        body: {
+          transaction_amount: Number(order.total.toFixed(2)),
+          application_fee: platformFeeForProducts(order.items),
+          token: body.token,
+          description: body.description || `Orden ${order.id}`,
+          installments: Number(body.installments || 1),
+          payment_method_id: body.payment_method_id,
+          external_reference: order.id,
+          payer: {
+            email: body.email || userEmail || undefined,
+            identification:
+              body.docType && body.docNumber
+                ? {
+                    type: body.docType,
+                    number: body.docNumber,
+                  }
+                : undefined,
+          },
+          additional_info: {
+            items: order.items.map((item) => ({
+              id: item.productId,
+              title: item.title,
+              quantity: item.quantity,
+              unit_price: item.price,
+            })),
+          },
+        },
+        requestOptions: {
+          idempotencyKey: `order-${order.id}`,
+        },
+      });
+    } else {
+      const paymentType = await mercadoPagoPaymentType(accessToken, paymentMethodId);
+      const orderResponse = await mercadoPagoRequest<MercadoPagoOrder>({
+        accessToken,
+        path: '/v1/orders',
+        method: 'POST',
+        idempotencyKey: order.id,
+        body: {
+          type: 'online',
+          processing_mode: 'automatic',
+          total_amount: transactionAmount.toFixed(2),
+          external_reference: order.id,
+          payer: {
+            email: payerEmail,
+            identification:
+              body.docType && body.docNumber
+                ? { type: body.docType, number: body.docNumber }
+                : undefined,
+          },
+          transactions: {
+            payments: [
+              {
+                amount: transactionAmount.toFixed(2),
+                payment_method: {
+                  id: paymentMethodId,
+                  type: paymentType,
+                  token: body.token,
+                  installments,
+                },
+              },
+            ],
+          },
+        },
+      });
+
+      if (orderResponse.status < 200 || orderResponse.status >= 300) {
+        const orderErrors = Array.isArray(orderResponse.data.errors)
+          ? orderResponse.data.errors
+          : [];
+        const orderErrorMessage = orderErrors
+          .map((item) => [item.code, item.message].filter(Boolean).join(': '))
+          .filter(Boolean)
+          .join(' | ');
+
+        console.error('Mercado Pago Orders API error', {
+          status: orderResponse.status,
+          requestId: orderResponse.requestId,
+          errors: orderErrors,
+          message: orderResponse.data.message ?? null,
+          error: orderResponse.data.error ?? null,
+        });
+
+        const error = new Error(
+          orderResponse.data.message ||
+            orderResponse.data.error ||
+            orderErrorMessage ||
+            'Mercado Pago rechazó la order.',
+        ) as Error & {
+          requestId?: string | null;
+          status?: number;
+          error?: string;
+          causes?: unknown[];
+        };
+        error.requestId = orderResponse.requestId;
+        error.status = orderResponse.status;
+        error.error = orderResponse.data.error || orderErrors[0]?.code;
+        error.causes = orderErrors.length > 0 ? orderErrors : undefined;
+        throw error;
+      }
+
+      const transaction = orderResponse.data.transactions?.payments?.[0];
+      const approved =
+        orderResponse.data.status === 'processed' &&
+        orderResponse.data.status_detail === 'accredited' &&
+        transaction?.status === 'processed' &&
+        transaction.status_detail === 'accredited';
+
+      paymentResponse = {
+        id: orderResponse.data.id,
+        status: approved ? 'approved' : orderResponse.data.status,
+        status_detail: orderResponse.data.status_detail,
         external_reference: order.id,
-        payer: {
-          email: body.email || userEmail || undefined,
-          identification:
-            body.docType && body.docNumber
-              ? {
-                  type: body.docType,
-                  number: body.docNumber,
-                }
-              : undefined,
-        },
-        additional_info: {
-          items: order.items.map((item) => ({
-            id: item.productId,
-            title: item.title,
-            quantity: item.quantity,
-            unit_price: item.price,
-          })),
-        },
-      },
-      requestOptions: {
-        idempotencyKey: `order-${order.id}`,
-      },
-    });
+      };
+    }
 
     const approved =
       paymentResponse.status === 'approved' && paymentResponse.status_detail === 'accredited';
@@ -317,17 +480,19 @@ export async function POST(req: Request) {
     console.error('Error procesando pago:', error);
 
     if (pendingOrderId && !paymentWasApproved) {
-      const { accessToken } = mercadoPagoPaymentConfig();
+      const { accessToken, splitEnabled } = await mercadoPagoPaymentConfig();
       if (accessToken) {
         try {
-          const approvedPayment = await findApprovedMercadoPagoPayment(accessToken, pendingOrderId);
-          if (approvedPayment?.id != null) {
+          const approvedRemote = splitEnabled
+            ? await findApprovedMercadoPagoPayment(accessToken, pendingOrderId)
+            : await findProcessedMercadoPagoOrder(accessToken, pendingOrderId);
+          if (approvedRemote?.id != null) {
             const reconciled = await prisma.order.updateMany({
               where: { id: pendingOrderId, status: 'PENDING' },
               data: {
                 status: 'PAID',
                 paymentProvider: 'MERCADOPAGO',
-                paymentExternalId: String(approvedPayment.id),
+                paymentExternalId: String(approvedRemote.id),
               },
             });
 
@@ -336,7 +501,7 @@ export async function POST(req: Request) {
               void sendPaidOrderAlert(pendingOrderId);
               await sendLowStockAlerts();
               return NextResponse.json({
-                id: approvedPayment.id,
+                id: approvedRemote.id,
                 orderId: pendingOrderId,
                 status: 'approved',
                 status_detail: 'accredited',

@@ -2,6 +2,8 @@ import 'server-only';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { Env } from '@/lib/Env';
+import { reconcilePendingPayPalConnection } from '@/lib/payments/paypal-onboarding-status';
+import { reconcilePendingStripeConnection } from '@/lib/payments/stripe-onboarding-status';
 import { prisma } from '@/lib/prisma';
 import type { DashboardData, FulfillmentStatus } from './types';
 
@@ -61,7 +63,39 @@ export async function requireDashboardAdmin() {
   return session;
 }
 
-export async function getDashboardData(): Promise<DashboardData> {
+export async function getPlatformOwner() {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user) return null;
+
+  const dbUser = session.user.id
+    ? await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { isPlatformOwner: true },
+      })
+    : session.user.email
+      ? await prisma.user.findUnique({
+          where: { email: session.user.email },
+          select: { isPlatformOwner: true },
+        })
+      : null;
+
+  return dbUser?.isPlatformOwner ? session : null;
+}
+
+export async function requirePlatformOwner() {
+  const session = await getPlatformOwner();
+
+  if (!session) throw new Error('FORBIDDEN_PLATFORM_OWNER');
+
+  return session;
+}
+
+export async function getDashboardData(includePaymentConnections = false): Promise<DashboardData> {
+  if (includePaymentConnections) {
+    await Promise.all([reconcilePendingPayPalConnection(), reconcilePendingStripeConnection()]);
+  }
+
   const monthRange = currentBuenosAiresMonthRange();
   const [sales, recentOrders, catalogRows, cartUsers, monthlyCompleted] = await Promise.all([
     prisma.order.aggregate({
@@ -152,22 +186,32 @@ export async function getDashboardData(): Promise<DashboardData> {
     }),
   ]);
 
-  const [visitCount, deviceRows, topRows, subscription, inventoryAlertSettings] = await Promise.all(
-    [
-      prisma.analyticsVisit.count(),
-      prisma.analyticsVisit.groupBy({
-        by: ['device'],
-        _count: { _all: true },
-      }),
-      prisma.orderItem.groupBy({
-        by: ['title', 'price'],
-        where: { order: { status: 'PAID' } },
-        _sum: { quantity: true },
-      }),
-      prisma.storeSubscription.findUnique({ where: { id: 'default' } }),
-      prisma.inventoryAlertSettings.findUnique({ where: { id: 'default' } }),
-    ],
-  );
+  const [
+    visitCount,
+    deviceRows,
+    topRows,
+    subscription,
+    inventoryAlertSettings,
+    paymentConnectionRows,
+  ] = await Promise.all([
+    prisma.analyticsVisit.count(),
+    prisma.analyticsVisit.groupBy({
+      by: ['device'],
+      _count: { _all: true },
+    }),
+    prisma.orderItem.groupBy({
+      by: ['title', 'price'],
+      where: { order: { status: 'PAID' } },
+      _sum: { quantity: true },
+    }),
+    prisma.storeSubscription.findUnique({ where: { id: 'default' } }),
+    prisma.inventoryAlertSettings.findUnique({ where: { id: 'default' } }),
+    includePaymentConnections
+      ? prisma.storePaymentConnection.findMany({
+          select: { provider: true, status: true, metadata: true },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const salesTotal = sales._sum.total ?? 0;
   const paidOrderCount = sales._count.id;
@@ -232,6 +276,18 @@ export async function getDashboardData(): Promise<DashboardData> {
     threshold: inventoryAlertSettings?.threshold ?? 5,
     telegramConfigured: Boolean(Env.TELEGRAM_BOT_TOKEN && Env.TELEGRAM_CHAT_ID),
   };
+  const paymentConnectionStatus = Object.fromEntries(
+    paymentConnectionRows.map((row) => [row.provider, row.status]),
+  ) as Record<string, string>;
+  const stripeConnection = paymentConnectionRows.find((row) => row.provider === 'STRIPE');
+  const stripeMetadata =
+    stripeConnection?.metadata &&
+    typeof stripeConnection.metadata === 'object' &&
+    !Array.isArray(stripeConnection.metadata)
+      ? stripeConnection.metadata
+      : null;
+  const stripeError =
+    stripeMetadata && typeof stripeMetadata.message === 'string' ? stripeMetadata.message : null;
 
   return {
     salesTotal,
@@ -247,6 +303,12 @@ export async function getDashboardData(): Promise<DashboardData> {
     topProducts,
     catalogControls,
     inventoryAlert,
+    paymentConnections: {
+      mercadoPago: paymentConnectionStatus.MERCADOPAGO ?? null,
+      paypal: paymentConnectionStatus.PAYPAL ?? null,
+      stripe: paymentConnectionStatus.STRIPE ?? null,
+      stripeError,
+    },
     recentOrders: recentOrders.map((order) => ({
       id: order.id,
       orderNumber: order.orderNumber,

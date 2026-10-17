@@ -8,7 +8,7 @@ import {
   mercadoPagoPaymentConfig,
   paypalAuthAssertion,
   paypalPaymentConfig,
-  platformFee,
+  platformFeeForProducts,
   stripePaymentConfig,
 } from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
@@ -33,7 +33,7 @@ function getRequestOrigin(request: Request) {
 }
 
 async function generatePayPalAccessToken() {
-  const { clientId, clientSecret } = paypalPaymentConfig();
+  const { clientId, clientSecret } = await paypalPaymentConfig();
 
   if (!clientId || !clientSecret) {
     throw new Error('Falta configurar la cuenta de PayPal para cobrar.');
@@ -75,7 +75,7 @@ async function cleanupLegacyPendingOrders(userId: string) {
     if (order.paymentProvider === 'MERCADOPAGO' && !order.paymentExternalId) {
       canRelease = true;
     } else if (order.paymentProvider === 'STRIPE' && order.paymentExternalId) {
-      const { secretKey: stripeSecretKey } = stripePaymentConfig();
+      const { secretKey: stripeSecretKey } = await stripePaymentConfig();
       if (!stripeSecretKey) continue;
 
       const stripe = new Stripe(stripeSecretKey);
@@ -177,6 +177,34 @@ export async function POST(req: Request) {
       ? 'MERCADOPAGO'
       : paymentMethod.toUpperCase();
 
+    // Fail closed: para Mercado Pago permitimos dos modos explícitos:
+    // standalone (credenciales propias del comercio, sin split) y OAuth (split de plataforma).
+    if (paymentMethod.startsWith('mercadopago')) {
+      const config = await mercadoPagoPaymentConfig();
+      if (!config.accessToken || !config.chargeEnabled) {
+        throw new Error('Mercado Pago no tiene credenciales válidas para cobrar.');
+      }
+    } else if (paymentMethod === 'stripe') {
+      const config = await stripePaymentConfig();
+      if (!config.secretKey || !config.connectedAccountId || !config.splitEnabled) {
+        throw new Error(
+          'Stripe está bloqueado hasta que la cuenta Connect sandbox del comercio esté activa.',
+        );
+      }
+    } else if (paymentMethod === 'paypal') {
+      const config = await paypalPaymentConfig();
+      if (
+        !config.clientId ||
+        !config.clientSecret ||
+        !config.sellerMerchantId ||
+        !config.splitEnabled
+      ) {
+        throw new Error(
+          'PayPal está bloqueado hasta que el comercio complete el onboarding sandbox con la plataforma.',
+        );
+      }
+    }
+
     if (checkoutKey) {
       const existingOrder = await prisma.order.findUnique({
         where: { checkoutKey },
@@ -202,7 +230,7 @@ export async function POST(req: Request) {
         }
 
         if (paymentMethod === 'stripe' && existingOrder.paymentExternalId) {
-          const { secretKey: stripeSecretKey } = stripePaymentConfig();
+          const { secretKey: stripeSecretKey } = await stripePaymentConfig();
           if (!stripeSecretKey) throw new Error('Falta configurar Stripe.');
           const stripe = new Stripe(stripeSecretKey);
           const paymentIntent = await stripe.paymentIntents.retrieve(
@@ -374,9 +402,11 @@ export async function POST(req: Request) {
 
     if (paymentMethod === 'mercadopago') {
       const { accessToken: mpToken, splitEnabled: mercadoPagoSplitEnabled } =
-        mercadoPagoPaymentConfig();
-      if (!mpToken) {
-        throw new Error('Falta configurar la cuenta de Mercado Pago del comercio.');
+        await mercadoPagoPaymentConfig();
+      if (!mpToken || !mercadoPagoSplitEnabled) {
+        throw new Error(
+          'Mercado Pago está bloqueado hasta que el comercio complete la conexión OAuth sandbox con la plataforma.',
+        );
       }
 
       const client = new MercadoPagoConfig({ accessToken: mpToken });
@@ -405,7 +435,7 @@ export async function POST(req: Request) {
           },
           external_reference: order.id,
           expiration_date_to: expirationTime.toISOString(),
-          marketplace_fee: mercadoPagoSplitEnabled ? platformFee(order.total) : undefined,
+          marketplace_fee: platformFeeForProducts(order.items),
         },
       });
 
@@ -422,24 +452,22 @@ export async function POST(req: Request) {
         secretKey: stripeSecretKey,
         splitEnabled: stripeSplitEnabled,
         connectedAccountId,
-      } = stripePaymentConfig();
-      if (!stripeSecretKey) {
-        throw new Error('Falta configurar Stripe.');
+      } = await stripePaymentConfig();
+      if (!stripeSecretKey || !stripeSplitEnabled || !connectedAccountId) {
+        throw new Error(
+          'Stripe está bloqueado hasta que la cuenta Connect sandbox del comercio esté activa.',
+        );
       }
 
       const stripe = new Stripe(stripeSecretKey);
-      const feeAmount = Math.round(platformFee(total) * 100);
+      const feeAmount = Math.round(platformFeeForProducts(order.items) * 100);
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(total * 100),
         currency: 'usd',
         payment_method_types: ['card'],
-        ...(stripeSplitEnabled && connectedAccountId
-          ? {
-              application_fee_amount: feeAmount,
-              transfer_data: { destination: connectedAccountId },
-            }
-          : {}),
+        application_fee_amount: feeAmount,
+        transfer_data: { destination: connectedAccountId },
         metadata: {
           orderId: order.id,
           userId: dbUser.id,
@@ -463,10 +491,15 @@ export async function POST(req: Request) {
     }
 
     if (paymentMethod === 'paypal') {
-      const paypalAccessToken = await generatePayPalAccessToken();
-      const paypalConfig = paypalPaymentConfig();
+      const paypalConfig = await paypalPaymentConfig();
       const paypalSplitEnabled =
         paypalConfig.splitEnabled && paypalConfig.clientId && paypalConfig.sellerMerchantId;
+      if (!paypalSplitEnabled) {
+        throw new Error(
+          'PayPal está bloqueado hasta que el comercio complete el onboarding sandbox con la plataforma.',
+        );
+      }
+      const paypalAccessToken = await generatePayPalAccessToken();
       const paypalAssertion = paypalSplitEnabled
         ? paypalAuthAssertion(paypalConfig.clientId!, paypalConfig.sellerMerchantId!)
         : undefined;
@@ -488,22 +521,18 @@ export async function POST(req: Request) {
             {
               reference_id: order.id,
               custom_id: order.id,
-              ...(paypalSplitEnabled
-                ? {
-                    payee: { merchant_id: paypalConfig.sellerMerchantId },
-                    payment_instruction: {
-                      disbursement_mode: 'INSTANT',
-                      platform_fees: [
-                        {
-                          amount: {
-                            currency_code: 'USD',
-                            value: platformFee(total).toFixed(2),
-                          },
-                        },
-                      ],
+              payee: { merchant_id: paypalConfig.sellerMerchantId },
+              payment_instruction: {
+                disbursement_mode: 'INSTANT',
+                platform_fees: [
+                  {
+                    amount: {
+                      currency_code: 'USD',
+                      value: platformFeeForProducts(order.items).toFixed(2),
                     },
-                  }
-                : {}),
+                  },
+                ],
+              },
               amount: {
                 currency_code: 'USD',
                 value: total.toFixed(2),
@@ -580,7 +609,7 @@ export async function DELETE(req: Request) {
     }
 
     if (orderToCancel.paymentProvider === 'STRIPE' && orderToCancel.paymentExternalId) {
-      const { secretKey: stripeSecretKey } = stripePaymentConfig();
+      const { secretKey: stripeSecretKey } = await stripePaymentConfig();
       if (!stripeSecretKey) {
         return NextResponse.json(
           { error: 'No se puede liberar la reserva de Stripe: falta configuración.' },

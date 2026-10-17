@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AuthRequiredNotice } from '@/components/checkout/AuthRequiredNotice';
 import DeliveryAddressSummary from '@/components/checkout/DeliveryAddressSummary';
 import CheckoutForm from '@/components/checkout/mercado-pago/CheckoutForm';
@@ -11,6 +11,7 @@ import { useDirectCardCheckout } from '@/hooks/useDirectCardCheckout';
 
 export default function DirectCardCheckoutPage() {
   const { data: session, status } = useSession();
+  const [secureOriginReady, setSecureOriginReady] = useState(false);
   const {
     cartItems,
     cartTotal,
@@ -23,11 +24,8 @@ export default function DirectCardCheckoutPage() {
   } = useDirectCardCheckout();
 
   useEffect(() => {
-    if (
-      window.location.protocol === 'https:' ||
-      window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1'
-    ) {
+    if (window.location.protocol === 'https:') {
+      setSecureOriginReady(true);
       return;
     }
 
@@ -39,6 +37,14 @@ export default function DirectCardCheckoutPage() {
     target.search = window.location.search;
     window.location.replace(target.toString());
   }, []);
+
+  if (!secureOriginReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+        <p className="text-sm font-medium text-gray-600">Redirigiendo al checkout seguro...</p>
+      </div>
+    );
+  }
 
   if (status === 'loading') {
     return <div className="p-8 text-center">Cargando...</div>;
