@@ -2,6 +2,7 @@ import 'server-only';
 import { productsData } from '@/data/products';
 import { prisma } from '@/lib/prisma';
 import type { Product } from '@/types/product';
+import { StoreConfig } from '@/utils/StoreConfig';
 import type { CatalogCategory, CatalogMedia, CatalogProduct } from './catalog-domain';
 
 type CatalogTranslator = (key: never) => string;
@@ -57,7 +58,7 @@ const toCatalogProduct = (
       productId,
       sku: variant.skus[0]?.id ?? variant.id,
       name: variant.color?.name ?? variant.colorName,
-      price: { amount: product.price, currency: 'USD' },
+      price: { amount: product.price, currency: StoreConfig.currency },
       available: variant.skus.some((sku) => sku.stock > 0),
       optionValues: { color: variant.color?.id ?? 'multicolor' },
       sizeStock: Object.fromEntries(
@@ -108,30 +109,39 @@ const toCatalogProduct = (
 };
 
 export async function createProductCatalog(translate: CatalogTranslator) {
-  const databaseProducts = await prisma.product.findMany({
-    orderBy: { id: 'asc' },
-    select: {
-      id: true,
-      price: true,
-      isActive: true,
-      variants: {
-        orderBy: { id: 'asc' },
-        select: {
-          id: true,
-          colorName: true,
-          skus: {
-            orderBy: { articleId: 'asc' },
-            select: {
-              id: true,
-              articleId: true,
-              size: true,
-              stock: true,
+  const [databaseProducts, reviewAggregates] = await Promise.all([
+    prisma.product.findMany({
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        price: true,
+        isActive: true,
+        variants: {
+          orderBy: { id: 'asc' },
+          select: {
+            id: true,
+            colorName: true,
+            skus: {
+              orderBy: { articleId: 'asc' },
+              select: {
+                id: true,
+                articleId: true,
+                size: true,
+                stock: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.productReview.groupBy({
+      by: ['productId'],
+      _avg: { rating: true },
+    }),
+  ]);
+  const ratingByProductId = new Map(
+    reviewAggregates.map((aggregate) => [aggregate.productId, aggregate._avg.rating ?? undefined]),
+  );
 
   const activeSourceProducts = databaseProducts.flatMap((databaseProduct) => {
     if (!databaseProduct.isActive) return [];
@@ -192,6 +202,7 @@ export async function createProductCatalog(translate: CatalogTranslator) {
     const mergedProduct: Product = {
       ...sourceProduct,
       price: databaseProduct.price,
+      rating: ratingByProductId.get(databaseProduct.id),
       variants,
     };
 

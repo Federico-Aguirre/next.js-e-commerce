@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { createProductCatalog } from '@/commerce/demo-catalog';
 import { ProductPurchase } from '@/components/ecommerce/ProductPurchase';
+import { ProductReviewsSection } from '@/components/ecommerce/ProductReviewsSection';
 import { Link } from '@/lib/I18nRouting';
 
 type ProductPageProps = {
@@ -24,6 +25,8 @@ export async function generateMetadata(props: ProductPageProps): Promise<Metadat
 
 export default async function ProductPage(props: ProductPageProps) {
   const { locale, slug } = await props.params;
+  setRequestLocale(locale);
+
   const t = await getTranslations('Storefront');
   const { products } = await getCatalog();
   const product = products.find((item) => item.slug === slug);
@@ -31,10 +34,14 @@ export default async function ProductPage(props: ProductPageProps) {
     notFound();
   }
 
-  setRequestLocale(locale);
-
   const [variant] = product.variants;
   if (!variant || product.media.length === 0) {
+    notFound();
+  }
+
+  const productIdMatch = /^prod-(\d+)$/.exec(product.id);
+  const productId = productIdMatch ? Number(productIdMatch[1]) : Number.NaN;
+  if (!Number.isSafeInteger(productId) || productId <= 0) {
     notFound();
   }
 
@@ -58,6 +65,13 @@ export default async function ProductPage(props: ProductPageProps) {
         sizeLabel={t('product.size')}
         selectSizeLabel={t('product.selectSize')}
         sizeRequiredLabel={t('product.sizeRequired')}
+      />
+
+      <ProductReviewsSection
+        productId={productId}
+        productPath={`/products/${product.slug}`}
+        locale={locale}
+        prefixLocaleInCallback
       />
 
       <section className="border-border border-t pt-10">

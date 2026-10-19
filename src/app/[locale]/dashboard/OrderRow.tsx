@@ -3,6 +3,7 @@
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
+import { toBuenosAiresDateTimeLocal } from '@/lib/orders/delivery-estimate';
 import { formatOrderNumber, paymentProviderLabel } from '@/lib/orders/format';
 import type { ShippingQuote } from '@/lib/shipping/types';
 import { StoreConfig } from '@/utils/StoreConfig';
@@ -17,14 +18,26 @@ const transitions: Record<FulfillmentStatus, FulfillmentStatus[]> = {
   CANCELLED: ['CANCELLED'],
 };
 
+function transitionsForOrder(order: DashboardOrder, status: FulfillmentStatus) {
+  const options = transitions[status];
+  if (
+    status === 'PREPARING' &&
+    order.shipping.provider === 'LOCAL' &&
+    order.shipping.status === 'READY_FOR_PICKUP'
+  ) {
+    return [...options, 'DELIVERED' as const];
+  }
+  return options;
+}
+
 function isFulfillmentStatus(value: string): value is FulfillmentStatus {
   return Object.keys(transitions).includes(value);
 }
 
-function money(amount: number, locale: string) {
+function money(amount: number, locale: string, currency: string = StoreConfig.currency) {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: StoreConfig.currency,
+    currency,
   }).format(amount);
 }
 
@@ -57,19 +70,18 @@ function paymentStatusLabel(status: string, t: ReturnType<typeof useTranslations
   }
 }
 
-function deliveryHours(value: string | null) {
-  if (!value) return '';
-  return String(Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 3_600_000)));
-}
-
 export default function OrderRow({ order }: { order: DashboardOrder }) {
   const t = useTranslations('Dashboard');
   const locale = useLocale();
   const router = useRouter();
   const [status, setStatus] = useState(order.fulfillmentStatus);
   const [tracking, setTracking] = useState(order.trackingCode ?? '');
-  const [hours, setHours] = useState(deliveryHours(order.estimatedDeliveryAt));
+  const [estimatedDeliveryAt, setEstimatedDeliveryAt] = useState(
+    toBuenosAiresDateTimeLocal(order.estimatedDeliveryAt),
+  );
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [emailWarning, setEmailWarning] = useState(false);
   const [pending, startTransition] = useTransition();
   const [shippingPending, startShippingTransition] = useTransition();
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
@@ -92,14 +104,29 @@ export default function OrderRow({ order }: { order: DashboardOrder }) {
     formData.set('orderId', order.id);
     formData.set('fulfillmentStatus', status);
     formData.set('trackingCode', tracking);
-    formData.set('estimatedDeliveryHours', hours);
+    formData.set('estimatedDeliveryAt', estimatedDeliveryAt);
     formData.set('locale', locale);
 
     setSaved(false);
+    setSaveError(null);
+    setEmailWarning(false);
     startTransition(async () => {
       const result = await updateOrder(formData);
-      if (!result.success) return;
+      if (!result.success) {
+        const errorCode = 'errorCode' in result ? result.errorCode : undefined;
+        const message =
+          errorCode === 'ETA_REQUIRED'
+            ? t('etaRequired')
+            : errorCode === 'ETA_MUST_BE_FUTURE'
+              ? t('etaMustBeFuture')
+              : errorCode === 'ETA_INVALID'
+                ? t('etaInvalid')
+                : t('saveError');
+        setSaveError(message);
+        return;
+      }
       setSaved(true);
+      setEmailWarning('emailSent' in result && result.emailSent === false);
       router.refresh();
     });
   }
@@ -176,7 +203,15 @@ export default function OrderRow({ order }: { order: DashboardOrder }) {
             {t('paymentStatus')}: {paymentStatusLabel(order.paymentStatus, t)}
           </p>
         </div>
-        <p className="font-semibold">{money(order.total, locale)}</p>
+        <div className="text-right">
+          <p className="font-semibold">{money(order.total, locale, order.currency)}</p>
+          {order.paymentTotal !== null && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {paymentProviderLabel(order.paymentProvider)}:{' '}
+              {money(order.paymentTotal, locale, order.paymentCurrency)}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 rounded-lg border bg-muted/30 p-3">
@@ -347,7 +382,7 @@ export default function OrderRow({ order }: { order: DashboardOrder }) {
               if (isFulfillmentStatus(value)) setStatus(value);
             }}
           >
-            {transitions[status].map((value) => (
+            {transitionsForOrder(order, status).map((value) => (
               <option key={value} value={value}>
                 {value === 'PENDING' && t('status.pending')}
                 {value === 'PREPARING' && t('status.preparing')}
@@ -357,31 +392,34 @@ export default function OrderRow({ order }: { order: DashboardOrder }) {
               </option>
             ))}
           </select>
+          <span className="text-xs text-muted-foreground">{t('fulfillmentHint')}</span>
         </label>
 
         <label className="grid gap-1 text-sm">
           <span>{t('estimatedDelivery')}</span>
-          <div className="flex items-center gap-2">
-            <input
-              className="min-w-0 rounded-md border bg-background px-3 py-2"
-              type="number"
-              min="0"
-              max="720"
-              value={hours}
-              onChange={(event) => setHours(event.target.value)}
-            />
-            <span className="text-muted-foreground">{t('hours')}</span>
-          </div>
+          <input
+            className="min-w-0 rounded-md border bg-background px-3 py-2"
+            type="datetime-local"
+            step={60}
+            required={status === 'SHIPPED'}
+            value={estimatedDeliveryAt}
+            onChange={(event) => setEstimatedDeliveryAt(event.target.value)}
+          />
+          <span className="text-xs text-muted-foreground">{t('estimatedDeliveryHint')}</span>
         </label>
 
         <label className="grid gap-1 text-sm">
           <span>{t('tracking')}</span>
           <input
-            className="rounded-md border bg-background px-3 py-2"
+            className="rounded-md border bg-background px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"
             value={tracking}
             maxLength={100}
+            disabled={Boolean(order.shipping.externalId)}
             onChange={(event) => setTracking(event.target.value)}
           />
+          <span className="text-xs text-muted-foreground">
+            {order.shipping.externalId ? t('trackingIntegratedHint') : t('trackingManualHint')}
+          </span>
         </label>
 
         <button
@@ -393,6 +431,18 @@ export default function OrderRow({ order }: { order: DashboardOrder }) {
           {pending ? '...' : saved ? t('saved') : t('save')}
         </button>
       </div>
+      {(saveError || emailWarning) && (
+        <p
+          role={saveError ? 'alert' : 'status'}
+          className={`mt-3 rounded-md p-3 text-sm ${
+            saveError
+              ? 'border border-red-200 bg-red-50 text-red-700'
+              : 'border border-amber-200 bg-amber-50 text-amber-800'
+          }`}
+        >
+          {saveError ?? t('emailNotificationFailed')}
+        </p>
+      )}
     </article>
   );
 }

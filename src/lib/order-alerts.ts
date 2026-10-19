@@ -38,6 +38,7 @@ function formatOrderAlert(order: {
   id: string;
   orderNumber: number;
   total: number;
+  currency: string;
   fulfillmentStatus: string;
   estimatedDeliveryAt: Date;
 }) {
@@ -50,7 +51,7 @@ function formatOrderAlert(order: {
   return [
     '⚠️ Alerta de entrega',
     `Pedido: #${String(order.orderNumber).padStart(6, '0')}`,
-    `Total: $${order.total.toFixed(2)}`,
+    `Total: ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: order.currency, currencyDisplay: 'code' }).format(order.total)}`,
     `Estado: ${order.fulfillmentStatus}`,
     `Entrega estimada: ${estimatedDelivery}`,
     'Ya pasó el tiempo estimado de entrega y el pedido sigue pendiente de finalización.',
@@ -68,6 +69,7 @@ export async function sendPaidOrderAlert(orderId: string) {
       id: true,
       orderNumber: true,
       total: true,
+      currency: true,
       createdAt: true,
       fulfillmentStatus: true,
       status: true,
@@ -83,7 +85,12 @@ export async function sendPaidOrderAlert(orderId: string) {
       [
         '🛍️ Nuevo pedido pagado',
         'Pedido: #' + String(order.orderNumber).padStart(6, '0'),
-        'Total: $' + order.total.toFixed(2),
+        'Total: ' +
+          new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: order.currency,
+            currencyDisplay: 'code',
+          }).format(order.total),
         'Estado: ' + order.fulfillmentStatus,
         'El pago fue confirmado correctamente.',
       ].join('\\n'),
@@ -201,6 +208,7 @@ export async function sendOverdueOrderAlerts() {
       id: true,
       orderNumber: true,
       total: true,
+      currency: true,
       fulfillmentStatus: true,
       estimatedDeliveryAt: true,
     },

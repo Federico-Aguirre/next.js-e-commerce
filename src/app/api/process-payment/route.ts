@@ -4,9 +4,12 @@ import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth-options';
 import { restoreOrderStock } from '@/lib/checkout/inventory';
+import { amountAtExchangeRate } from '@/lib/currency/payment-amount';
 import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
+import { sendOrderConfirmationEmail } from '@/lib/orders/order-confirmation-email';
 import { mercadoPagoPaymentConfig, platformFeeForProducts } from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
+import { calculateTaxBreakdown } from '@/lib/tax/tax-calculation';
 
 export const dynamic = 'force-dynamic';
 
@@ -270,6 +273,7 @@ export async function POST(req: Request) {
     }
 
     if (order.status === 'PAID') {
+      await sendOrderConfirmationEmail(order.id);
       return NextResponse.json({
         id: order.paymentExternalId,
         orderId: order.id,
@@ -286,12 +290,28 @@ export async function POST(req: Request) {
       );
     }
 
+    if (
+      order.paymentCurrency !== 'ARS' ||
+      order.paymentTotal === null ||
+      order.paymentExchangeRate === null ||
+      order.taxRate === null ||
+      order.taxCalculationMethod === null
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            'Esta reserva no tiene un cálculo de impuestos válido guardado. Volvé al carrito e iniciá el checkout nuevamente.',
+        },
+        { status: 409 },
+      );
+    }
+
     const payerEmail = String(body.email || userEmail || '').trim();
     if (!payerEmail) {
       throw new Error('Falta el email del comprador para Mercado Pago.');
     }
 
-    const transactionAmount = Number(order.total.toFixed(2));
+    const transactionAmount = Number(order.paymentTotal.toFixed(2));
     const installments = Number(body.installments || 1);
     const paymentMethodId = String(body.payment_method_id || 'master');
 
@@ -309,8 +329,12 @@ export async function POST(req: Request) {
       const payment = new Payment(client);
       paymentResponse = await payment.create({
         body: {
-          transaction_amount: Number(order.total.toFixed(2)),
-          application_fee: platformFeeForProducts(order.items),
+          transaction_amount: Number(order.paymentTotal!.toFixed(2)),
+          application_fee: amountAtExchangeRate(
+            platformFeeForProducts(order.items),
+            'ARS',
+            order.paymentExchangeRate,
+          ),
           token: body.token,
           description: body.description || `Orden ${order.id}`,
           installments: Number(body.installments || 1),
@@ -331,7 +355,18 @@ export async function POST(req: Request) {
               id: item.productId,
               title: item.title,
               quantity: item.quantity,
-              unit_price: item.price,
+              unit_price: amountAtExchangeRate(
+                calculateTaxBreakdown(
+                  item.price,
+                  order.taxRate,
+                  order.currency,
+                  order.taxCalculationMethod === 'tax_inclusive_base'
+                    ? 'tax_inclusive_base'
+                    : 'tax_exclusive_base',
+                ).total,
+                'ARS',
+                order.paymentExchangeRate!,
+              ),
             })),
           },
         },
@@ -469,6 +504,7 @@ export async function POST(req: Request) {
       throw new Error('El pago fue aprobado pero la orden cambió de estado antes de confirmarse.');
     }
 
+    await sendOrderConfirmationEmail(order.id);
     void sendPaidOrderAlert(order.id);
     await sendLowStockAlerts();
 
@@ -498,6 +534,7 @@ export async function POST(req: Request) {
 
             if (reconciled.count === 1) {
               paymentWasApproved = true;
+              await sendOrderConfirmationEmail(pendingOrderId);
               void sendPaidOrderAlert(pendingOrderId);
               await sendLowStockAlerts();
               return NextResponse.json({

@@ -165,7 +165,7 @@ const rawProductsData: Product[] = [
   {
     id: 1,
     name: 'Columbia Glennaker Waterproof Jacket',
-    price: 24.99,
+    price: 37848.99,
     description:
       'A lightweight, packable waterproof rain jacket featuring a durable nylon shell and a hideaway hood. Engineered to keep you bone-dry during sudden downpours.',
     category: 'jackets',
@@ -210,7 +210,7 @@ const rawProductsData: Product[] = [
   {
     id: 2,
     name: 'Van Heusen Flex Stretch Suit Jacket',
-    price: 50.0,
+    price: 75728.28,
     description:
       'Designed for modern professionals, this tailored suit jacket blends classic elegance with innovative flex-stretch fibers for natural, unrestricted movement.',
     category: 'jackets',
@@ -263,7 +263,7 @@ const rawProductsData: Product[] = [
   {
     id: 3,
     name: 'Under Armour Performance Baseball Pants',
-    price: 17.64,
+    price: 26716.94,
     description:
       'Durable, sweat-wicking baseball pants engineered with dual-layer knees for added protection. Clean waistband design built to stay comfortable through extra innings.',
     category: 'pants',
@@ -308,7 +308,7 @@ const rawProductsData: Product[] = [
   {
     id: 4,
     name: 'Under Armour UA Waffle Henley Long Sleeve TShirt',
-    price: 31.67,
+    price: 47966.29,
     description:
       'Waffle-textured knit fabric traps warmth without adding bulk. A comfortable, versatile long sleeve Henley designed to move seamlessly with your body.',
     category: 'tshirts',
@@ -358,7 +358,7 @@ const rawProductsData: Product[] = [
   {
     id: 5,
     name: 'Como Quieres Bleach Jogging Pants',
-    price: 34.99,
+    price: 52994.65,
     description:
       "Comfortable and stylish women's fleece joggers with a modern bleached finish. Ideal for casual daily wear, lounging, or light workouts.",
     category: 'pants',
@@ -394,7 +394,7 @@ const rawProductsData: Product[] = [
   {
     id: 6,
     name: 'Giannis Immortality 4 Basketball Shoes',
-    price: 110.0,
+    price: 166602.21,
     description:
       "Engineered for explosive movement and premium court control. Features responsive cushioning and a multi-directional traction pattern inspired by Giannis's powerful gameplay.",
     category: 'sneakers',
@@ -422,7 +422,7 @@ const rawProductsData: Product[] = [
   {
     id: 7,
     name: "DC Shoes Pure Men's Skate Sneakers",
-    price: 65.0,
+    price: 98446.76,
     description:
       'The classic heritage skate shoe built for durability and performance. Features a heavily padded collar and tongue, wrap-around sole construction, and a highly abrasion-resistant rubber outsole.',
     category: 'sneakers',
@@ -463,7 +463,7 @@ const rawProductsData: Product[] = [
   {
     id: 8,
     name: 'Modern Casual Henley Long Sleeve TShirt',
-    price: 28.5,
+    price: 43165.12,
     description:
       'A trendy, lightweight casual long-sleeve tee featuring a traditional button-up Henley neckline. Extremely soft texture providing a sharp look for casual outings.',
     category: 'tshirts',
@@ -497,7 +497,7 @@ const rawProductsData: Product[] = [
   {
     id: 9,
     name: 'Heavy-Duty Half-Zip Fleece Sweatshirt',
-    price: 39.99,
+    price: 60567.47,
     description:
       'Premium heavy fleece sweater with a functional mock-neck half-zip design. Thermal insulation engineered for professional work environments or extreme cold weather outdoor activities.',
     category: 'hoodies',
@@ -538,7 +538,7 @@ const rawProductsData: Product[] = [
   {
     id: 10,
     name: 'Premium Unisex High-Neck Fleece Sweatshirt',
-    price: 42.0,
+    price: 63611.75,
     description:
       'An ultra-soft unisex fleece pullover showcasing a modern high-neck collar structure. Designed to deliver superior thermal protection and long-lasting winter comfort.',
     category: 'hoodies',
@@ -621,7 +621,6 @@ const importedClothingProducts: Product[] = importedClothingProductsData.map(
     material: getMaterial(category, index),
     brand,
     sku: `DUMMY-CLOTHING-${id}`,
-    rating: Number((4.1 + (index % 9) / 10).toFixed(1)),
     discount: [5, 10, 15][index % 3]!,
     variants: [
       {
@@ -671,8 +670,6 @@ export const productsData: Product[] = [...rawProductsData, ...importedClothingP
     brand: product.brand ?? ['Adidas', 'Nike', 'Columbia', 'Under Armour'][index % 4]!,
 
     sku: product.sku ?? `NOVA-${product.id}`,
-
-    rating: product.rating ?? Number((4 + (index % 10) / 10).toFixed(1)),
 
     discount: product.discount ?? [0, 5, 10, 15][index % 4]!,
 

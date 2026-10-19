@@ -62,9 +62,10 @@ model User {
   accounts      Account[]
   sessions      Session[]
   orders        Order[]
-  cartItems     CartItem[]
-  isAdmin       Boolean    @default(false)
-  isPlatformOwner Boolean    @default(false)
+  cartItems      CartItem[]
+  productReviews ProductReview[]
+  isAdmin        Boolean       @default(false)
+  isPlatformOwner Boolean      @default(false)
 }
 
 model WishlistItem {
@@ -111,6 +112,7 @@ model Product {
   category    String
   isActive    Boolean          @default(true)
   variants    ProductVariant[]
+  reviews     ProductReview[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 }
@@ -150,7 +152,17 @@ model Order {
   id                 String      @id @default(uuid())
   orderNumber        Int         @unique @default(autoincrement())
   userId             String
-  total              Float
+  total              Float // Final total including the saved tax snapshot, in currency
+  subtotal           Float       @default(0) // Order item subtotal before tax
+  taxAmount          Float       @default(0) // Saved tax total in order currency
+  taxRate            Float? // Percentage rate saved at checkout; null when destination tax is jurisdictional/unknown
+  taxCalculationMethod String?
+  taxCountry         String?
+  taxName            String?
+  currency           String      @default("ARS")
+  paymentCurrency    String      @default("USD")
+  paymentTotal       Float? // Exact amount sent to the payment provider
+  paymentExchangeRate Float? // Multiplier from store base currency to payment currency
   status             String // Payment status: "PENDING", "PAID", "REFUND_PENDING", "REFUNDED", "EXPIRED"
   checkoutKey        String?     @unique
   paymentProvider     String?
@@ -191,6 +203,26 @@ model Order {
   expiresAt          DateTime
   user               User        @relation(fields: [userId], references: [id])
   items              OrderItem[]
+  emailNotifications OrderEmailNotification[]
+  productReviews     ProductReview[]
+}
+
+model OrderEmailNotification {
+  id                String   @id @default(cuid())
+  orderId           String
+  type              String   @default("PURCHASE_CONFIRMATION")
+  recipientEmail    String
+  status            String   @default("PENDING")
+  attempts          Int      @default(0)
+  providerMessageId String?
+  lastError         String?  @db.Text
+  sentAt            DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, type])
+  @@index([status, updatedAt])
 }
 
 // 🛒 items comprados, es el historial
@@ -204,6 +236,22 @@ model OrderItem {
   quantity  Int
   size      String
   image     String
+}
+
+model ConsumerRequest {
+  id            String   @id @default(uuid())
+  requestCode   String   @unique
+  requestType   String   @default("WITHDRAWAL")
+  orderNumber   Int?
+  customerEmail String
+  details       String?  @db.Text
+  locale        String   @default("es")
+  status        String   @default("RECEIVED")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([customerEmail, createdAt])
 }
 
 model OrderOrReservation {
@@ -254,4 +302,22 @@ model StorePaymentConnection {
   metadata              Json?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
+}
+
+model ProductReview {
+  id        String   @id @default(cuid())
+  productId Int
+  userId    String
+  orderId   String
+  rating    Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId])
+  @@index([productId, createdAt])
+  @@index([orderId])
 }

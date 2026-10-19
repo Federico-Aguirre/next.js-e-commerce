@@ -4,33 +4,9 @@ import createNextIntlPlugin from 'next-intl/plugin';
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
-  env: {
-    DATABASE_URL: process.env.DATABASE_URL || '',
-  },
-  allowedDevOrigins: [
-    '*.nip.io',
-    '192.168.3.9.nip.io',
-    '*.ngrok-free.app',
-    '*.ngrok-free.dev',
-  ],
-  async headers() {
-    return [
-      {
-        source: '/api/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          {
-            key: 'Access-Control-Allow-Methods',
-            value: 'GET,POST,PUT,DELETE,OPTIONS',
-          },
-          {
-            key: 'Access-Control-Allow-Headers',
-            value: 'Content-Type, Authorization, X-Requested-With, Accept',
-          },
-        ],
-      },
-    ];
-  },
+  // Never expose server-only secrets through next.config.env.
+  // DATABASE_URL is read directly by server code and must remain server-side.
+  allowedDevOrigins: ['*.nip.io', '192.168.3.9.nip.io', '*.ngrok-free.app', '*.ngrok-free.dev'],
 };
 
 export default withNextIntl(nextConfig);

@@ -2,8 +2,15 @@ import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { isCheckoutProfileComplete } from '@/lib/account/checkout-profile';
 import { authOptions } from '@/lib/auth-options';
 import { resolveCartSku, restoreOrderStock } from '@/lib/checkout/inventory';
+import {
+  amountAtExchangeRate,
+  amountInPaymentCurrency,
+  loadPaymentConversion,
+} from '@/lib/currency/payment-amount';
+import type { ProviderCurrency } from '@/lib/currency/payment-amount';
 import {
   mercadoPagoPaymentConfig,
   paypalAuthAssertion,
@@ -12,6 +19,9 @@ import {
   stripePaymentConfig,
 } from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
+import { calculateBasketTax, calculateTaxBreakdown } from '@/lib/tax/tax-calculation';
+import { getCountryTaxProfile } from '@/lib/tax/tax-rates';
+import { StoreConfig } from '@/utils/StoreConfig';
 
 export const dynamic = 'force-dynamic';
 
@@ -168,6 +178,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 });
     }
 
+    if (!isCheckoutProfileComplete(dbUser)) {
+      return NextResponse.json(
+        {
+          code: 'PROFILE_INCOMPLETE',
+          error:
+            'Completá y guardá tus datos personales y dirección de entrega en Mi cuenta antes de realizar la compra.',
+          accountUrl: '/account',
+        },
+        { status: 400 },
+      );
+    }
+
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'Cart is empty.' }, { status: 400 });
     }
@@ -243,6 +265,16 @@ export async function POST(req: Request) {
             clientSecret: paymentIntent.client_secret,
             paymentIntentId: paymentIntent.id,
             orderId: existingOrder.id,
+            paymentTotal: paymentIntent.amount / 100,
+            paymentCurrency: paymentIntent.currency.toUpperCase(),
+            totalInStoreCurrency: existingOrder.total,
+            subtotal: existingOrder.subtotal,
+            taxAmount: existingOrder.taxAmount,
+            taxRate: existingOrder.taxRate,
+            taxCalculationMethod: existingOrder.taxCalculationMethod,
+            taxName: existingOrder.taxName,
+            taxCountry: existingOrder.taxCountry,
+            currency: existingOrder.currency,
           });
         }
 
@@ -250,10 +282,34 @@ export async function POST(req: Request) {
           return NextResponse.json({
             paypalOrderId: existingOrder.paymentExternalId,
             orderId: existingOrder.id,
+            paymentTotal: existingOrder.paymentTotal,
+            paymentCurrency: existingOrder.paymentCurrency,
+            totalInStoreCurrency: existingOrder.total,
+            subtotal: existingOrder.subtotal,
+            taxAmount: existingOrder.taxAmount,
+            taxRate: existingOrder.taxRate,
+            taxCalculationMethod: existingOrder.taxCalculationMethod,
+            taxName: existingOrder.taxName,
+            taxCountry: existingOrder.taxCountry,
+            currency: existingOrder.currency,
           });
         }
       }
     }
+
+    // The catalogue is fixed in ARS before tax. Save the destination's rate with the order;
+    // payment gateways receive the item totals including that saved tax snapshot.
+    const taxProfile = await getCountryTaxProfile(dbUser.shippingCountry || 'Argentina');
+    if (!taxProfile || taxProfile.status !== 'standard' || taxProfile.rate === null) {
+      throw new Error(
+        `No se puede confirmar el impuesto para ${dbUser.shippingCountry || 'el destino seleccionado'}. Completá una dirección de entrega válida o conectá una configuración fiscal para esa jurisdicción antes de pagar.`,
+      );
+    }
+    const taxRate = taxProfile.rate;
+    const paymentCurrency: ProviderCurrency = paymentMethod.startsWith('mercadopago')
+      ? 'ARS'
+      : 'USD';
+    const paymentConversion = await loadPaymentConversion(paymentCurrency);
 
     await cleanupLegacyPendingOrders(dbUser.id);
 
@@ -362,12 +418,47 @@ export async function POST(req: Request) {
           }
         }
 
-        const total = resolvedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const taxBreakdown = calculateBasketTax(
+          resolvedItems,
+          taxRate,
+          StoreConfig.currency,
+          taxProfile?.calculationMethod,
+        );
+        const subtotal = taxBreakdown.subtotal;
+        const taxAmount = taxBreakdown.taxAmount;
+        const total = taxBreakdown.total;
+
+        // Match the provider's per-unit rounding so line items reconcile with the charged total.
+        const paymentTotal = Number(
+          resolvedItems
+            .reduce((sum, item) => {
+              const grossUnitPrice = calculateTaxBreakdown(
+                item.price,
+                taxRate,
+                StoreConfig.currency,
+                taxProfile?.calculationMethod,
+              ).total;
+              return (
+                sum + amountInPaymentCurrency(grossUnitPrice, paymentConversion) * item.quantity
+              );
+            }, 0)
+            .toFixed(2),
+        );
 
         return tx.order.create({
           data: {
             userId: dbUser.id,
+            subtotal,
+            taxAmount,
+            taxRate: taxProfile?.rate ?? null,
+            taxCalculationMethod: taxProfile?.calculationMethod ?? null,
+            taxCountry: taxProfile?.countryCode ?? null,
+            taxName: taxProfile?.taxName ?? null,
             total,
+            currency: StoreConfig.currency,
+            paymentCurrency,
+            paymentTotal,
+            paymentExchangeRate: paymentConversion.exchangeRate,
             status: 'PENDING',
             checkoutKey: checkoutKey || null,
             paymentProvider,
@@ -397,7 +488,17 @@ export async function POST(req: Request) {
 
     // 💳 PASARELAS DE PAGO
     if (paymentMethod === 'mercadopago-card') {
-      return NextResponse.json({ orderId: order.id, total: order.total });
+      return NextResponse.json({
+        orderId: order.id,
+        total: order.total,
+        subtotal: order.subtotal,
+        taxAmount: order.taxAmount,
+        taxRate: order.taxRate,
+        taxCalculationMethod: order.taxCalculationMethod,
+        taxName: order.taxName,
+        taxCountry: order.taxCountry,
+        currency: order.currency,
+      });
     }
 
     if (paymentMethod === 'mercadopago') {
@@ -419,7 +520,17 @@ export async function POST(req: Request) {
           items: order.items.map((item) => ({
             id: item.productId,
             title: `${item.title} (${item.size.toUpperCase()})`,
-            unit_price: Number(item.price),
+            unit_price: amountInPaymentCurrency(
+              calculateTaxBreakdown(
+                Number(item.price),
+                order.taxRate,
+                StoreConfig.currency,
+                order.taxCalculationMethod === 'tax_inclusive_base'
+                  ? 'tax_inclusive_base'
+                  : 'tax_exclusive_base',
+              ).total,
+              paymentConversion,
+            ),
             quantity: Number(item.quantity),
             currency_id: 'ARS',
           })),
@@ -435,7 +546,10 @@ export async function POST(req: Request) {
           },
           external_reference: order.id,
           expiration_date_to: expirationTime.toISOString(),
-          marketplace_fee: platformFeeForProducts(order.items),
+          marketplace_fee: amountInPaymentCurrency(
+            platformFeeForProducts(order.items),
+            paymentConversion,
+          ),
         },
       });
 
@@ -460,11 +574,13 @@ export async function POST(req: Request) {
       }
 
       const stripe = new Stripe(stripeSecretKey);
-      const feeAmount = Math.round(platformFeeForProducts(order.items) * 100);
+      const feeAmount = Math.round(
+        amountInPaymentCurrency(platformFeeForProducts(order.items), paymentConversion) * 100,
+      );
 
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(total * 100),
-        currency: 'usd',
+        amount: Math.round((order.paymentTotal ?? total) * 100),
+        currency: order.paymentCurrency.toLowerCase(),
         payment_method_types: ['card'],
         application_fee_amount: feeAmount,
         transfer_data: { destination: connectedAccountId },
@@ -487,6 +603,16 @@ export async function POST(req: Request) {
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
         orderId: order.id,
+        paymentTotal: order.paymentTotal,
+        paymentCurrency: order.paymentCurrency,
+        totalInStoreCurrency: order.total,
+        subtotal: order.subtotal,
+        taxAmount: order.taxAmount,
+        taxRate: order.taxRate,
+        taxCalculationMethod: order.taxCalculationMethod,
+        taxName: order.taxName,
+        taxCountry: order.taxCountry,
+        currency: order.currency,
       });
     }
 
@@ -528,14 +654,17 @@ export async function POST(req: Request) {
                   {
                     amount: {
                       currency_code: 'USD',
-                      value: platformFeeForProducts(order.items).toFixed(2),
+                      value: amountInPaymentCurrency(
+                        platformFeeForProducts(order.items),
+                        paymentConversion,
+                      ).toFixed(2),
                     },
                   },
                 ],
               },
               amount: {
                 currency_code: 'USD',
-                value: total.toFixed(2),
+                value: (order.paymentTotal ?? total).toFixed(2),
               },
             },
           ],
@@ -558,6 +687,16 @@ export async function POST(req: Request) {
       return NextResponse.json({
         paypalOrderId: paypalOrder.id,
         orderId: order.id,
+        paymentTotal: order.paymentTotal,
+        paymentCurrency: order.paymentCurrency,
+        totalInStoreCurrency: order.total,
+        subtotal: order.subtotal,
+        taxAmount: order.taxAmount,
+        taxRate: order.taxRate,
+        taxCalculationMethod: order.taxCalculationMethod,
+        taxName: order.taxName,
+        taxCountry: order.taxCountry,
+        currency: order.currency,
       });
     }
 

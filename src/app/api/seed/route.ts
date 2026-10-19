@@ -1,6 +1,5 @@
 // app/api/seed/route.ts
 import { NextResponse } from 'next/server';
-
 // 🔥 Usamos la instancia centralizada para evitar errores de compilación en CI/CD
 import { prisma } from '@/lib/prisma';
 
@@ -8,7 +7,7 @@ const seedProducts = [
   {
     id: 1,
     name: 'Columbia Glennaker Waterproof Jacket',
-    price: 24.99,
+    price: 37848.99,
     description:
       'A lightweight, packable waterproof rain jacket featuring a durable nylon shell and a hideaway hood.',
     category: 'jackets',
@@ -31,7 +30,7 @@ const seedProducts = [
   {
     id: 2,
     name: 'Van Heusen Flex Stretch Suit Jacket',
-    price: 50.0,
+    price: 75728.28,
     description:
       'Designed for modern professionals, this tailored suit jacket blends classic elegance with flex-stretch.',
     category: 'jackets',
@@ -48,7 +47,7 @@ const seedProducts = [
   {
     id: 3,
     name: 'Under Armour Performance Baseball Pants',
-    price: 17.64,
+    price: 26716.94,
     description:
       'Durable, sweat-wicking baseball pants engineered with dual-layer knees for added protection.',
     category: 'pants',
@@ -65,7 +64,7 @@ const seedProducts = [
   {
     id: 4,
     name: 'Under Armour UA Waffle Henley Long Sleeve TShirt',
-    price: 31.67,
+    price: 47966.29,
     description:
       'Waffle-textured knit fabric traps warmth without adding bulk. Comfort and movement.',
     category: 'tshirts',
@@ -109,9 +108,6 @@ export async function GET() {
     });
   } catch (error: any) {
     console.error(error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import React, { useState } from 'react';
+import { TaxInclusivePrice } from '@/components/TaxInclusivePrice';
 import WishlistButton from '@/components/WishlistButton';
 import { useCartStore } from '@/store/useCartStore';
 import type { Product, ProductVariant, ProductSku } from '@/types/product';
@@ -290,9 +291,11 @@ export default function ProductViewer({ product }: ProductViewerProps) {
         <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">{product?.name}</h1>
 
         <div className="mt-3">
-          <p className="text-3xl font-bold text-gray-900">
-            ${Number(product?.price ?? 0).toFixed(2)}
-          </p>
+          <TaxInclusivePrice
+            amount={Number(product?.price ?? 0)}
+            compact={false}
+            className="text-3xl font-bold text-gray-900"
+          />
         </div>
 
         <div className="mt-6">

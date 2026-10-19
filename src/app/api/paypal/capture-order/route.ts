@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth-options';
 import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
+import { sendOrderConfirmationEmail } from '@/lib/orders/order-confirmation-email';
 import { paypalAuthAssertion, paypalPaymentConfig } from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
 
@@ -136,6 +137,7 @@ export async function POST(request: Request) {
     }
 
     if (order.status === 'PAID') {
+      await sendOrderConfirmationEmail(order.id);
       return NextResponse.json(
         {
           success: true,
@@ -235,6 +237,7 @@ export async function POST(request: Request) {
       },
     });
 
+    await sendOrderConfirmationEmail(updatedOrder.id);
     void sendPaidOrderAlert(updatedOrder.id);
     await sendLowStockAlerts();
 

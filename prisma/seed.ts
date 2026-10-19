@@ -8,7 +8,7 @@ const fullProducts = [
   {
     id: 1,
     name: 'Columbia Glennaker Waterproof Jacket',
-    price: 24.99,
+    price: 37848.99,
     description:
       'A lightweight, packable waterproof rain jacket featuring a durable nylon shell and a hideaway hood. Engineered to keep you bone-dry during sudden downpours.',
     category: 'jackets',
@@ -49,7 +49,7 @@ const fullProducts = [
   {
     id: 2,
     name: 'Van Heusen Flex Stretch Suit Jacket',
-    price: 50.0,
+    price: 75728.28,
     description:
       'Designed for modern professionals, this tailored suit jacket blends classic elegance with innovative flex-stretch fibers for natural, unrestricted movement.',
     category: 'jackets',
@@ -95,7 +95,7 @@ const fullProducts = [
   {
     id: 3,
     name: 'Under Armour Performance Baseball Pants',
-    price: 17.64,
+    price: 26716.94,
     description:
       'Durable, sweat-wicking baseball pants engineered with dual-layer knees for added protection.',
     category: 'pants',
@@ -135,9 +135,8 @@ const fullProducts = [
   {
     id: 4,
     name: 'Under Armour UA Waffle Henley Long Sleeve TShirt',
-    price: 31.67,
-    description:
-      'Waffle-textured knit fabric traps warmth without adding bulk.',
+    price: 47966.29,
+    description: 'Waffle-textured knit fabric traps warmth without adding bulk.',
     category: 'tshirts',
     variants: [
       {
@@ -178,9 +177,8 @@ const fullProducts = [
   {
     id: 5,
     name: 'Como Quieres Bleach Jogging Pants',
-    price: 34.99,
-    description:
-      "Comfortable and stylish women's fleece joggers with a modern bleached finish.",
+    price: 52994.65,
+    description: "Comfortable and stylish women's fleece joggers with a modern bleached finish.",
     category: 'pants',
     variants: [
       {
@@ -210,7 +208,7 @@ const fullProducts = [
   {
     id: 6,
     name: 'Giannis Immortality 4 Basketball Shoes',
-    price: 110.0,
+    price: 166602.21,
     description: 'Engineered for explosive movement and premium court control.',
     category: 'sneakers',
     variants: [
@@ -234,9 +232,8 @@ const fullProducts = [
   {
     id: 7,
     name: "DC Shoes Pure Men's Skate Sneakers",
-    price: 65.0,
-    description:
-      'The classic heritage skate shoe built for durability and performance.',
+    price: 98446.76,
+    description: 'The classic heritage skate shoe built for durability and performance.',
     category: 'sneakers',
     variants: [
       {
@@ -268,7 +265,7 @@ const fullProducts = [
   {
     id: 8,
     name: 'Modern Casual Henley Long Sleeve TShirt',
-    price: 28.5,
+    price: 43165.12,
     description: 'A trendy, lightweight casual long-sleeve tee.',
     category: 'tshirts',
     variants: [
@@ -293,9 +290,8 @@ const fullProducts = [
   {
     id: 9,
     name: 'Heavy-Duty Half-Zip Fleece Sweatshirt',
-    price: 39.99,
-    description:
-      'Premium heavy fleece sweater with a functional mock-neck half-zip design.',
+    price: 60567.47,
+    description: 'Premium heavy fleece sweater with a functional mock-neck half-zip design.',
     category: 'hoodies',
     variants: [
       {
@@ -321,7 +317,7 @@ const fullProducts = [
   {
     id: 10,
     name: 'Premium Unisex High-Neck Fleece Sweatshirt',
-    price: 42.0,
+    price: 63611.75,
     description:
       'An ultra-soft unisex fleece pullover showcasing a modern high-neck collar structure. Designed to deliver superior thermal protection and long-lasting winter comfort.',
     category: 'hoodies',
@@ -361,9 +357,7 @@ async function main() {
     await client.query('DELETE FROM "ProductVariant";');
     await client.query('DELETE FROM "Product";');
 
-    console.log(
-      '🌱 Sembrando catálogo profesional con paths de public/ e IDs únicos...',
-    );
+    console.log('🌱 Sembrando catálogo profesional con paths de public/ e IDs únicos...');
 
     for (const prod of fullProducts) {
       await client.query(
@@ -399,9 +393,7 @@ async function main() {
       }
     }
 
-    console.log(
-      '✅ ¡Catálogo relacional inyectado con URLs de public/ listas!',
-    );
+    console.log('✅ ¡Catálogo relacional inyectado con URLs de public/ listas!');
   } catch (err) {
     console.error('❌ Error inyectando el seed:', err);
   } finally {

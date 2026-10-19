@@ -2,10 +2,24 @@
 
 import 'server-only';
 import { headers } from 'next/headers';
-import { Resend } from 'resend';
+import { sendBrevoEmail } from '@/lib/email/brevo';
+import { Env } from '@/lib/Env';
 import { contactSchema } from '@/lib/schemas/contactSchema';
 
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    const replacements: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
+    return replacements[character] ?? character;
+  });
+}
 
 export async function sendContactForm(formData: unknown) {
   // 1. IP rate limiting (Async in Next.js 15/16)
@@ -47,48 +61,44 @@ export async function sendContactForm(formData: unknown) {
   }
 
   // 5. Validate email configuration before trying to send
-  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const apiKey = Env.BREVO_API_KEY?.trim();
+  const senderEmail = Env.BREVO_FROM_EMAIL?.trim();
   const recipientEmail = process.env.CONTACT_RECIPIENT_EMAIL?.trim();
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL?.trim() || 'Portfolio Contact <onboarding@resend.dev>';
 
-  if (!apiKey || !recipientEmail) {
+  if (!apiKey || !senderEmail || !recipientEmail) {
     console.error('Contact email configuration is incomplete.', {
-      hasResendApiKey: Boolean(apiKey),
+      hasBrevoApiKey: Boolean(apiKey),
+      hasBrevoSender: Boolean(senderEmail),
       hasRecipientEmail: Boolean(recipientEmail),
     });
     return { success: false, error: 'configurationError' };
   }
 
-  // 6. Send via Resend API
+  // 6. Send via Brevo's transactional email API
   try {
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
-      from: fromEmail,
-      to: [recipientEmail],
+    await sendBrevoEmail({
+      to: recipientEmail,
       replyTo: email,
       subject: `[Contacto Web] ${affair}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e4e4e7; border-radius: 8px;">
           <h2 style="color: #09090b; border-bottom: 1px solid #e4e4e7; padding-bottom: 10px;">Nuevo mensaje de contacto</h2>
-          <p><strong>Nombre:</strong> ${name}</p>
-          <p><strong>Email de respuesta:</strong> <a href="mailto:${email}">${email}</a></p>
-          <p><strong>Asunto:</strong> ${affair}</p>
+          <p><strong>Nombre:</strong> ${escapeHtml(name)}</p>
+          <p><strong>Email de respuesta:</strong> <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>
+          <p><strong>Asunto:</strong> ${escapeHtml(affair)}</p>
           <div style="margin-top: 15px; padding: 15px; background-color: #f4f4f5; border-radius: 6px;">
-            <p style="margin: 0; white-space: pre-wrap; color: #27272a;">${consultation}</p>
+            <p style="margin: 0; white-space: pre-wrap; color: #27272a;">${escapeHtml(consultation)}</p>
           </div>
         </div>
       `,
+      text: `Nuevo mensaje de contacto\nNombre: ${name}\nEmail: ${email}\nAsunto: ${affair}\n\n${consultation}`,
     });
-
-    if (error) {
-      console.error('Resend API error:', error);
-      return { success: false, error: 'serviceError' };
-    }
 
     return { success: true };
   } catch (error) {
-    console.error('Server error:', error);
-    return { success: false, error: 'serverError' };
+    console.error('Contact email delivery failed.', {
+      error: error instanceof Error ? error.name : 'UnknownError',
+    });
+    return { success: false, error: 'serviceError' };
   }
 }

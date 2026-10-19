@@ -4,7 +4,11 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { AuthRequiredNotice } from '@/components/checkout/AuthRequiredNotice';
+import { TaxInclusivePrice } from '@/components/TaxInclusivePrice';
+import { calculateBasketTax } from '@/lib/tax/tax-calculation';
+import { useCurrency } from '@/providers/CurrencyProvider';
 import { useCartStore } from '@/store/useCartStore';
+import { StoreConfig } from '@/utils/StoreConfig';
 
 export default function CartPage() {
   // Carrito REAL de Zustand
@@ -42,6 +46,13 @@ export default function CartPage() {
     };
   }, []);
   const cartTotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const { currency, taxProfile } = useCurrency();
+  const basketTax = calculateBasketTax(
+    cartItems.map((item) => ({ price: item.price, quantity: item.quantity })),
+    taxProfile?.rate,
+    StoreConfig.currency,
+    taxProfile?.calculationMethod,
+  );
 
   return (
     <main className="min-h-screen bg-background px-4 py-12 text-foreground sm:px-6 lg:px-8">
@@ -83,14 +94,28 @@ export default function CartPage() {
 
                       <p className="text-xs text-gray-400">Color: {item.colorName}</p>
 
-                      <p className="mt-1 text-xs text-gray-500">${item.price.toFixed(2)} each</p>
+                      <TaxInclusivePrice
+                        amount={item.price}
+                        locale={currency === 'ARS' ? 'es-AR' : 'en-US'}
+                        compact
+                      />
                     </div>
                   </div>
 
                   <div className="flex flex-shrink-0 flex-col items-end gap-2">
-                    <p className="text-sm font-black text-gray-950">
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </p>
+                    <TaxInclusivePrice
+                      amount={item.price * item.quantity}
+                      grossAmountOverride={
+                        calculateBasketTax(
+                          [{ price: item.price, quantity: item.quantity }],
+                          taxProfile?.rate,
+                          StoreConfig.currency,
+                          taxProfile?.calculationMethod,
+                        ).total
+                      }
+                      locale={currency === 'ARS' ? 'es-AR' : 'en-US'}
+                      className="text-sm font-black text-gray-950"
+                    />
 
                     <button
                       type="button"
@@ -122,9 +147,16 @@ export default function CartPage() {
             <h3 className="mb-4 text-lg font-black text-gray-900">Order Summary</h3>
 
             <div className="mb-6 flex items-center justify-between border-b border-gray-100 pb-4">
-              <span className="text-sm font-medium text-gray-500">Total Amount:</span>
+              <span className="text-sm font-medium text-gray-500">
+                {currency === 'ARS' ? 'Total:' : 'Base price:'}
+              </span>
 
-              <span className="text-xl font-black text-gray-950">${cartTotal.toFixed(2)}</span>
+              <TaxInclusivePrice
+                amount={cartTotal}
+                grossAmountOverride={basketTax.total}
+                locale={currency === 'ARS' ? 'es-AR' : 'en-US'}
+                className="text-xl font-black text-gray-950"
+              />
             </div>
 
             <div className="space-y-3">

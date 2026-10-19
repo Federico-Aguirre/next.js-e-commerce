@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth-options';
 import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
+import { sendOrderConfirmationEmail } from '@/lib/orders/order-confirmation-email';
 import { mercadoPagoPaymentConfig } from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
 
@@ -93,6 +94,9 @@ export async function POST(request: Request) {
     });
 
     if (existingOrder) {
+      if (existingOrder.status === 'PAID') {
+        await sendOrderConfirmationEmail(existingOrder.id);
+      }
       return NextResponse.json(existingOrder, { status: 200 });
     }
 
@@ -149,6 +153,7 @@ export async function POST(request: Request) {
       },
     });
 
+    await sendOrderConfirmationEmail(nuevaOrden.id);
     void sendPaidOrderAlert(nuevaOrden.id);
     await sendLowStockAlerts();
 

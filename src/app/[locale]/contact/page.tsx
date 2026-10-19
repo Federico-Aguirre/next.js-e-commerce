@@ -1,5 +1,4 @@
 import { getTranslations } from 'next-intl/server';
-import ContactData from './ContactData';
 import ContactForm from './ContactForm';
 
 export async function generateMetadata() {
@@ -23,10 +22,8 @@ export default async function ContactPage() {
         <p className="text-zinc-600 dark:text-zinc-400">{t('description')}</p>
       </div>
 
-      {/* Contenedor wrapper para Formulario + Mapa/Datos */}
-      <div className="flex w-full max-w-5xl flex-col items-center justify-center gap-8 lg:flex-row lg:items-start">
+      <div className="flex w-full max-w-xl flex-col items-center justify-center">
         <ContactForm />
-        <ContactData />
       </div>
     </main>
   );

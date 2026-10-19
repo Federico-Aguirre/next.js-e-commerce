@@ -104,6 +104,9 @@ export function Header() {
           <Link href={localizedPath('/contact')} className="transition hover:text-foreground">
             {t.contact_link}
           </Link>
+          <Link href={localizedPath('/support')} className="transition hover:text-foreground">
+            {t.support_link}
+          </Link>
           <Link href={localizedPath('/historial')} className="transition hover:text-foreground">
             Historial
           </Link>

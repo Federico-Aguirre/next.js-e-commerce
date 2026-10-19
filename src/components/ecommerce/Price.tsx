@@ -1,5 +1,5 @@
 import type { Money } from '@/commerce/contracts';
-import { formatStorePrice } from '@/utils/StoreConfig';
+import { TaxInclusivePrice } from '@/components/TaxInclusivePrice';
 
 type PriceProps = {
   money: Money;
@@ -9,22 +9,20 @@ type PriceProps = {
 };
 
 export function Price({ money, locale, compareAt, className }: PriceProps) {
-  const formatted = formatStorePrice(money.amount, {
-    currency: money.currency,
-    locale,
-  });
-
   return (
-    <span className={className}>
-      <span className="font-semibold tracking-tight">{formatted}</span>
+    <div className={className}>
+      <div className="font-semibold tracking-tight">
+        <TaxInclusivePrice amount={money.amount} fromCurrency={money.currency} locale={locale} />
+      </div>
       {compareAt && compareAt.amount > money.amount ? (
-        <span className="ml-2 text-sm font-normal text-muted-foreground line-through">
-          {formatStorePrice(compareAt.amount, {
-            currency: compareAt.currency,
-            locale,
-          })}
-        </span>
+        <div className="mt-1 text-sm font-normal text-muted-foreground line-through">
+          <TaxInclusivePrice
+            amount={compareAt.amount}
+            fromCurrency={compareAt.currency}
+            locale={locale}
+          />
+        </div>
       ) : null}
-    </span>
+    </div>
   );
 }

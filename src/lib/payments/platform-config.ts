@@ -1,5 +1,7 @@
 import 'server-only';
 import Stripe from 'stripe';
+import { roundCurrencyAmount } from '@/lib/currency/currencies';
+import { StoreConfig } from '@/utils/StoreConfig';
 import { paypalMerchantIsReady, type PayPalMerchantStatus } from './paypal-onboarding-status';
 import { getStorePaymentConnection, saveStorePaymentConnection } from './store-connections';
 
@@ -11,13 +13,13 @@ export function platformCommissionPercent() {
 }
 
 export function platformFee(amount: number) {
-  return Number((amount * (platformCommissionPercent() / 100)).toFixed(2));
+  return roundCurrencyAmount(amount * (platformCommissionPercent() / 100), StoreConfig.currency);
 }
 
 export function commissionableProductSubtotal(items: Array<{ price: number; quantity: number }>) {
-  return Number(
-    items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0).toFixed(2),
-  );
+  const subtotal = items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
+
+  return roundCurrencyAmount(subtotal, StoreConfig.currency);
 }
 
 export function platformFeeForProducts(items: Array<{ price: number; quantity: number }>) {

@@ -3,6 +3,8 @@
 import { loadMercadoPago } from '@mercadopago/sdk-js';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { STORE_BASE_CURRENCY } from '@/lib/currency/currencies';
+import { useCurrency } from '@/providers/CurrencyProvider';
 import type { CartItem } from '@/store/useCartStore';
 import { useCartStore } from '@/store/useCartStore';
 
@@ -46,6 +48,19 @@ function setNativeValue(id: string, value: string) {
 export default function MercadoPagoCardForm({ cartItems, cartTotal }: Props) {
   const router = useRouter();
   const clearCart = useCartStore((state) => state.clearCart);
+  const { convertAmount, ratesReady, rates } = useCurrency();
+  const cartTotalInArs = Number(
+    cartItems
+      .reduce((total, item) => {
+        const convertedUnitPrice = convertAmount(item.price, STORE_BASE_CURRENCY, 'ARS');
+        return total + (convertedUnitPrice ?? 0) * item.quantity;
+      }, 0)
+      .toFixed(2),
+  );
+  const canQuoteArsTotal =
+    ratesReady &&
+    !!rates &&
+    cartItems.every((item) => convertAmount(item.price, STORE_BASE_CURRENCY, 'ARS') !== null);
   const initializedRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
@@ -59,7 +74,14 @@ export default function MercadoPagoCardForm({ cartItems, cartTotal }: Props) {
   }, []);
 
   useEffect(() => {
-    if (initializedRef.current || cartItems.length === 0 || cartTotal <= 0) return;
+    if (
+      initializedRef.current ||
+      cartItems.length === 0 ||
+      cartTotal <= 0 ||
+      !canQuoteArsTotal ||
+      cartTotalInArs <= 0
+    )
+      return;
     initializedRef.current = true;
 
     let cancelled = false;
@@ -90,7 +112,7 @@ export default function MercadoPagoCardForm({ cartItems, cartTotal }: Props) {
 
         const mp = new MercadoPago(publicKey, { locale: 'es-AR' });
         const cardForm = mp.cardForm({
-          amount: cartTotal.toFixed(2),
+          amount: cartTotalInArs.toFixed(2),
           iframe: true,
           form: {
             id: 'form-checkout',
@@ -242,7 +264,7 @@ export default function MercadoPagoCardForm({ cartItems, cartTotal }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [cartItems, cartTotal, clearCart, loading, router]);
+  }, [cartItems, cartTotal, cartTotalInArs, canQuoteArsTotal, clearCart, loading, router]);
 
   return (
     <div className="space-y-4">

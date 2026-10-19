@@ -5,20 +5,22 @@
     "contact_link": "Contact",
     "dashboard_link": "Dashboard",
     "sign_in_link": "Log in",
-    "sign_out_link": "Log out"
+    "sign_out_link": "Log out",
+    "support_link": "Help"
   },
   "Footer": {},
   "Dashboard": {
     "title": "Administration dashboard",
     "subtitle": "Daily control of sales, orders, and catalog.",
-    "salesTotal": "Total sales",
+    "salesTotal": "Total sales in ARS",
+    "moneyStatsNote": "Money metrics include ARS orders only. Historical orders in other currencies keep their original amounts and are not mixed into these totals.",
     "visits": "Visits",
     "conversionRate": "Conversion rate",
     "averageTicket": "Average ticket",
     "abandonedCarts": "Abandoned carts",
     "yourCommission": "Your commission",
     "yourCommissionThisMonth": "Your commission this month",
-    "commissionNote": "{percent}% of this month’s completed sales",
+    "commissionNote": "{percent}% of this month’s completed sales subtotal, excluding tax",
     "devices": "Access device",
     "mobile": "Mobile",
     "desktop": "Computer",
@@ -35,12 +37,20 @@
     "date": "Date",
     "total": "Total",
     "fulfillment": "Order status",
-    "estimatedDelivery": "Estimated delivery",
-    "tracking": "Tracking",
+    "fulfillmentHint": "Set “In transit” only after handing the package to the carrier, not when creating a label.",
+    "estimatedDelivery": "Estimated delivery date and time",
+    "estimatedDeliveryHint": "Uses Argentina time. Required when setting the order to “In transit”.",
+    "tracking": "Tracking code",
+    "trackingManualHint": "The code supplied by the carrier. It does not create or dispatch a shipment.",
+    "trackingIntegratedHint": "The integrated carrier fills this in when available; use the tracking link above.",
     "hours": "hours",
     "save": "Save",
     "saved": "Saved",
     "saveError": "Could not save the change.",
+    "etaRequired": "Enter an estimated delivery date and time before setting the order to “In transit”.",
+    "etaMustBeFuture": "The estimated delivery date and time must be in the future.",
+    "etaInvalid": "Enter a valid date and time.",
+    "emailNotificationFailed": "The order was saved, but the customer notification email could not be sent.",
     "catalogControl": "Quick catalog control",
     "active": "Active",
     "paused": "Paused",
@@ -90,11 +100,11 @@
     "status": {
       "pending": "Pending",
       "preparing": "Preparing",
-      "shipped": "Shipped",
+      "shipped": "In transit",
       "delivered": "Delivered",
       "cancelled": "Cancelled"
     },
-    "catalogControlSubtitle": "Price · stock · status · low-stock alerts",
+    "catalogControlSubtitle": "Pre-tax base price · stock · status · low-stock alerts. Buyers see the tax-inclusive final price.",
     "lowStockBadge": "Low stock",
     "stockAlertSent": "Alert sent",
     "stockAlertThreshold": "Alert when stock is equal to or below",
@@ -386,7 +396,29 @@
       "detailsTitle": "Structured detail blocks",
       "detailOne": "Use typed variants, media and inventory without coupling the UI to a provider schema.",
       "detailTwo": "Keep pricing and currency explicit so multi-market storefronts remain predictable.",
-      "detailThree": "Swap the demo repository for a real adapter without rewriting the presentation layer."
+      "detailThree": "Swap the demo repository for a real adapter without rewriting the presentation layer.",
+      "reviews": {
+        "title": "Ratings and reviews",
+        "noReviews": "No reviews yet",
+        "empty": "No reviews have been published for this product yet.",
+        "opinion": "review",
+        "opinions": "reviews",
+        "verifiedBuyer": "Verified purchase",
+        "signInRequired": "Sign in to rate this product. Ratings are only accepted after delivery.",
+        "deliveryRequired": "You can review this product once a paid order is marked as delivered.",
+        "alreadyReviewed": "You have already reviewed this product. Each buyer can post one review.",
+        "ratingLabel": "Your rating",
+        "star": "star",
+        "commentLabel": "Comment (optional)",
+        "commentPlaceholder": "Share your experience with this product (up to 1,000 characters).",
+        "submit": "Publish review",
+        "submitting": "Publishing...",
+        "submitted": "Your review was published.",
+        "submitError": "Your review could not be published. Please try again.",
+        "ratingRequired": "Choose a rating from 1 to 5 stars before publishing.",
+        "signIn": "Sign in",
+        "invalidReview": "The rating must be from 1 to 5 stars and the comment cannot exceed 1,000 characters."
+      }
     },
     "footer": {
       "description": "A reusable Next.js commerce storefront designed to stay provider-neutral as the backend evolves.",
@@ -397,7 +429,12 @@
       "contact": "Contact",
       "account": "Account",
       "copyright": "© {year} {name}. All rights reserved.",
-      "note": "Demo content is ready to be replaced with real catalog data."
+      "note": "Demo content is ready to be replaced with real catalog data.",
+      "ratesAttribution": "Reference rates by ExchangeRate-API",
+      "taxRatesAttribution": "Reference tax rates by VATEstimator",
+      "helpCenter": "Help center",
+      "legalInfo": "Legal information",
+      "withdrawalButton": "BOTÓN DE ARREPENTIMIENTO · Withdrawal request"
     }
   },
   "History": {
@@ -420,7 +457,7 @@
     "estimatedDelivery": "Estimated delivery: {date}",
     "carrier": "Carrier: {carrier}",
     "service": "Service: {service}",
-    "tracking": "Tracking: {code}",
+    "tracking": "Tracking code: {code}",
     "trackShipment": "Track shipment",
     "totalPaid": "Total paid:",
     "errors": {
@@ -435,7 +472,7 @@
     "status": {
       "pending": "Pending",
       "preparing": "Preparing",
-      "shipped": "Shipped",
+      "shipped": "In transit",
       "delivered": "Delivered",
       "cancelled": "Cancelled",
       "cancelling": "Cancelling"
@@ -448,5 +485,71 @@
     "refundPending": "Refund pending",
     "refunded": "Refunded",
     "cancelledBadge": "Cancelled"
+  },
+  "Support": {
+    "metaTitle": "Help Center | NOVA STORE",
+    "metaDescription": "Find answers about orders, payments, your account and shipping. Contact customer support if you still need help.",
+    "eyebrow": "HELP CENTER",
+    "title": "How can we help you?",
+    "description": "Find quick answers about purchases, your account and order tracking. If you cannot resolve your question, contact our team from this page.",
+    "contactButton": "Contact support",
+    "ordersButton": "View my orders",
+    "topics": {
+      "title": "What do you need help with?",
+      "description": "Choose a topic to jump to the most relevant section.",
+      "orders": {
+        "title": "My orders",
+        "description": "Check a purchase status, order details and any available shipment tracking.",
+        "action": "Open order history"
+      },
+      "account": {
+        "title": "My account",
+        "description": "Review your contact details and keep your delivery address up to date.",
+        "action": "Manage my account"
+      },
+      "payments": {
+        "title": "Payments",
+        "description": "Tell us if a payment failed, remains pending or your purchase status is unclear.",
+        "action": "Contact support"
+      },
+      "products": {
+        "title": "Products",
+        "description": "Browse the catalog to review products and details before you buy.",
+        "action": "Browse catalog"
+      }
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "description": "Helpful information for common questions.",
+      "orders": {
+        "question": "Where can I see my orders?",
+        "answer": "Sign in and open “Order history”. You will find your purchases and the status currently recorded for each order."
+      },
+      "payment": {
+        "question": "What should I do if a payment fails or stays pending?",
+        "answer": "Check the order status in “Order history” before trying to pay again. If the status is unclear or you see a charge on your payment method, contact us with the order number; never share full card details."
+      },
+      "cancel": {
+        "question": "Can I cancel a purchase?",
+        "answer": "The cancellation option is available while an order is still pending. Once preparation starts or a shipment exists, the store no longer allows cancellation from order history. Contact us with the order number if you need help."
+      },
+      "delivery": {
+        "question": "How do I update my delivery address?",
+        "answer": "Open “My account” and save your updated details. For an order that has already been placed, changing your account details does not guarantee that an in-progress shipment will be updated; contact us as soon as possible."
+      },
+      "tracking": {
+        "question": "Where can I find shipment tracking?",
+        "answer": "Open “Order history” and view the order details. If tracking is available for the shipment, the carrier and the relevant link or code will appear there."
+      },
+      "security": {
+        "question": "What information should I include when contacting support?",
+        "answer": "Describe the issue and include your account email and order number, if applicable. Never send your password, authentication codes or the full number of a payment card."
+      }
+    },
+    "contact": {
+      "title": "Still need help?",
+      "description": "Fill out the form and your message will be sent through the store’s contact channel. Explain what happened and include your order number if you have already purchased.",
+      "privacyNote": "For your safety, do not share passwords, login codes or full payment-card details."
+    }
   }
 }

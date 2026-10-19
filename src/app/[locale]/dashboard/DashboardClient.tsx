@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import { useMemo, useState, useTransition } from 'react';
+import { Link } from '@/lib/I18nRouting';
 import { StoreConfig } from '@/utils/StoreConfig';
 import { updateCatalog } from './actions';
 import CatalogRow from './CatalogRow';
@@ -176,13 +177,28 @@ export default function DashboardClient({
         <p className="mt-2 text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {cards.map(([label, value]) => (
-          <article key={label} className="rounded-2xl border p-5 shadow-sm">
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="mt-2 text-2xl font-semibold">{value}</p>
-          </article>
-        ))}
+      <Link
+        href="/dashboard/solicitudes-legales"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 transition hover:bg-muted/40"
+      >
+        <span className="font-semibold">
+          {locale === 'es' ? 'Solicitudes de arrepentimiento' : 'Withdrawal requests'}
+        </span>
+        <span className="text-sm text-muted-foreground">
+          {locale === 'es' ? 'Revisar solicitudes de compradores →' : 'Review customer requests →'}
+        </span>
+      </Link>
+
+      <section className="space-y-3">
+        <p className="text-xs text-muted-foreground">{t('moneyStatsNote')}</p>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {cards.map(([label, value]) => (
+            <article key={label} className="rounded-2xl border p-5 shadow-sm">
+              <p className="text-sm text-muted-foreground">{label}</p>
+              <p className="mt-2 text-2xl font-semibold">{value}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
@@ -354,7 +370,7 @@ export default function DashboardClient({
         </div>
         <div className="mt-4 space-y-3">
           {data.recentOrders.map((order) => (
-            <OrderRow key={order.id} order={order} />
+            <OrderRow key={`${order.id}-${order.updatedAt}`} order={order} />
           ))}
         </div>
       </section>

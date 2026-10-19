@@ -6,10 +6,13 @@ import { useCallback, useState } from 'react';
 import { AuthRequiredNotice } from '@/components/checkout/AuthRequiredNotice';
 import DeliveryAddressSummary from '@/components/checkout/DeliveryAddressSummary';
 import PayPalCardForm from '@/components/checkout/paypal/PayPalCardForm';
+import { TaxInclusivePrice } from '@/components/TaxInclusivePrice';
+import { useCurrency } from '@/providers/CurrencyProvider';
 import { useCartStore } from '@/store/useCartStore';
 
 export default function PayPalCheckoutPage() {
   const { data: session, status } = useSession();
+  const { currency } = useCurrency();
   const cartItems = useCartStore((state) => state.cart);
 
   const clearCart = useCartStore((state) => state.clearCart);
@@ -69,13 +72,20 @@ export default function PayPalCheckoutPage() {
 
           <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-600">Total:</span>
+              <span className="text-sm font-semibold text-gray-600">
+                {currency === 'ARS' ? 'Total:' : 'Precio base:'}
+              </span>
 
-              <span className="text-xl font-extrabold text-gray-900">${cartTotal.toFixed(2)}</span>
+              <TaxInclusivePrice
+                amount={cartTotal}
+                locale={currency === 'ARS' ? 'es-AR' : 'en-US'}
+                compact={false}
+                className="text-xl font-extrabold text-gray-900"
+              />
             </div>
           </div>
 
-          <PayPalCardForm amount={cartTotal} cartItems={cartItems} onSuccess={handleSuccess} />
+          <PayPalCardForm cartItems={cartItems} onSuccess={handleSuccess} />
 
           <DeliveryAddressSummary />
         </div>

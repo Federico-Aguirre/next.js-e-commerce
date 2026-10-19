@@ -1,54 +1,37 @@
 ---
 name: nextjs
-description: Reglas, límites de App Router, rendimiento y flujo de trabajo para el desarrollo con Next.js. Usar al crear o modificar páginas, rutas, Server Actions o componentes.
+description: Project guidance for Next.js App Router, rendering boundaries, route handlers, Server Actions, and performance.
 ---
 
-# Next.js Guidelines
+# Next.js App Router
 
-Estas reglas aplican cuando el proyecto utiliza Next.js App Router. Sigue la versión instalada en el proyecto en lugar de asumir APIs de versiones diferentes.
+Use this skill when adding or changing pages, layouts, route handlers, Server Actions, metadata, server data access, rendering or caching.
 
 ## App Router
 
-- Mantén el renderizado en el servidor (Server Components) por defecto.
+- Follow the installed Next.js version in `package.json`; check version-specific APIs rather than assuming behavior from another release.
+- Prefer Server Components. Add `"use client"` only when browser APIs, local interaction state, effects or event handlers require it.
+- Keep Route Handlers focused on HTTP/authentication boundaries and move reusable business logic into server-side domain or service modules.
+- Follow the established conventions for localized routes, layouts, loading/error states, metadata and navigation.
+- Avoid duplicate server data queries when a shared boundary can provide the data cleanly.
 
-- Agrega `"use client"` únicamente cuando sea estrictamente necesario por APIs del navegador, estado interactivo, efectos o manejadores de eventos.
+## Security and runtime boundaries
 
-- Mantén los Route Handlers enfocados en aspectos HTTP y mueve la lógica de dominio reutilizable a módulos dedicados.
+- Keep secrets, server-only modules, privileged credentials and database access out of Client Components.
+- Validate untrusted input at Route Handler, Server Action and external integration boundaries using the project's existing schemas (usually Zod).
+- Enforce access checks on the server; do not treat hidden UI controls as authorization.
+- Follow `ai/doc/security.md` and the environment-validation strategy in `src/lib/Env.ts` when changing secrets or external calls.
 
-- Sigue las convenciones establecidas en el proyecto para páginas, layouts, estados de carga, manejo de errores, metadatos y organización de rutas.
+## Performance and caching
 
-- Evita duplicar la obtención de datos en el servidor a través de múltiples componentes cuando un límite compartido pueda proveerlos limpiamente.
+- Prefer server-side work when it avoids unnecessary browser JavaScript.
+- Use the framework-supported image/font handling and existing project patterns.
+- Do not introduce caching, revalidation, memoization or forced dynamic rendering without understanding the behavior being changed and its effect on order/account freshness.
 
-## Límite de Seguridad y Entorno (Boundaries)
+## Workflow
 
-- No expongas secretos, módulos exclusivos del servidor o privilegios administrativos a Client Components.
-
-- Valida todas las entradas no confiables en los límites del servidor (Route Handlers, Server Actions e integraciones externas).
-
-- Mantén el acceso a variables de entorno centralizado según la estrategia de configuración del proyecto.
-
-## Rendimiento
-
-- Prioriza el trabajo en el servidor cuando evite enviar JavaScript innecesario al cliente.
-
-- Optimiza imágenes y fuentes usando los componentes nativos soportados por el framework.
-
-- No agregues configuración de almacenamiento en caché, memorización o renderizado dinámico sin comprender previamente el comportamiento que modifica.
-
-## Flujo de Trabajo para Nuevas Funcionalidades
-
-1. Lee la documentación relevante en `doc/` antes de escribir código.
-
-2. Identifica el límite correcto dentro de App Router antes de la implementación.
-
-3. Prioriza Server Components y el acceso a datos desde el servidor.
-
-4. Introduce `"use client"` únicamente para comportamientos que requieran interacción en el navegador.
-
-5. Valida datos externos usando el esquema de validación existente (ej. Zod).
-
-6. Reutiliza componentes, Server Actions, modelos y utilidades existentes antes de crear nuevas abstracciones.
-
-7. Agrega pruebas al nivel más pequeño y útil posible.
-
-8. Ejecuta la validación mínima relevante y amplíala si los cambios afectan otras áreas del sistema.
+1. Read `ai/agents.md` and only the relevant task-specific references under `ai/doc/` or `ai/skills/`.
+2. Inspect the closest existing route/component and trace its callers before introducing another pattern.
+3. Identify the server/client and authentication boundary before editing.
+4. Reuse existing components, Server Actions, schemas and service functions where appropriate.
+5. Add the smallest useful regression test and run proportional validation.

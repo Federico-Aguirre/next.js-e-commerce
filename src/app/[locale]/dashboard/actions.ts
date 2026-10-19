@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { sendLowStockAlerts } from '@/lib/order-alerts';
+import { fromBuenosAiresDateTimeLocal, sameDeliveryMinute } from '@/lib/orders/delivery-estimate';
+import { sendOrderFulfillmentEmail } from '@/lib/orders/order-fulfillment-email';
 import { prisma } from '@/lib/prisma';
 import {
   createOrderShipping,
@@ -34,7 +36,7 @@ export async function updateOrder(formData: FormData) {
     orderId: String(formData.get('orderId') ?? ''),
     fulfillmentStatus: String(formData.get('fulfillmentStatus') ?? ''),
     trackingCode: String(formData.get('trackingCode') ?? '').trim(),
-    estimatedDeliveryHours: String(formData.get('estimatedDeliveryHours') ?? '').trim(),
+    estimatedDeliveryAtInput: String(formData.get('estimatedDeliveryAt') ?? '').trim(),
     locale: String(formData.get('locale') ?? 'es'),
   };
 
@@ -43,11 +45,13 @@ export async function updateOrder(formData: FormData) {
       orderId: z.string().min(1),
       fulfillmentStatus: fulfillmentStatusSchema,
       trackingCode: z.string().max(100),
-      estimatedDeliveryHours: z
+      estimatedDeliveryAtInput: z
         .string()
-        .refine((value) => value === '' || /^\\d+$/.test(value), 'Invalid hours')
-        .transform((value) => (value === '' ? null : Number(value)))
-        .refine((value) => value === null || (value >= 0 && value <= 720), 'Invalid hours'),
+        .refine(
+          (value) => value === '' || /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value),
+          'Invalid date and time',
+        )
+        .transform((value) => (value === '' ? null : value)),
       locale: z.string().min(2).max(5),
     })
     .safeParse(input);
@@ -56,7 +60,13 @@ export async function updateOrder(formData: FormData) {
 
   const order = await prisma.order.findUnique({
     where: { id: parsed.data.orderId },
-    select: { fulfillmentStatus: true, deliveredAt: true },
+    select: {
+      fulfillmentStatus: true,
+      deliveredAt: true,
+      shippingProvider: true,
+      shippingStatus: true,
+      estimatedDeliveryAt: true,
+    },
   });
 
   if (!order) return { success: false };
@@ -65,27 +75,58 @@ export async function updateOrder(formData: FormData) {
     .catch('PENDING')
     .parse(order.fulfillmentStatus || 'PENDING');
   const next = parsed.data.fulfillmentStatus;
-  if (current !== next && !allowedTransitions[current].includes(next)) {
+  const isReadyForLocalPickup =
+    order.shippingProvider === 'LOCAL' && order.shippingStatus === 'READY_FOR_PICKUP';
+  const isLocalPickupCompletion =
+    current === 'PREPARING' && next === 'DELIVERED' && isReadyForLocalPickup;
+
+  if (current !== next && !allowedTransitions[current].includes(next) && !isLocalPickupCompletion) {
     return { success: false };
   }
 
-  const estimatedDeliveryAt =
-    parsed.data.estimatedDeliveryHours === null
-      ? null
-      : new Date(Date.now() + parsed.data.estimatedDeliveryHours * 60 * 60 * 1000);
+  const estimatedDeliveryAt = parsed.data.estimatedDeliveryAtInput
+    ? fromBuenosAiresDateTimeLocal(parsed.data.estimatedDeliveryAtInput)
+    : null;
 
-  await prisma.order.update({
+  if (parsed.data.estimatedDeliveryAtInput && !estimatedDeliveryAt) {
+    return { success: false as const, errorCode: 'ETA_INVALID' };
+  }
+  if (next === 'SHIPPED' && !estimatedDeliveryAt) {
+    return { success: false as const, errorCode: 'ETA_REQUIRED' };
+  }
+  if (next === 'SHIPPED' && estimatedDeliveryAt && estimatedDeliveryAt.getTime() <= Date.now()) {
+    return { success: false as const, errorCode: 'ETA_MUST_BE_FUTURE' };
+  }
+
+  const etaChanged = !sameDeliveryMinute(order.estimatedDeliveryAt, estimatedDeliveryAt);
+  const updatedOrder = await prisma.order.update({
     where: { id: parsed.data.orderId },
     data: {
       fulfillmentStatus: next,
       trackingCode: parsed.data.trackingCode || null,
       estimatedDeliveryAt,
       ...(next === 'DELIVERED' && current !== 'DELIVERED' ? { deliveredAt: new Date() } : {}),
+      ...(isLocalPickupCompletion ? { shippingStatus: 'PICKED_UP' } : {}),
     },
+    select: { updatedAt: true, estimatedDeliveryAt: true, fulfillmentStatus: true },
   });
 
+  let emailSent: boolean | undefined;
+  if (current !== next && next === 'PREPARING') {
+    emailSent = await sendOrderFulfillmentEmail(parsed.data.orderId, 'PREPARING');
+  } else if (current !== next && next === 'SHIPPED') {
+    emailSent = await sendOrderFulfillmentEmail(parsed.data.orderId, 'IN_TRANSIT');
+  } else if (current === 'SHIPPED' && next === 'SHIPPED' && etaChanged) {
+    emailSent = await sendOrderFulfillmentEmail(parsed.data.orderId, 'DELIVERY_ESTIMATE_UPDATED', {
+      eventVersion: updatedOrder.updatedAt.getTime(),
+      previousEstimatedDeliveryAt: order.estimatedDeliveryAt,
+    });
+  }
+
   revalidatePath(dashboardPath(parsed.data.locale));
-  return { success: true };
+  return emailSent === undefined
+    ? { success: true as const }
+    : { success: true as const, emailSent };
 }
 
 export async function quoteShipment(formData: FormData) {

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth-options';
 import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
 import { prisma } from '@/lib/prisma';
+import { StoreConfig } from '@/utils/StoreConfig';
 
 type OrderItemInput = {
   id?: string;
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
         id: paymentId,
         userId,
         total: Number(total),
+        currency: StoreConfig.currency,
         status: 'PAID',
         paymentProvider: 'MERCADOPAGO',
         paymentExternalId: paymentId,

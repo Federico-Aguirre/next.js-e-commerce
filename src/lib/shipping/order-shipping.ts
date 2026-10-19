@@ -1,7 +1,10 @@
 import 'server-only';
 import { Env } from '@/lib/Env';
+import { sameDeliveryMinute } from '@/lib/orders/delivery-estimate';
+import { sendOrderFulfillmentEmail } from '@/lib/orders/order-fulfillment-email';
 import { prisma } from '@/lib/prisma';
 import { StoreConfig } from '@/utils/StoreConfig';
+import { fulfillmentFromProviderStatus } from './fulfillment-status';
 import type { ShippingProvider, ShippingQuote } from './types';
 
 const ZIPNOVA_API = 'https://api.zipnova.com.ar/v2';
@@ -589,11 +592,35 @@ async function createShippo(context: OrderContext, quote: ShippingQuote) {
   };
 }
 
-function fulfillmentFromProviderStatus(status: string) {
-  const value = status.toUpperCase();
-  if (value.includes('DELIVER')) return 'DELIVERED';
-  if (value.includes('TRANSIT') || value.includes('SHIPPED')) return 'SHIPPED';
-  return 'PREPARING';
+type UpdatedShippingOrder = {
+  fulfillmentStatus: string;
+  estimatedDeliveryAt: Date | null;
+  updatedAt: Date;
+};
+
+async function notifyShippingStatusChange(
+  orderId: string,
+  previousStatus: string,
+  previousEstimate: Date | null,
+  updatedOrder: UpdatedShippingOrder,
+) {
+  if (updatedOrder.fulfillmentStatus === 'PREPARING' && previousStatus !== 'PREPARING') {
+    await sendOrderFulfillmentEmail(orderId, 'PREPARING');
+    return;
+  }
+
+  if (updatedOrder.fulfillmentStatus !== 'SHIPPED') return;
+  if (previousStatus !== 'SHIPPED') {
+    await sendOrderFulfillmentEmail(orderId, 'IN_TRANSIT');
+    return;
+  }
+
+  if (!sameDeliveryMinute(previousEstimate, updatedOrder.estimatedDeliveryAt)) {
+    await sendOrderFulfillmentEmail(orderId, 'DELIVERY_ESTIMATE_UPDATED', {
+      eventVersion: updatedOrder.updatedAt.getTime(),
+      previousEstimatedDeliveryAt: previousEstimate,
+    });
+  }
 }
 
 export async function createOrderShipping(orderId: string, quote: ShippingQuote) {
@@ -615,7 +642,12 @@ export async function createOrderShipping(orderId: string, quote: ShippingQuote)
     const estimatedDeliveryAt = created.estimatedDeliveryAt
       ? new Date(created.estimatedDeliveryAt)
       : null;
-    await prisma.order.update({
+    const providerFulfillmentStatus = fulfillmentFromProviderStatus(created.status);
+    const estimatedForDelivery =
+      estimatedDeliveryAt && !Number.isNaN(estimatedDeliveryAt.getTime())
+        ? estimatedDeliveryAt
+        : null;
+    const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: {
         shippingProvider: quote.provider,
@@ -630,13 +662,21 @@ export async function createOrderShipping(orderId: string, quote: ShippingQuote)
         shippingStatus: created.status,
         shippingError: null,
         trackingCode: created.trackingCode,
-        estimatedDeliveryAt:
-          estimatedDeliveryAt && !Number.isNaN(estimatedDeliveryAt.getTime())
-            ? estimatedDeliveryAt
-            : null,
-        fulfillmentStatus: fulfillmentFromProviderStatus(created.status),
+        estimatedDeliveryAt: estimatedForDelivery,
+        fulfillmentStatus:
+          providerFulfillmentStatus === 'SHIPPED' &&
+          (!estimatedForDelivery || estimatedForDelivery.getTime() <= Date.now())
+            ? context.order.fulfillmentStatus
+            : providerFulfillmentStatus,
       },
+      select: { fulfillmentStatus: true, estimatedDeliveryAt: true, updatedAt: true },
     });
+    await notifyShippingStatusChange(
+      orderId,
+      context.order.fulfillmentStatus,
+      context.order.estimatedDeliveryAt,
+      updatedOrder,
+    );
     return { success: true as const };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo crear el envío.';
@@ -694,18 +734,32 @@ export async function refreshOrderShipping(orderId: string) {
         ? await refreshShippo(order.shippingExternalId)
         : await refreshZipnova(order.shippingExternalId);
     const eta = refreshed.estimatedDeliveryAt ? new Date(refreshed.estimatedDeliveryAt) : null;
-    await prisma.order.update({
+    const estimatedForDelivery =
+      eta && !Number.isNaN(eta.getTime()) ? eta : order.estimatedDeliveryAt;
+    const providerFulfillmentStatus = fulfillmentFromProviderStatus(refreshed.status);
+    const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: {
         shippingStatus: refreshed.status,
         shippingTrackingUrl: refreshed.trackingUrl,
         shippingLabelUrl: refreshed.labelUrl ?? order.shippingLabelUrl,
         trackingCode: refreshed.trackingCode ?? order.trackingCode,
-        estimatedDeliveryAt: eta && !Number.isNaN(eta.getTime()) ? eta : order.estimatedDeliveryAt,
-        fulfillmentStatus: fulfillmentFromProviderStatus(refreshed.status),
+        estimatedDeliveryAt: estimatedForDelivery,
+        fulfillmentStatus:
+          providerFulfillmentStatus === 'SHIPPED' &&
+          (!estimatedForDelivery || estimatedForDelivery.getTime() <= Date.now())
+            ? order.fulfillmentStatus
+            : providerFulfillmentStatus,
         shippingError: null,
       },
+      select: { fulfillmentStatus: true, estimatedDeliveryAt: true, updatedAt: true },
     });
+    await notifyShippingStatusChange(
+      orderId,
+      order.fulfillmentStatus,
+      order.estimatedDeliveryAt,
+      updatedOrder,
+    );
     return { success: true as const };
   } catch (error) {
     return {

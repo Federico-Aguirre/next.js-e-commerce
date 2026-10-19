@@ -78,9 +78,40 @@ yarn-error.log*
 .pnpm-debug.log*
 certificates
 
-# AI Tools
+# AI Tools and local state
 .aider*
 .continue/
 .bashrc
 main.py
+
+# Keep the canonical agent guide and situational project skills versionable.
 ai
+!ai/
+ai/*
+!ai/agents.md
+!ai/skills/
+ai/skills/*
+!ai/skills/payment-integrations/
+ai/skills/payment-integrations/*
+!ai/skills/payment-integrations/SKILL.md
+!ai/skills/shipping-integrations/
+ai/skills/shipping-integrations/*
+!ai/skills/shipping-integrations/SKILL.md
+!ai/skills/mobile-app/
+ai/skills/mobile-app/*
+!ai/skills/mobile-app/SKILL.md
+!ai/skills/platform-integrations/
+ai/skills/platform-integrations/*
+!ai/skills/platform-integrations/SKILL.md
+!ai/skills/forms-validation/
+ai/skills/forms-validation/*
+!ai/skills/forms-validation/SKILL.md
+!ai/skills/customer-auth-account/
+ai/skills/customer-auth-account/*
+!ai/skills/customer-auth-account/SKILL.md
+!ai/skills/catalog-inventory-dashboard/
+ai/skills/catalog-inventory-dashboard/*
+!ai/skills/catalog-inventory-dashboard/SKILL.md
+!ai/skills/orders-lifecycle/
+ai/skills/orders-lifecycle/*
+!ai/skills/orders-lifecycle/SKILL.md

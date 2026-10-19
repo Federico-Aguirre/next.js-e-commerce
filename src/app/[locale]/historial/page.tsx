@@ -6,8 +6,9 @@ import NextLink from 'next/link';
 import { useEffect, useState } from 'react';
 import { Link } from '@/lib/I18nRouting';
 import { formatOrderNumber, paymentProviderLabel } from '@/lib/orders/format';
+import { calculateTaxBreakdown } from '@/lib/tax/tax-calculation';
 import { useCartStore } from '@/store/useCartStore';
-import { formatStorePrice } from '@/utils/StoreConfig';
+import { formatStorePrice, StoreConfig } from '@/utils/StoreConfig';
 
 interface OrderItem {
   id: string;
@@ -25,6 +26,16 @@ interface Order {
   orderNumber: number;
   userId: string;
   total: number;
+  subtotal: number;
+  taxAmount: number;
+  taxRate: number | null;
+  taxCalculationMethod: string | null;
+  taxCountry: string | null;
+  taxName: string | null;
+  currency: string;
+  paymentCurrency: string;
+  paymentTotal: number | null;
+  paymentExchangeRate: number | null;
   status: string;
   paymentProvider: string | null;
   fulfillmentStatus: string;
@@ -92,7 +103,11 @@ export default function HistorialPage() {
   };
 
   const formatDate = (value: string) =>
-    new Intl.DateTimeFormat(numberLocale, { dateStyle: 'medium' }).format(new Date(value));
+    new Intl.DateTimeFormat(numberLocale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'America/Argentina/Buenos_Aires',
+    }).format(new Date(value));
 
   const formatOrderDate = (value: string) =>
     new Intl.DateTimeFormat(numberLocale, {
@@ -100,7 +115,8 @@ export default function HistorialPage() {
       timeStyle: 'short',
     }).format(new Date(value));
 
-  const formatPrice = (value: number) => formatStorePrice(value, { locale: numberLocale });
+  const formatPrice = (value: number, currency: string = StoreConfig.currency) =>
+    formatStorePrice(value, { locale: numberLocale, currency });
 
   useEffect(() => {
     const stripePaymentSuccess = sessionStorage.getItem('stripe_payment_success');
@@ -295,7 +311,17 @@ export default function HistorialPage() {
                           </p>
                         </div>
                         <p className="shrink-0 font-semibold text-gray-900">
-                          {formatPrice(item.price * item.quantity)}
+                          {formatPrice(
+                            calculateTaxBreakdown(
+                              item.price,
+                              compra.taxRate,
+                              compra.currency,
+                              compra.taxCalculationMethod === 'tax_inclusive_base'
+                                ? 'tax_inclusive_base'
+                                : 'tax_exclusive_base',
+                            ).total * item.quantity,
+                            compra.currency,
+                          )}
                         </p>
                       </div>
                     ))}
@@ -398,10 +424,34 @@ export default function HistorialPage() {
                     )}
                   </section>
 
+                  {compra.taxRate !== null && compra.taxRate > 0 && (
+                    <div className="mt-4 space-y-1 border-t border-gray-100 pt-3 text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Subtotal sin impuestos</span>
+                        <span>{formatPrice(compra.subtotal, compra.currency)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span>
+                          {compra.taxName || 'Impuesto'} ({compra.taxRate}%)
+                        </span>
+                        <span>{formatPrice(compra.taxAmount, compra.currency)}</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between border-t border-gray-100 pt-4 font-black text-gray-900">
                     <p className="text-sm">{t('totalPaid')}</p>
-                    <p className="text-lg text-indigo-600">{formatPrice(compra.total)}</p>
+                    <p className="text-lg text-indigo-600">
+                      {formatPrice(compra.total, compra.currency)}
+                    </p>
                   </div>
+                  {compra.paymentTotal !== null && compra.paymentTotal !== undefined && (
+                    <div className="mt-2 flex items-start justify-between gap-4 text-xs text-muted-foreground">
+                      <p>Importe enviado a {paymentProviderLabel(compra.paymentProvider)}</p>
+                      <p className="text-right font-semibold">
+                        {formatPrice(compra.paymentTotal, compra.paymentCurrency)}
+                      </p>
+                    </div>
+                  )}
                 </article>
               );
             })}

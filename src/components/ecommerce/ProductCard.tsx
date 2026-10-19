@@ -1,9 +1,7 @@
 import { ArrowUpRight } from 'lucide-react';
 import Image from 'next/image';
-
 import type { CatalogProduct } from '@/commerce/catalog-domain';
 import { Link } from '@/lib/I18nRouting';
-
 import { Price } from './Price';
 
 type ProductCardProps = {
@@ -42,7 +40,7 @@ export function ProductCard({
             className="h-full w-full object-contain p-2 transition duration-500 ease-out group-hover:scale-[1.03]"
           />
         </div>
-        <span className="absolute right-3 top-3 grid size-10 place-items-center rounded-full bg-background/90 text-foreground shadow-sm backdrop-blur transition-transform duration-300 group-hover:rotate-12">
+        <span className="absolute top-3 right-3 grid size-10 place-items-center rounded-full bg-background/90 text-foreground shadow-sm backdrop-blur transition-transform duration-300 group-hover:rotate-12">
           <ArrowUpRight className="size-4" aria-hidden="true" />
         </span>
         {firstVariant.available ? null : (
@@ -52,23 +50,17 @@ export function ProductCard({
         )}
       </Link>
 
-      <div className="flex items-start justify-between gap-4 pt-4">
-        <div className="min-w-0">
-          <Link
-            href={`/products/${product.slug}`}
-            className="font-medium hover:underline"
-          >
+      <div className="flex min-w-0 flex-col gap-3 pt-4">
+        <div className="w-full min-w-0">
+          <Link href={`/products/${product.slug}`} className="font-medium hover:underline">
             {product.name}
           </Link>
-          <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">
-            {product.description}
-          </p>
         </div>
         <Price
           money={firstVariant.price}
           locale={locale}
           compareAt={firstVariant.compareAtPrice}
-          className="shrink-0 text-sm"
+          className="w-full min-w-0 text-sm"
         />
       </div>
     </article>

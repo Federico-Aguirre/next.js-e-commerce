@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import React from 'react';
+import { ProductReviewsSection } from '@/components/ecommerce/ProductReviewsSection';
 import { productsData } from '@/data/products';
 import { prisma } from '@/lib/prisma';
 import type { Product } from '@/types/product';
@@ -110,6 +111,13 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
     <main className="min-h-screen bg-background px-4 py-12 text-foreground sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <ProductViewer product={product} />
+        <div className="mt-10">
+          <ProductReviewsSection
+            productId={productId}
+            productPath={`/product/${productId}`}
+            locale="es"
+          />
+        </div>
       </div>
     </main>
   );

@@ -3,6 +3,16 @@ import { z } from 'zod';
 
 export const Env = createEnv({
   server: {
+    STORE_PUBLIC_NAME: z.string().optional(),
+    STORE_LEGAL_NAME: z.string().optional(),
+    STORE_LEGAL_TAX_ID: z.string().optional(),
+    STORE_LEGAL_ADDRESS: z.string().optional(),
+    STORE_LEGAL_EMAIL: z.string().email().optional(),
+    STORE_LEGAL_PHONE: z.string().optional(),
+    STORE_LEGAL_HOURS: z.string().optional(),
+    BREVO_API_KEY: z.string().optional(),
+    BREVO_FROM_EMAIL: z.string().email().optional(),
+    BREVO_FROM_NAME: z.string().optional(),
     DATABASE_URL: z.string().min(1),
     NEXTAUTH_SECRET: z.string().min(1).default('secret-for-development-must-change-in-prod'),
     NEXTAUTH_URL: z.string().optional(),
@@ -69,6 +79,16 @@ export const Env = createEnv({
     NODE_ENV: z.enum(['test', 'development', 'production']).optional(),
   },
   runtimeEnv: {
+    STORE_PUBLIC_NAME: process.env.STORE_PUBLIC_NAME,
+    STORE_LEGAL_NAME: process.env.STORE_LEGAL_NAME,
+    STORE_LEGAL_TAX_ID: process.env.STORE_LEGAL_TAX_ID,
+    STORE_LEGAL_ADDRESS: process.env.STORE_LEGAL_ADDRESS,
+    STORE_LEGAL_EMAIL: process.env.STORE_LEGAL_EMAIL,
+    STORE_LEGAL_PHONE: process.env.STORE_LEGAL_PHONE,
+    STORE_LEGAL_HOURS: process.env.STORE_LEGAL_HOURS,
+    BREVO_API_KEY: process.env.BREVO_API_KEY,
+    BREVO_FROM_EMAIL: process.env.BREVO_FROM_EMAIL,
+    BREVO_FROM_NAME: process.env.BREVO_FROM_NAME,
     DATABASE_URL: process.env.DATABASE_URL,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,

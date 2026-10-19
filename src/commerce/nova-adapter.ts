@@ -1,10 +1,6 @@
 import type { Product as NovaProduct } from '@/types/product';
-
-import type {
-  CatalogCategory,
-  CatalogProduct,
-  CatalogVariant,
-} from './catalog-domain';
+import { StoreConfig } from '@/utils/StoreConfig';
+import type { CatalogCategory, CatalogProduct, CatalogVariant } from './catalog-domain';
 
 export function mapNovaProductToCatalog(product: NovaProduct): CatalogProduct {
   const slug = product.name
@@ -37,13 +33,11 @@ export function mapNovaProductToCatalog(product: NovaProduct): CatalogProduct {
     return {
       id: v.id || `var-${product.id}-${idx}`,
       productId: String(product.id),
-      sku: firstSku?.articleId
-        ? String(firstSku.articleId)
-        : `SKU-${product.id}-${idx}`,
+      sku: firstSku?.articleId ? String(firstSku.articleId) : `SKU-${product.id}-${idx}`,
       name: `${product.name} (${v.colorName})`,
       price: {
         amount: product.price,
-        currency: 'USD',
+        currency: StoreConfig.currency,
       },
       available: totalStock > 0,
       optionValues: {
@@ -94,8 +88,6 @@ export function mapNovaProductToCatalog(product: NovaProduct): CatalogProduct {
   };
 }
 
-export function mapNovaProductsToCatalog(
-  products: NovaProduct[],
-): CatalogProduct[] {
+export function mapNovaProductsToCatalog(products: NovaProduct[]): CatalogProduct[] {
   return products.map(mapNovaProductToCatalog);
 }

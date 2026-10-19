@@ -20,7 +20,9 @@ export default function PayPalPaymentButton({
       onClick={onClick}
       className="w-full rounded-lg bg-[#0070ba] px-4 py-3 text-base font-bold text-white transition-colors hover:bg-[#005ea8] disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {loading ? 'Procesando...' : `Pagar $${amount.toFixed(2)}`}
+      {loading
+        ? 'Procesando...'
+        : `Pagar ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', currencyDisplay: 'code' }).format(amount)}`}
     </button>
   );
 }

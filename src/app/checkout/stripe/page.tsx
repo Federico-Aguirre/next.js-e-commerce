@@ -8,7 +8,12 @@ import { useEffect, useRef, useState } from 'react';
 import { AuthRequiredNotice } from '@/components/checkout/AuthRequiredNotice';
 import DeliveryAddressSummary from '@/components/checkout/DeliveryAddressSummary';
 import StripePaymentForm from '@/components/checkout/stripe/StripePaymentForm';
+import { CurrencyPrice } from '@/components/CurrencyPrice';
+import { TaxInclusivePrice } from '@/components/TaxInclusivePrice';
+import type { TaxProfile } from '@/lib/tax/types';
+import { useCurrency } from '@/providers/CurrencyProvider';
 import { useCartStore } from '@/store/useCartStore';
+import { StoreConfig } from '@/utils/StoreConfig';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_DEVELOPER_STRIPE_PUBLISHABLE_KEY || '');
 
@@ -16,10 +21,21 @@ type StripeCheckoutData = {
   clientSecret: string;
   paymentIntentId: string;
   orderId: string;
+  paymentTotal: number;
+  paymentCurrency: string;
+  totalInStoreCurrency: number;
+  subtotal: number;
+  taxAmount: number;
+  taxRate: number | null;
+  taxCalculationMethod: string | null;
+  taxName: string | null;
+  taxCountry: string | null;
+  currency: string;
 };
 
 export default function StripeCheckoutPage() {
   const { data: session, status: sessionStatus } = useSession();
+  const { currency: displayCurrency, taxProfile } = useCurrency();
   const cartItems = useCartStore((state) => state.cart);
 
   const clearCart = useCartStore((state) => state.clearCart);
@@ -67,14 +83,33 @@ export default function StripeCheckoutPage() {
         if (!response.ok) {
           throw new Error(data.error || 'No se pudo iniciar el pago con Stripe.');
         }
-        if (!data.clientSecret || !data.paymentIntentId || !data.orderId) {
-          throw new Error('La respuesta de Stripe es inválida.');
+        if (
+          !data.clientSecret ||
+          !data.paymentIntentId ||
+          !data.orderId ||
+          !Number.isFinite(Number(data.paymentTotal)) ||
+          !data.paymentCurrency ||
+          !Number.isFinite(Number(data.totalInStoreCurrency))
+        ) {
+          throw new Error('La respuesta de Stripe no contiene un importe y una moneda válidos.');
         }
 
         return {
           clientSecret: data.clientSecret as string,
           paymentIntentId: data.paymentIntentId as string,
           orderId: data.orderId as string,
+          paymentTotal: Number(data.paymentTotal),
+          paymentCurrency: String(data.paymentCurrency),
+          totalInStoreCurrency: Number(data.totalInStoreCurrency),
+          subtotal: Number(data.subtotal),
+          taxAmount: Number(data.taxAmount),
+          taxRate: data.taxRate == null ? null : Number(data.taxRate),
+          taxCalculationMethod: data.taxCalculationMethod
+            ? String(data.taxCalculationMethod)
+            : null,
+          taxName: data.taxName ? String(data.taxName) : null,
+          taxCountry: data.taxCountry ? String(data.taxCountry) : null,
+          currency: String(data.currency || 'ARS'),
         };
       })();
     }
@@ -152,12 +187,56 @@ export default function StripeCheckoutPage() {
             </Link>
           </div>
 
-          <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-600">Total:</span>
-
-              <span className="text-xl font-extrabold text-gray-900">${cartTotal.toFixed(2)}</span>
+          <div className="mb-6 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <span className="text-sm font-semibold text-gray-600">Precio:</span>
+              <TaxInclusivePrice
+                amount={stripeData?.subtotal ?? cartTotal}
+                fromCurrency={stripeData?.currency ?? StoreConfig.currency}
+                locale={displayCurrency === 'ARS' ? 'es-AR' : 'en-US'}
+                grossAmountOverride={stripeData?.totalInStoreCurrency}
+                taxProfileOverride={
+                  stripeData
+                    ? ({
+                        countryCode: stripeData.taxCountry ?? 'AR',
+                        countryName: stripeData.taxCountry ?? 'Argentina',
+                        taxName: stripeData.taxName ?? 'IVA',
+                        rate: stripeData.taxRate,
+                        calculationMethod:
+                          stripeData.taxCalculationMethod === 'tax_inclusive_base'
+                            ? 'tax_inclusive_base'
+                            : 'tax_exclusive_base',
+                        status:
+                          stripeData.taxRate == null
+                            ? stripeData.taxCountry === 'US' || stripeData.taxCountry === 'BR'
+                              ? 'jurisdictional'
+                              : 'unavailable'
+                            : 'standard',
+                        dataUpdatedAt: null,
+                        lastVerified: null,
+                        officialSourceUrl: null,
+                      } satisfies TaxProfile)
+                    : undefined
+                }
+                compact={false}
+                className="text-xl font-extrabold text-gray-900"
+              />
             </div>
+            {stripeData && (
+              <div className="flex items-start justify-between gap-4 border-t border-gray-200 pt-3">
+                <span className="text-sm font-semibold text-gray-600">
+                  Importe que cobrará Stripe:
+                </span>
+                <CurrencyPrice
+                  amount={stripeData.paymentTotal}
+                  fromCurrency={stripeData.paymentCurrency}
+                  toCurrency={stripeData.paymentCurrency}
+                  locale="en-US"
+                  approximate={false}
+                  className="text-base font-bold text-gray-900"
+                />
+              </div>
+            )}
           </div>
 
           {loading && (
@@ -192,7 +271,7 @@ export default function StripeCheckoutPage() {
                 clientSecret={stripeData.clientSecret}
                 orderId={stripeData.orderId}
                 paymentIntentId={stripeData.paymentIntentId}
-                amount={cartTotal}
+                amount={stripeData.paymentTotal}
                 onSuccess={handleSuccess}
               />
             </Elements>

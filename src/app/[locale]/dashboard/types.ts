@@ -4,7 +4,12 @@ export type DashboardOrder = {
   id: string;
   orderNumber: number;
   total: number;
+  currency: string;
+  paymentCurrency: string;
+  paymentTotal: number | null;
+  paymentExchangeRate: number | null;
   createdAt: string;
+  updatedAt: string;
   customer: string | null;
   delivery: {
     firstName: string | null;

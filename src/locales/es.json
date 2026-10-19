@@ -5,20 +5,22 @@
     "contact_link": "Contacto",
     "dashboard_link": "Panel",
     "sign_in_link": "Iniciar sesión",
-    "sign_out_link": "Cerrar sesión"
+    "sign_out_link": "Cerrar sesión",
+    "support_link": "Ayuda"
   },
   "Footer": {},
   "Dashboard": {
     "title": "Panel de administración",
     "subtitle": "Control diario de ventas, pedidos y catálogo.",
-    "salesTotal": "Ventas totales",
+    "salesTotal": "Ventas totales en ARS",
+    "moneyStatsNote": "Las métricas monetarias consideran pedidos en ARS. Los pedidos históricos en otras monedas conservan sus importes originales y no se mezclan con estos totales.",
     "visits": "Visitas",
     "conversionRate": "Tasa de conversión",
     "averageTicket": "Ticket promedio",
     "abandonedCarts": "Carritos abandonados",
     "yourCommission": "Tu comisión",
     "yourCommissionThisMonth": "Tu comisión del mes",
-    "commissionNote": "{percent}% de las ventas completadas del mes",
+    "commissionNote": "{percent}% del subtotal de ventas completadas del mes, sin IVA",
     "devices": "Dispositivo de acceso",
     "mobile": "Celular",
     "desktop": "Computadora",
@@ -35,12 +37,20 @@
     "date": "Fecha",
     "total": "Total",
     "fulfillment": "Estado del pedido",
-    "estimatedDelivery": "Entrega estimada",
-    "tracking": "Seguimiento",
+    "fulfillmentHint": "Pasá a “En camino” cuando entregues el paquete al transportista, no al crear una etiqueta.",
+    "estimatedDelivery": "Fecha y hora estimadas de entrega",
+    "estimatedDeliveryHint": "Usá el horario de Argentina. Es obligatorio al marcar “En camino”.",
+    "tracking": "Código de seguimiento",
+    "trackingManualHint": "Código que te dio el transportista. No crea ni despacha el envío.",
+    "trackingIntegratedHint": "Lo informa el proveedor integrado; consultá el enlace de seguimiento de arriba.",
     "hours": "horas",
     "save": "Guardar",
     "saved": "Guardado",
     "saveError": "No se pudo guardar el cambio.",
+    "etaRequired": "Indicá una fecha y hora de entrega estimada para marcar el pedido como “En camino”.",
+    "etaMustBeFuture": "La fecha y hora estimadas deben ser posteriores al momento actual.",
+    "etaInvalid": "Ingresá una fecha y hora válidas.",
+    "emailNotificationFailed": "El pedido se guardó, pero no se pudo enviar el correo al cliente.",
     "catalogControl": "Control rápido de catálogo",
     "active": "Activo",
     "paused": "Pausado",
@@ -90,11 +100,11 @@
     "status": {
       "pending": "Pendiente",
       "preparing": "En preparación",
-      "shipped": "Enviado",
+      "shipped": "En camino",
       "delivered": "Entregado",
       "cancelled": "Cancelado"
     },
-    "catalogControlSubtitle": "Precio · stock · estado · alertas de stock bajo",
+    "catalogControlSubtitle": "Precio base sin IVA · stock · estado · alertas de stock bajo. Al comprador se le muestra el precio final con impuestos.",
     "lowStockBadge": "Stock bajo",
     "stockAlertSent": "Alerta enviada",
     "stockAlertThreshold": "Alertar cuando el stock sea igual o menor a",
@@ -386,7 +396,29 @@
       "detailsTitle": "Bloques de detalle estructurados",
       "detailOne": "Usa variantes, media e inventario tipados sin acoplar la UI al esquema de un proveedor.",
       "detailTwo": "Mantén precio y moneda explícitos para que los mercados múltiples sean predecibles.",
-      "detailThree": "Cambia el repositorio demo por un adapter real sin reescribir la capa de presentación."
+      "detailThree": "Cambia el repositorio demo por un adapter real sin reescribir la capa de presentación.",
+      "reviews": {
+        "title": "Opiniones y valoraciones",
+        "noReviews": "Sin opiniones aún",
+        "empty": "Todavía no hay opiniones publicadas para este producto.",
+        "opinion": "opinión",
+        "opinions": "opiniones",
+        "verifiedBuyer": "Compra verificada",
+        "signInRequired": "Iniciá sesión para opinar. Solo se aceptan valoraciones después de recibir el producto.",
+        "deliveryRequired": "Podrás opinar cuando una compra de este producto figure como pagada y entregada.",
+        "alreadyReviewed": "Ya publicaste una opinión de este producto. Solo se permite una por comprador.",
+        "ratingLabel": "Tu calificación",
+        "star": "estrella",
+        "commentLabel": "Comentario (opcional)",
+        "commentPlaceholder": "Contá tu experiencia con el producto (máximo 1.000 caracteres).",
+        "submit": "Publicar opinión",
+        "submitting": "Publicando...",
+        "submitted": "Tu opinión fue publicada.",
+        "submitError": "No se pudo publicar la opinión. Volvé a intentar.",
+        "ratingRequired": "Seleccioná de 1 a 5 estrellas antes de publicar.",
+        "signIn": "Iniciar sesión",
+        "invalidReview": "La calificación debe ser de 1 a 5 estrellas y el comentario no puede superar los 1.000 caracteres."
+      }
     },
     "footer": {
       "description": "Un storefront de comercio reutilizable con Next.js pensado para seguir siendo independiente del proveedor mientras evoluciona el backend.",
@@ -397,7 +429,12 @@
       "contact": "Contacto",
       "account": "Cuenta",
       "copyright": "© {year} {name}. Todos los derechos reservados.",
-      "note": "El contenido demo está listo para reemplazarse por datos reales del catálogo."
+      "note": "El contenido demo está listo para reemplazarse por datos reales del catálogo.",
+      "ratesAttribution": "Cotización de referencia: ExchangeRate-API",
+      "taxRatesAttribution": "Tasas de impuestos de referencia: VATEstimator",
+      "helpCenter": "Centro de ayuda",
+      "legalInfo": "Información legal",
+      "withdrawalButton": "BOTÓN DE ARREPENTIMIENTO"
     }
   },
   "History": {
@@ -420,7 +457,7 @@
     "estimatedDelivery": "Entrega estimada: {date}",
     "carrier": "Transportista: {carrier}",
     "service": "Servicio: {service}",
-    "tracking": "Tracking: {code}",
+    "tracking": "Código de seguimiento: {code}",
     "trackShipment": "Seguir envío",
     "totalPaid": "Total pagado:",
     "errors": {
@@ -435,7 +472,7 @@
     "status": {
       "pending": "Pendiente",
       "preparing": "En preparación",
-      "shipped": "Enviado",
+      "shipped": "En camino",
       "delivered": "Entregado",
       "cancelled": "Cancelado",
       "cancelling": "Cancelando"
@@ -448,5 +485,71 @@
     "refundPending": "Reembolso en proceso",
     "refunded": "Reembolsado",
     "cancelledBadge": "Cancelado"
+  },
+  "Support": {
+    "metaTitle": "Centro de ayuda | NOVA STORE",
+    "metaDescription": "Encontrá respuestas sobre tus pedidos, pagos, cuenta y envíos. Si necesitás ayuda, contactá al equipo de soporte.",
+    "eyebrow": "CENTRO DE AYUDA",
+    "title": "¿En qué podemos ayudarte?",
+    "description": "Encontrá respuestas rápidas sobre tus compras, tu cuenta y el seguimiento de tus pedidos. Si no resolvés tu consulta, escribinos desde esta misma página.",
+    "contactButton": "Contactar soporte",
+    "ordersButton": "Ver mis pedidos",
+    "topics": {
+      "title": "¿Qué necesitás resolver?",
+      "description": "Elegí un tema para ir directamente a la sección correspondiente.",
+      "orders": {
+        "title": "Mis pedidos",
+        "description": "Consultá el estado de una compra, su información y los datos de seguimiento disponibles.",
+        "action": "Ir a mi historial"
+      },
+      "account": {
+        "title": "Mi cuenta",
+        "description": "Revisá tus datos de contacto y mantené actualizada tu dirección de entrega.",
+        "action": "Administrar mi cuenta"
+      },
+      "payments": {
+        "title": "Pagos y cobros",
+        "description": "Contanos si un pago falló, quedó pendiente o el estado de tu compra no está claro.",
+        "action": "Consultar soporte"
+      },
+      "products": {
+        "title": "Productos",
+        "description": "Volvé al catálogo para revisar productos y sus detalles antes de comprar.",
+        "action": "Explorar catálogo"
+      }
+    },
+    "faq": {
+      "title": "Preguntas frecuentes",
+      "description": "Información útil para resolver las consultas más habituales.",
+      "orders": {
+        "question": "¿Dónde puedo ver mis pedidos?",
+        "answer": "Iniciá sesión y abrí “Historial”. Allí vas a encontrar tus compras y el estado registrado para cada pedido."
+      },
+      "payment": {
+        "question": "¿Qué hago si un pago falla o queda pendiente?",
+        "answer": "Revisá el estado del pedido en “Historial” antes de intentar pagar otra vez. Si el estado no es claro o ves un movimiento en tu medio de pago, escribinos e incluí el número de pedido; no compartas datos completos de tu tarjeta."
+      },
+      "cancel": {
+        "question": "¿Puedo cancelar una compra?",
+        "answer": "La opción de cancelación está disponible mientras el pedido siga pendiente. Cuando comienza la preparación o ya tiene un envío, la tienda no permite cancelarlo desde el historial. Si necesitás ayuda, contactanos con el número de pedido."
+      },
+      "delivery": {
+        "question": "¿Cómo actualizo mi dirección de entrega?",
+        "answer": "Entrá en “Mi cuenta” y guardá tus datos actualizados. Para un pedido que ya realizaste, cambiar los datos de tu cuenta no garantiza que se modifique el envío en curso; contactanos cuanto antes."
+      },
+      "tracking": {
+        "question": "¿Dónde encuentro el seguimiento del envío?",
+        "answer": "Abrí “Historial” y entrá en los datos del pedido. Si el envío ya tiene seguimiento disponible, allí se mostrarán el transportista y el enlace o código correspondiente."
+      },
+      "security": {
+        "question": "¿Qué información debo incluir al pedir ayuda?",
+        "answer": "Describí el problema e incluí el correo de tu cuenta y el número de pedido, si corresponde. Nunca envíes tu contraseña, códigos de autenticación ni el número completo de una tarjeta."
+      }
+    },
+    "contact": {
+      "title": "¿Todavía necesitás ayuda?",
+      "description": "Completá el formulario y tu consulta llegará al canal de contacto de la tienda. Contanos qué pasó y agregá el número de pedido si ya hiciste una compra.",
+      "privacyNote": "Por tu seguridad, no compartas contraseñas, códigos de acceso ni datos completos de tarjetas."
+    }
   }
 }

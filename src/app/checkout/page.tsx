@@ -65,7 +65,7 @@ export default function DirectCardCheckoutPage() {
           Pago Directo con Tarjeta
         </h2>
 
-        <OrderSummary cartTotal={cartTotal} />
+        <OrderSummary cartItems={cartItems} />
 
         <TestCardButton onClick={handleAutofill} />
 

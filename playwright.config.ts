@@ -6,6 +6,7 @@ process.env.TS_NODE_COMPILER_OPTIONS = '{"module":"commonjs"}';
 
 const PORT = process.env.PORT || 3001;
 const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || `http://localhost:${PORT}`;
+const HEALTH_URL = new URL('/favicon.ico', BASE_URL).toString();
 
 export default defineConfig({
   // 1. Ubicación de los archivos de prueba
@@ -30,7 +31,7 @@ export default defineConfig({
   webServer: {
     // Forzamos a Next.js a escuchar en el mismo puerto que Playwright consulta (-p 3001)
     command: `npm run build && npm start -- -p ${PORT}`,
-    url: BASE_URL,
+    url: HEALTH_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000, // 3 minutos en milisegundos para dar tiempo al build en CI
   },

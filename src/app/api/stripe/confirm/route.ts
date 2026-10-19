@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import StripeSDK from 'stripe';
 import { authOptions } from '@/lib/auth-options';
 import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
+import { sendOrderConfirmationEmail } from '@/lib/orders/order-confirmation-email';
 import { stripePaymentConfig } from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
 
@@ -132,6 +133,7 @@ export async function POST(request: Request) {
     }
 
     if (order.status === 'PAID') {
+      await sendOrderConfirmationEmail(order.id);
       return NextResponse.json({
         success: true,
         orderId: order.id,
@@ -157,6 +159,7 @@ export async function POST(request: Request) {
       },
     });
 
+    await sendOrderConfirmationEmail(updatedOrder.id);
     void sendPaidOrderAlert(updatedOrder.id);
     await sendLowStockAlerts();
 

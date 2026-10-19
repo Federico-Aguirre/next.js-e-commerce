@@ -5,6 +5,7 @@ import { Env } from '@/lib/Env';
 import { reconcilePendingPayPalConnection } from '@/lib/payments/paypal-onboarding-status';
 import { reconcilePendingStripeConnection } from '@/lib/payments/stripe-onboarding-status';
 import { prisma } from '@/lib/prisma';
+import { StoreConfig } from '@/utils/StoreConfig';
 import type { DashboardData, FulfillmentStatus } from './types';
 
 function currentBuenosAiresMonthRange(now = new Date()) {
@@ -97,94 +98,102 @@ export async function getDashboardData(includePaymentConnections = false): Promi
   }
 
   const monthRange = currentBuenosAiresMonthRange();
-  const [sales, recentOrders, catalogRows, cartUsers, monthlyCompleted] = await Promise.all([
-    prisma.order.aggregate({
-      where: { status: 'PAID' },
-      _count: { id: true },
-      _sum: { total: true },
-    }),
-    prisma.order.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-      select: {
-        id: true,
-        orderNumber: true,
-        total: true,
-        createdAt: true,
-        status: true,
-        paymentProvider: true,
-        fulfillmentStatus: true,
-        trackingCode: true,
-        estimatedDeliveryAt: true,
-        shippingProvider: true,
-        shippingMode: true,
-        shippingExternalId: true,
-        shippingCarrier: true,
-        shippingService: true,
-        shippingRate: true,
-        shippingCurrency: true,
-        shippingLabelUrl: true,
-        shippingTrackingUrl: true,
-        shippingStatus: true,
-        shippingError: true,
-        deliveryFirstName: true,
-        deliveryLastName: true,
-        deliveryPhone: true,
-        deliveryDni: true,
-        deliveryStreet: true,
-        deliveryNumber: true,
-        deliveryApartment: true,
-        deliveryCity: true,
-        deliveryProvince: true,
-        deliveryPostalCode: true,
-        deliveryCountry: true,
-        user: {
-          select: {
-            name: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-            dni: true,
-            shippingStreet: true,
-            shippingNumber: true,
-            shippingApartment: true,
-            shippingCity: true,
-            shippingProvince: true,
-            shippingPostalCode: true,
-            shippingCountry: true,
+  const [sales, paidOrderCount, recentOrders, catalogRows, cartUsers, monthlyCompleted] =
+    await Promise.all([
+      prisma.order.aggregate({
+        where: { status: 'PAID', currency: StoreConfig.currency },
+        _count: { id: true },
+        _sum: { total: true },
+      }),
+      prisma.order.count({ where: { status: 'PAID' } }),
+      prisma.order.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          orderNumber: true,
+          total: true,
+          currency: true,
+          paymentCurrency: true,
+          paymentTotal: true,
+          paymentExchangeRate: true,
+          createdAt: true,
+          updatedAt: true,
+          status: true,
+          paymentProvider: true,
+          fulfillmentStatus: true,
+          trackingCode: true,
+          estimatedDeliveryAt: true,
+          shippingProvider: true,
+          shippingMode: true,
+          shippingExternalId: true,
+          shippingCarrier: true,
+          shippingService: true,
+          shippingRate: true,
+          shippingCurrency: true,
+          shippingLabelUrl: true,
+          shippingTrackingUrl: true,
+          shippingStatus: true,
+          shippingError: true,
+          deliveryFirstName: true,
+          deliveryLastName: true,
+          deliveryPhone: true,
+          deliveryDni: true,
+          deliveryStreet: true,
+          deliveryNumber: true,
+          deliveryApartment: true,
+          deliveryCity: true,
+          deliveryProvince: true,
+          deliveryPostalCode: true,
+          deliveryCountry: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              dni: true,
+              shippingStreet: true,
+              shippingNumber: true,
+              shippingApartment: true,
+              shippingCity: true,
+              shippingProvince: true,
+              shippingPostalCode: true,
+              shippingCountry: true,
+            },
           },
         },
-      },
-    }),
-    prisma.productSku.findMany({
-      orderBy: { articleId: 'asc' },
-      select: {
-        id: true,
-        articleId: true,
-        size: true,
-        stock: true,
-        lowStockAlertSent: true,
-        lowStockAlertedAt: true,
-        variant: {
-          select: {
-            colorName: true,
-            product: { select: { id: true, name: true, price: true, isActive: true } },
+      }),
+      prisma.productSku.findMany({
+        orderBy: { articleId: 'asc' },
+        select: {
+          id: true,
+          articleId: true,
+          size: true,
+          stock: true,
+          lowStockAlertSent: true,
+          lowStockAlertedAt: true,
+          variant: {
+            select: {
+              colorName: true,
+              product: { select: { id: true, name: true, price: true, isActive: true } },
+            },
           },
         },
-      },
-    }),
-    prisma.cartItem.groupBy({ by: ['userId'] }),
-    prisma.order.aggregate({
-      where: {
-        status: 'PAID',
-        fulfillmentStatus: 'DELIVERED',
-        deliveredAt: { gte: monthRange.start, lt: monthRange.end },
-      },
-      _sum: { total: true },
-      _count: { id: true },
-    }),
-  ]);
+      }),
+      prisma.cartItem.groupBy({ by: ['userId'] }),
+      prisma.order.aggregate({
+        where: {
+          status: 'PAID',
+          currency: StoreConfig.currency,
+          fulfillmentStatus: 'DELIVERED',
+          deliveredAt: { gte: monthRange.start, lt: monthRange.end },
+        },
+        _sum: { total: true, subtotal: true },
+        _count: { id: true },
+      }),
+    ]);
 
   const [
     visitCount,
@@ -201,7 +210,7 @@ export async function getDashboardData(includePaymentConnections = false): Promi
     }),
     prisma.orderItem.groupBy({
       by: ['title', 'price'],
-      where: { order: { status: 'PAID' } },
+      where: { order: { status: 'PAID', currency: StoreConfig.currency } },
       _sum: { quantity: true },
     }),
     prisma.storeSubscription.findUnique({ where: { id: 'default' } }),
@@ -214,11 +223,13 @@ export async function getDashboardData(includePaymentConnections = false): Promi
   ]);
 
   const salesTotal = sales._sum.total ?? 0;
-  const paidOrderCount = sales._count.id;
+  const paidOrderCountInStoreCurrency = sales._count.id;
   const conversionRate = visitCount > 0 ? (paidOrderCount / visitCount) * 100 : 0;
-  const averageTicket = paidOrderCount > 0 ? salesTotal / paidOrderCount : 0;
+  const averageTicket =
+    paidOrderCountInStoreCurrency > 0 ? salesTotal / paidOrderCountInStoreCurrency : 0;
   const commissionPercent = subscription?.commissionPercent ?? 10;
   const monthlyCompletedRevenue = monthlyCompleted._sum.total ?? 0;
+  const commissionableMonthlySubtotal = monthlyCompleted._sum.subtotal ?? monthlyCompletedRevenue;
 
   const productTotals = new Map<string, { title: string; quantity: number; revenue: number }>();
 
@@ -298,7 +309,7 @@ export async function getDashboardData(includePaymentConnections = false): Promi
     abandonedCarts: cartUsers.length,
     commissionPercent,
     monthlyCompletedRevenue,
-    commissionAmount: monthlyCompletedRevenue * (commissionPercent / 100),
+    commissionAmount: commissionableMonthlySubtotal * (commissionPercent / 100),
     devices,
     topProducts,
     catalogControls,
@@ -313,7 +324,12 @@ export async function getDashboardData(includePaymentConnections = false): Promi
       id: order.id,
       orderNumber: order.orderNumber,
       total: order.total,
+      currency: order.currency,
+      paymentCurrency: order.paymentCurrency,
+      paymentTotal: order.paymentTotal,
+      paymentExchangeRate: order.paymentExchangeRate,
       createdAt: order.createdAt.toISOString(),
+      updatedAt: order.updatedAt.toISOString(),
       customer: order.user.name || order.user.email || null,
       delivery: {
         firstName: order.deliveryFirstName ?? order.user.firstName,

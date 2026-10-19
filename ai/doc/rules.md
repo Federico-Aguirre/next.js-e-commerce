@@ -1,24 +1,22 @@
 # Project Rules
 
-- If a task spans multiple areas, read only the documents needed for those areas. Do not read documentation merely because it exists[cite: 11].
-- Keep changes minimal and consistent with existing code[cite: 11].
-- Always apply these rules. Read `ai/doc/architecture.md` only when creating new modules, modifying project structure, or working across layer boundaries[cite: 11].
-- TypeScript strict; avoid `any` and unnecessary type assertions[cite: 11].
-- Do not exceed 400 lines of code per file. Refactor into modular components or utilities before reaching this limit[cite: 11].
-- Prefer named exports; Next.js pages/layouts may use default exports. Page default exports should end with `Page`[cite: 11].
-- Use `@/` absolute imports unless importing from the same directory[cite: 11].
-- Follow existing ESLint/Oxlint rules; do not reformat unrelated code[cite: 11].
-- Use Tailwind CSS v4 and shared Shadcn/Radix UI components[cite: 11].
-- Server Components by default; use `"use client"` only when required[cite: 11].
-- Use TanStack React Query for async/server state and Zustand for client global state[cite: 11].
-- Never hard-code user-visible strings; use next-intl[cite: 11].
-- Validate inputs with Zod[cite: 11].
-- All environment variables must be defined and validated in `src/lib/Env.ts`; do not access `process.env` directly in app code[cite: 11].
-- Proceed autonomously with the installations, commands, edits, and validations needed for a requested task; do not ask for routine permission or confirmation[cite: 11].
-- Avoid using visual clutter or Markdown bolding symbols in file deliverables and AI responses[cite: 11].
-- Verify external information thoroughly to ensure answers and code rely on up-to-date knowledge[cite: 11].
-- Keep interactive chat conversations in Spanish, but deliver all code, files, inline comments, and project documentation strictly in English[cite: 11].
-- Unless explicitly asked to provide a partial snippet, always return full, un-truncated file contents[cite: 11].
-- Add mandatory explanatory comments whenever writing complex, subtle, or non-intuitive logic to clarify its purpose and behavior[cite: 11].
-- Avoid trivial, redundant, or AI-generated boilerplate comments; ensure all code comments sound natural, professional, and human-written to maintain a clean codebase for code reviews[cite: 11].
-- Web UI components in `src/components/` and localized routes in `src/app/[locale]/` are strictly read-only during mobile development; API routes (`src/app/api/`), domain logic (`src/commerce/`), and proxy middleware (`src/proxy.ts`) may be updated when mobile synchronization or CORS requirements demand it[cite: 1, 4].
+- Read only documentation relevant to the task; do not scan unrelated AI docs merely because they exist.
+- Keep changes minimal and consistent with the existing code. Do not refactor unrelated working flows.
+- Read `ai/doc/architecture.md` when creating modules, changing project structure, or crossing layer boundaries.
+- Use strict TypeScript; avoid `any` and unnecessary type assertions.
+- Keep source files focused and below 400 lines when practical; extract cohesive helpers/components before files become difficult to maintain.
+- Prefer named exports; Next.js pages and layouts may use default exports. Page default exports should end with `Page`.
+- Use `@/` absolute imports unless importing from the same directory.
+- Follow the repository's ESLint/Oxlint/formatting rules and do not reformat unrelated files.
+- The web app uses Tailwind CSS v4 and shared Radix-based UI primitives; inspect existing components before adding dependencies.
+- Use Server Components by default and add `"use client"` only when browser APIs, state, effects or event handlers require it.
+- Use Zustand for client-global state where the existing app needs it. The root dependency `@tanstack/react-query` is installed, but no direct imports or provider setup were found in the last source scan; do not introduce React Query without checking the current project wiring and a clear need.
+- Never hard-code user-visible web strings; use next-intl and keep supported locale dictionaries synchronized.
+- Validate external inputs with Zod at server boundaries.
+- Add environment variables through the project's environment-validation strategy in `src/lib/Env.ts`; do not expose secrets or credentials to client code.
+- Enforce authorization server-side. UI visibility is not access control.
+- Proceed autonomously with routine commands, edits and proportionate validation for an explicitly requested task.
+- Verify external information when implementation depends on current provider/framework APIs or uncertain behavior.
+- Keep interactive chat in Spanish. Code, code comments and project documentation must be in English.
+- Avoid boilerplate comments; document subtle security, money, inventory, retry, idempotency or state-transition logic when its rationale is not obvious.
+- During mobile-only work, treat `ecommerce-mobile/` as a separate app. Change web UI/routes only when required for shared backend/API behavior or mobile synchronization.

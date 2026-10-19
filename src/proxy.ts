@@ -4,27 +4,65 @@ import { routing } from '@/lib/I18nRouting';
 
 const intlMiddleware = createMiddleware(routing);
 
+function getAllowedOrigins() {
+  const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const siteOrigins = [
+    process.env.NEXTAUTH_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+  ]
+    .filter((origin): origin is string => Boolean(origin))
+    .map((origin) => {
+      try {
+        return new URL(origin).origin;
+      } catch {
+        return '';
+      }
+    })
+    .filter(Boolean);
+  const developmentOrigins =
+    process.env.NODE_ENV === 'production'
+      ? []
+      : ['http://localhost:3001', 'http://127.0.0.1:3001', 'http://localhost:8081'];
+
+  return new Set([...configuredOrigins, ...siteOrigins, ...developmentOrigins]);
+}
+
+function corsHeadersFor(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  if (!origin || !getAllowedOrigins().has(origin)) return null;
+
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers':
+      'Content-Type, Authorization, X-Requested-With, Accept, ngrok-skip-browser-warning',
+    Vary: 'Origin',
+  };
+}
+
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const origin = request.headers.get('origin') || 'http://localhost:8081';
 
-  // 1. API routes & Mobile CORS handling
   if (pathname.startsWith('/api')) {
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, ngrok-skip-browser-warning',
-    };
+    const corsHeaders = corsHeadersFor(request);
 
     if (request.method === 'OPTIONS') {
-      return new NextResponse(null, { status: 200, headers: corsHeaders });
+      // Cross-origin browser clients must be explicitly listed in CORS_ALLOWED_ORIGINS.
+      return new NextResponse(null, {
+        status: corsHeaders ? 204 : request.headers.get('origin') ? 403 : 204,
+        headers: corsHeaders ?? { Vary: 'Origin' },
+      });
     }
 
     const response = NextResponse.next();
-    Object.entries(corsHeaders).forEach(([key, value]) => {
-      response.headers.set(key, value);
-    });
+    if (corsHeaders) {
+      Object.entries(corsHeaders).forEach(([key, value]) => response.headers.set(key, value));
+    }
     return response;
   }
 
@@ -44,8 +82,6 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.rewrite(internalUrl);
   }
 
-  // Allow the internal default-locale rewrite to reach the App Router without
-  // being canonicalized back to /historial a second time.
   if (pathname === '/en/historial') {
     return NextResponse.next();
   }
@@ -59,11 +95,9 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Localized routing for storefront pages
   return intlMiddleware(request);
 }
 
 export const config = {
-  // Match all pathnames except static files and internal Next.js/Vercel paths
   matcher: ['/((?!_next|_vercel|.*\\..*).*)'],
 };

@@ -3,7 +3,6 @@ import type { CartItem } from '@/store/useCartStore';
 export type { CartItem };
 
 export type PayPalCardFormProps = {
-  amount: number;
   cartItems: CartItem[];
   onSuccess: () => void;
 };
