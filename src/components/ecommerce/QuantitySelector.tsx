@@ -4,6 +4,7 @@ import { Minus, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 type QuantitySelectorProps = {
   max?: number;
@@ -24,9 +25,9 @@ export function QuantitySelector({ max = 99, value, onChange }: QuantitySelector
 
   return (
     <div className="space-y-2">
-      <div className="border-border inline-flex items-center rounded-lg border p-1">
+      <div className="inline-flex items-center rounded-lg border border-border p-1">
         <Button
-          variant="ghost"
+          variant="secondary"
           size="icon"
           type="button"
           aria-label={t('decreaseQuantity')}
@@ -37,7 +38,7 @@ export function QuantitySelector({ max = 99, value, onChange }: QuantitySelector
         >
           <Minus className="size-4" aria-hidden="true" />
         </Button>
-        <input
+        <Input
           type="number"
           min={1}
           max={max}
@@ -49,10 +50,10 @@ export function QuantitySelector({ max = 99, value, onChange }: QuantitySelector
               Number.isFinite(parsed) ? Math.min(max, Math.max(1, Math.floor(parsed))) : 1,
             );
           }}
-          className="h-9 w-14 appearance-none bg-transparent px-1 text-center text-sm font-medium outline-none"
+          className="h-9 w-14 appearance-none bg-card px-1 text-center text-sm font-medium outline-none"
         />
         <Button
-          variant="ghost"
+          variant="secondary"
           size="icon"
           type="button"
           aria-label={t('increaseQuantity')}

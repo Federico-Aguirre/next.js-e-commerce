@@ -9,8 +9,6 @@ import {
 } from '@/lib/payments/onboarding';
 import { saveStorePaymentConnection } from '@/lib/payments/store-connections';
 
-export const dynamic = 'force-dynamic';
-
 type MercadoPagoOauthResponse = {
   access_token?: string;
   refresh_token?: string;
@@ -170,7 +168,7 @@ export async function GET(request: Request) {
     }
 
     const authorizedUserId = data.user_id == null ? null : String(data.user_id);
-    const standaloneToken = process.env.STORE_MERCADOPAGO_ACCESS_TOKEN?.trim();
+    const standaloneToken = process.env.STORE_MERCADOPAGO_SANDBOX_ACCESS_TOKEN?.trim();
     if (standaloneToken) {
       const expectedSellerUserId = await mercadoPagoUserId(standaloneToken);
       if (expectedSellerUserId && authorizedUserId !== expectedSellerUserId) {

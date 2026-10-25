@@ -1,174 +1,202 @@
-import { MercadoPagoConfig, Order } from 'mercadopago';
-import { getServerSession } from 'next-auth/next';
+import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { NextResponse } from 'next/server';
-import { authOptions } from '@/lib/auth-options';
+import { z } from 'zod';
+import { getAuthenticatedUser } from '@/lib/auth/request-user';
 import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
 import { sendOrderConfirmationEmail } from '@/lib/orders/order-confirmation-email';
-import { mercadoPagoPaymentConfig } from '@/lib/payments/platform-config';
+import {
+  mercadoPagoPaymentConfig,
+  refreshPlatformSubscriptionPlan,
+} from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, hashRateLimitIdentity } from '@/lib/security/rate-limit';
 
-interface OrderItemInput {
-  id?: string;
-  articleId?: string;
-  title: string;
-  price: number;
-  quantity: number;
-  image?: string;
-  size?: string;
-  colorName?: string;
-}
+const ConfirmPaymentSchema = z
+  .object({
+    paymentId: z.union([
+      z
+        .string()
+        .trim()
+        .regex(/^\d{1,16}$/),
+      z.number().int().positive().max(Number.MAX_SAFE_INTEGER).transform(String),
+    ]),
+  })
+  .strict();
 
-interface ConfirmOrderBody {
-  paymentId: string;
-  orderId: string;
-  items: OrderItemInput[];
-  total: number;
+function privateNoStoreJson(body: unknown, init: ResponseInit = {}) {
+  const headers = new Headers(init.headers);
+  headers.set('Cache-Control', 'private, no-store, max-age=0');
+  return NextResponse.json(body, { ...init, headers });
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return privateNoStoreJson(
+      { message: 'Debés iniciar sesión para confirmar la orden.' },
+      { status: 401 },
+    );
+  }
+
+  const rateLimit = checkRateLimit('confirm-payment:' + hashRateLimitIdentity(user.id), {
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (!rateLimit.allowed) {
+    return privateNoStoreJson(
+      { message: 'Demasiadas verificaciones. Esperá un minuto y volvé a intentar.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) },
+      },
+    );
+  }
+
   try {
-    const session = await getServerSession(authOptions);
-
-    const userId = session?.user?.id;
-
-    if (!userId) {
-      return NextResponse.json(
-        {
-          message: 'Debés iniciar sesión para confirmar la orden.',
-        },
-        { status: 401 },
-      );
-    }
-
-    const body = (await request.json()) as ConfirmOrderBody;
-
-    const { paymentId, orderId, items, total } = body;
-
-    if (!paymentId || !orderId || !items || items.length === 0 || typeof total !== 'number') {
-      return NextResponse.json(
-        {
-          message: 'Datos incompletos.',
-        },
+    const parsed = ConfirmPaymentSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return privateNoStoreJson(
+        { message: 'Falta un identificador de pago válido.' },
         { status: 400 },
       );
     }
 
-    // Verificar la Order directamente con Mercado Pago.
+    const paymentId = parsed.data.paymentId;
     const { accessToken } = await mercadoPagoPaymentConfig();
     if (!accessToken) {
-      return NextResponse.json(
-        { message: 'Falta configurar Mercado Pago del comercio.' },
-        { status: 500 },
+      return privateNoStoreJson({ message: 'Mercado Pago no está configurado.' }, { status: 503 });
+    }
+
+    // El navegador solo proporciona el ID. Estado, referencia, importe y moneda
+    // se obtienen del servidor de Mercado Pago, nunca del body de la petición.
+    const paymentClient = new Payment(new MercadoPagoConfig({ accessToken }));
+    const payment = await paymentClient.get({ id: Number(paymentId) });
+
+    if (payment.status !== 'approved' || payment.status_detail !== 'accredited') {
+      return privateNoStoreJson(
+        { message: 'Mercado Pago todavía no informa un pago acreditado.' },
+        { status: 409 },
       );
     }
-    const client = new MercadoPagoConfig({ accessToken });
-    const orderClient = new Order(client);
 
-    const mercadoPagoOrder = await orderClient.get({
-      id: orderId,
+    const externalReference = payment.external_reference;
+    if (!externalReference || typeof externalReference !== 'string') {
+      return privateNoStoreJson(
+        { message: 'El pago no contiene una referencia de compra válida.' },
+        { status: 409 },
+      );
+    }
+
+    const order = await prisma.order.findFirst({
+      where: {
+        id: externalReference,
+        userId: user.id,
+        paymentProvider: 'MERCADOPAGO',
+      },
+      include: { items: true },
     });
 
-    const payment = mercadoPagoOrder.transactions?.payments?.[0];
+    // Same generic response for a missing order and an order owned by someone else.
+    if (!order) {
+      return privateNoStoreJson(
+        { message: 'No se encontró una compra pendiente asociada a este pago.' },
+        { status: 404 },
+      );
+    }
+
+    if (order.status === 'PAID' && order.paymentExternalId === String(paymentId)) {
+      return privateNoStoreJson({
+        success: true,
+        orderId: order.id,
+        paymentId: String(paymentId),
+        status: 'PAID',
+        alreadyConfirmed: true,
+      });
+    }
 
     if (
-      mercadoPagoOrder.status !== 'processed' ||
-      payment?.status !== 'processed' ||
-      payment?.status_detail !== 'accredited'
+      order.status !== 'PENDING' ||
+      order.expiresAt.getTime() <= Date.now() ||
+      order.paymentTotal === null ||
+      order.paymentCurrency !== payment.currency_id
     ) {
-      return NextResponse.json(
-        {
-          message: 'El pago no fue acreditado.',
-          orderStatus: mercadoPagoOrder.status,
-          paymentStatus: payment?.status,
-          paymentStatusDetail: payment?.status_detail,
-        },
-        { status: 400 },
+      return privateNoStoreJson(
+        { message: 'La reserva venció o ya no coincide con el pago.' },
+        { status: 409 },
       );
     }
 
-    // Evitar crear dos veces la misma orden.
-    const existingOrder = await prisma.order.findUnique({
+    const actualAmount = Number(payment.transaction_amount);
+    const expectedAmount = Number(order.paymentTotal.toFixed(2));
+    if (!Number.isFinite(actualAmount) || Number(actualAmount.toFixed(2)) !== expectedAmount) {
+      return privateNoStoreJson(
+        { message: 'El importe acreditado no coincide con el de la reserva.' },
+        { status: 409 },
+      );
+    }
+
+    // Atomic compare-and-set: the same payment cannot confirm two requests.
+    const updated = await prisma.order.updateMany({
       where: {
-        id: paymentId,
-      },
-    });
-
-    if (existingOrder) {
-      if (existingOrder.status === 'PAID') {
-        await sendOrderConfirmationEmail(existingOrder.id);
-      }
-      return NextResponse.json(existingOrder, { status: 200 });
-    }
-
-    const dbUser = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!dbUser) {
-      return NextResponse.json({ message: 'No se encontró el usuario.' }, { status: 404 });
-    }
-
-    const fechaExpiracion = new Date();
-
-    fechaExpiracion.setDate(fechaExpiracion.getDate() + 7);
-
-    const nuevaOrden = await prisma.order.create({
-      data: {
-        id: paymentId,
-        userId,
-        total: Number(total),
-        status: 'PAID',
+        id: order.id,
+        userId: user.id,
+        status: 'PENDING',
         paymentProvider: 'MERCADOPAGO',
-        paymentExternalId: paymentId,
-        expiresAt: fechaExpiracion,
-        deliveryFirstName: dbUser.firstName,
-        deliveryLastName: dbUser.lastName,
-        deliveryPhone: dbUser.phone,
-        deliveryDni: dbUser.dni,
-        deliveryStreet: dbUser.shippingStreet,
-        deliveryNumber: dbUser.shippingNumber,
-        deliveryApartment: dbUser.shippingApartment,
-        deliveryCity: dbUser.shippingCity,
-        deliveryProvince: dbUser.shippingProvince,
-        deliveryPostalCode: dbUser.shippingPostalCode,
-        deliveryCountry: dbUser.shippingCountry,
-
-        items: {
-          create: items.map((item) => ({
-            productId: String(item.articleId || item.id || 'manual-id'),
-
-            title: item.title,
-            price: Number(item.price),
-            quantity: Number(item.quantity),
-
-            image: item.image || '',
-
-            size: item.size || 'M',
-          })),
-        },
-      } as any,
-
-      include: {
-        items: true,
+        expiresAt: { gt: new Date() },
+      },
+      data: {
+        status: 'PAID',
+        paymentExternalId: String(paymentId),
       },
     });
 
-    await sendOrderConfirmationEmail(nuevaOrden.id);
-    void sendPaidOrderAlert(nuevaOrden.id);
-    await sendLowStockAlerts();
+    if (updated.count !== 1) {
+      const current = await prisma.order.findFirst({
+        where: { id: order.id, userId: user.id },
+        select: { id: true, status: true, paymentExternalId: true },
+      });
+      if (current?.status === 'PAID' && current.paymentExternalId === String(paymentId)) {
+        return privateNoStoreJson({
+          success: true,
+          orderId: current.id,
+          paymentId: String(paymentId),
+          status: 'PAID',
+          alreadyConfirmed: true,
+        });
+      }
 
-    return NextResponse.json(nuevaOrden, { status: 201 });
-  } catch (error: unknown) {
-    console.error('❌ Error confirmando la orden:', error);
+      return privateNoStoreJson(
+        { message: 'La compra cambió de estado y no pudo confirmarse.' },
+        { status: 409 },
+      );
+    }
 
-    const message = error instanceof Error ? error.message : 'Error interno del servidor.';
+    // Payment state is already committed. Refresh the recovery plan separately so
+    // reaching the target returns subsequent orders to the standard 8% commission.
+    await refreshPlatformSubscriptionPlan();
 
-    return NextResponse.json(
-      {
-        message: 'No se pudo confirmar la orden.',
-        error: message,
-      },
-      { status: 500 },
+    // Notification failures must not cause the client to retry a charge confirmation as if the payment had failed.
+    await Promise.allSettled([
+      sendOrderConfirmationEmail(order.id),
+      sendPaidOrderAlert(order.id),
+      sendLowStockAlerts(),
+    ]);
+
+    return privateNoStoreJson({
+      success: true,
+      orderId: order.id,
+      paymentId: String(paymentId),
+      status: 'PAID',
+      alreadyConfirmed: false,
+    });
+  } catch (error) {
+    console.error(
+      '[confirm-payment] failed:',
+      error instanceof Error ? error.name : 'UnknownError',
+    );
+    return privateNoStoreJson(
+      { message: 'No se pudo verificar el pago en este momento.' },
+      { status: 502 },
     );
   }
 }

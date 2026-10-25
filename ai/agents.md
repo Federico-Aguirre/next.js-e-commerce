@@ -37,11 +37,13 @@ Read only the documentation and skill that matches the task. Do not read unrelat
 
 - Before creating a test, actively search existing test files and cases in the relevant app areas (`src/`, `tests/`, and `ecommerce-mobile/` when relevant). If a suitable test already covers the behavior, extend or reuse it rather than creating a duplicate. Only create a new test after confirming there is no appropriate existing test.
 - Inspect `package.json`, the test config, and nearby tests. Reuse the project's current stack (Vitest for unit/integration tests and Playwright for browser flows); do not add Jest or another dependency when the existing tools cover the need.
+- Tests must be committed as reusable test files under the project's existing test conventions and runnable again through the installed scripts/tools. Do not substitute one-off Python/shell assertions or manual checks for regression tests that belong in Vitest/Playwright. Ad-hoc checks can supplement, but never replace, the repeatable suite.
+- After changing behavior, run the relevant existing/new tests with the project's installed runner and update `ai/doc/validation.md` only with the checks that actually passed. Never claim a test, full suite, or build passed when it was not run successfully.
 - Add a small, deterministic regression test for a reproducible bug or an important behavior that could regress, especially validation, permissions, pricing, state transitions, storage, and user interactions. A reusable regression test is preferable to repeating the same manual check in later sessions.
 - For UI bugs, favor Testing Library with the configured jsdom environment and assert observable behavior. When a missing style utility caused the bug, assert that the affected control includes the required class; test important click behavior separately when relevant.
 - Keep tests isolated from real accounts, production data, live payments, paid services, and nondeterministic network calls. Use existing mocks or fixtures; never add an external dependency just to test a small behavior if the installed stack can do it.
 - Skip tests when a change is purely cosmetic and too trivial to regress, or when a test would only duplicate an existing reliable check. Do not force coverage for its own sake.
-- Run the narrowest relevant test first, for example `npm run test -- src/components/Example.test.tsx`; run broader suites only when the scope or risk warrants them. Reuse a valid validation checkpoint documented in `ai/doc/validation.md` rather than rerunning expensive checks without a reason.
+- For source changes, use `npm run test:related -- <exact-source-paths>`; for changed test files, run those files directly with `npx vitest run <test-path> --reporter=dot --silent=passed-only`. Do not manually inspect the whole suite to choose tests. Reuse valid validation checkpoints rather than rerunning checks without a reason.
 
 ## Purchase-confirmation email requirement
 

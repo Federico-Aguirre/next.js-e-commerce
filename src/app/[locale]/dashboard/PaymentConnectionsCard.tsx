@@ -39,7 +39,7 @@ export default function PaymentConnectionsCard({
   };
 
   return (
-    <section className="rounded-2xl border p-5">
+    <section className="rounded-2xl border bg-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{t('paymentConnections')}</h2>

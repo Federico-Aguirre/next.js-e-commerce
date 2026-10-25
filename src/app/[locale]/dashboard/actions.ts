@@ -1,7 +1,8 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { z } from 'zod';
+import { PUBLIC_CATALOG_CACHE_TAG } from '@/lib/catalog/cache-tags';
 import { sendLowStockAlerts } from '@/lib/order-alerts';
 import { fromBuenosAiresDateTimeLocal, sameDeliveryMinute } from '@/lib/orders/delivery-estimate';
 import { sendOrderFulfillmentEmail } from '@/lib/orders/order-fulfillment-email';
@@ -248,6 +249,8 @@ export async function updateCatalog(formData: FormData) {
 
   const alertResult = await sendLowStockAlerts();
 
+  // Prices and product availability are cached; stock quantities are never cached.
+  updateTag(PUBLIC_CATALOG_CACHE_TAG);
   revalidatePath(dashboardPath(locale));
   revalidatePath('/[locale]/products', 'page');
   revalidatePath('/[locale]/products/[slug]', 'page');

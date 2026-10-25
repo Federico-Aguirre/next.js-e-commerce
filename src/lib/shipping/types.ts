@@ -14,3 +14,33 @@ export type ShippingQuote = {
 export type ShippingActionResult =
   | { success: true; provider: ShippingProvider; quotes: ShippingQuote[] }
   | { success: false; error: string };
+
+export type CheckoutShippingOption = ShippingQuote & {
+  subtotal: number;
+  taxAmount: number;
+  taxRate: number;
+  taxCalculationMethod: string;
+  taxName: string;
+  taxCountry: string;
+  productTotal: number;
+  shippingAmount: number;
+  totalInStoreCurrency: number;
+  paymentShippingAmount: number;
+  paymentTotal: number;
+  paymentCurrency: 'ARS' | 'USD';
+  paymentExchangeRate: number;
+  storeCurrency: string;
+  quoteToken: string;
+};
+
+export type CheckoutShippingSelection = Pick<
+  CheckoutShippingOption,
+  | 'id'
+  | 'provider'
+  | 'carrier'
+  | 'service'
+  | 'amount'
+  | 'currency'
+  | 'paymentTotal'
+  | 'paymentCurrency'
+>;

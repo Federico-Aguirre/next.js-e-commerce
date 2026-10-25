@@ -1,3 +1,5 @@
+import { authenticatedFetch } from '@/services/authenticatedFetch';
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001'; // 10.0.2.2 para emulador Android, localhost para iOS
 
 export interface CheckoutItem {
@@ -19,7 +21,7 @@ export async function processSecureCheckout(
   }
 
   try {
-    const response = await fetch(`${API_URL}/api/checkout`, {
+    const response = await authenticatedFetch(`${API_URL}/api/checkout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

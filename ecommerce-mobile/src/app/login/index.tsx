@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useAuthStore } from '@/store/useAuthStore';
+import { storeMobileAuthToken } from '@/services/authenticatedFetch';
 
 const DEFAULT_LOCAL_URL = 'http://192.168.3.9.nip.io:3001';
 
@@ -84,6 +85,7 @@ export default function LoginScreen() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error verificando usuario');
 
+      await storeMobileAuthToken(data.accessToken);
       setSession({ user: data.user });
 
       if (Platform.OS === 'web') {
@@ -149,6 +151,7 @@ export default function LoginScreen() {
         setErrorMsg(data.error || 'Credenciales inválidas');
       } else {
         // Guarda el objeto user en Zustand para que el Navbar lo lea inmediatamente
+        await storeMobileAuthToken(data.accessToken);
         setSession({ user: data.user });
 
         if (Platform.OS === 'web') {

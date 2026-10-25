@@ -3,6 +3,9 @@
 import { useSession } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
+import DeliveryAddressBook from '@/components/DeliveryAddressBook';
+import { Button } from '@/components/ui/button';
+import { Input as UIInput } from '@/components/ui/input';
 import { accountSchema, type AccountFormData } from '@/lib/account/accountSchema';
 import { useRouter } from '@/lib/I18nRouting';
 
@@ -57,11 +60,11 @@ function Input({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-semibold text-gray-700">
+      <span className="mb-1.5 block text-sm font-semibold text-foreground">
         {label}
         {required ? ' *' : ''}
       </span>
-      <input
+      <UIInput
         name={name}
         value={value}
         onChange={onChange}
@@ -69,13 +72,13 @@ function Input({
         required={required}
         type={type}
         placeholder={placeholder}
-        className={`w-full rounded-md border bg-white px-3 py-2.5 text-sm text-gray-900 transition outline-none focus:ring-1 ${
+        className={`w-full rounded-md border bg-card px-3 py-2.5 text-sm text-foreground transition outline-none focus:ring-1 ${
           error
-            ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-            : 'border-gray-300 focus:border-sky-500 focus:ring-sky-500'
+            ? 'border-destructive focus:border-destructive focus:ring-destructive'
+            : 'border-border focus:border-primary focus:ring-primary/20'
         }`}
       />
-      {error && <span className="mt-1 block text-xs font-medium text-red-600">{error}</span>}
+      {error && <span className="mt-1 block text-xs font-medium text-destructive">{error}</span>}
     </label>
   );
 }
@@ -92,6 +95,7 @@ export default function AccountPage() {
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof AccountFormData, string>>>(
     {},
   );
+  const [addressBookRefresh, setAddressBookRefresh] = useState(0);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -215,11 +219,41 @@ export default function AccountPage() {
         shippingCountry: data.shippingCountry ?? 'Argentina',
       }));
       setMessage(t('saved'));
+      setAddressBookRefresh((value) => value + 1);
     } catch (requestError) {
       console.error(requestError);
       setError(requestError instanceof Error ? requestError.message : t('saveError'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDefaultAddressChanged = async () => {
+    setAddressBookRefresh((value) => value + 1);
+    try {
+      const response = await fetch('/api/account', { cache: 'no-store' });
+      if (!response.ok) return;
+      const data = await response.json();
+      setForm({
+        firstName: data.firstName ?? '',
+        lastName: data.lastName ?? '',
+        phone: data.phone ?? '',
+        dni: data.dni ?? '',
+        shippingStreet: data.shippingStreet ?? '',
+        shippingNumber: data.shippingNumber ?? '',
+        shippingApartment: data.shippingApartment ?? '',
+        shippingCity: data.shippingCity ?? '',
+        shippingProvince: data.shippingProvince ?? '',
+        shippingPostalCode: data.shippingPostalCode ?? '',
+        shippingCountry: data.shippingCountry ?? 'Argentina',
+      });
+      setFieldErrors({});
+      setMessage('');
+    } catch (requestError) {
+      console.error(
+        'No se pudo actualizar el formulario con la dirección predeterminada.',
+        requestError,
+      );
     }
   };
 
@@ -232,17 +266,25 @@ export default function AccountPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-10">
+    <div className="min-h-screen bg-muted/40 px-4 py-10">
       <div className="mx-auto max-w-3xl">
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
-            <p className="mt-2 text-sm text-gray-600">{t('subtitle')}</p>
+            <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{t('subtitle')}</p>
+            <div className="mt-4 rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                {t('signedInWith')}
+              </p>
+              <p className="mt-1 text-sm font-medium break-all text-foreground">
+                {session.user.email || t('emailUnavailable')}
+              </p>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
             <section>
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">{t('personalTitle')}</h2>
+              <h2 className="mb-4 text-lg font-semibold text-foreground">{t('personalTitle')}</h2>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Input
@@ -286,11 +328,11 @@ export default function AccountPage() {
                 />
               </div>
 
-              <p className="mt-3 text-xs text-gray-500">{t('dniNote')}</p>
+              <p className="mt-3 text-xs text-muted-foreground">{t('dniNote')}</p>
             </section>
 
             <section>
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">{t('shippingTitle')}</h2>
+              <h2 className="mb-4 text-lg font-semibold text-foreground">{t('shippingTitle')}</h2>
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="sm:col-span-2">
@@ -370,27 +412,34 @@ export default function AccountPage() {
             </section>
 
             {message && (
-              <p className="rounded-md bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
+              <p className="rounded-md bg-success/10 px-3 py-2 text-sm font-medium text-success">
                 {message}
               </p>
             )}
 
             {error && (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
                 {error}
               </p>
             )}
 
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="submit"
               disabled={saving}
-              className="w-full rounded-lg bg-sky-500 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-70"
+              className="w-full rounded-lg bg-primary px-4 py-3 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {saving ? t('saving') : t('save')}
-            </button>
+            </Button>
           </form>
+
+          <DeliveryAddressBook
+            refreshSignal={addressBookRefresh}
+            onDefaultAddressChanged={() => void handleDefaultAddressChanged()}
+          />
         </div>
       </div>
-    </main>
+    </div>
   );
 }

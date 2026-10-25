@@ -1,58 +1,79 @@
-export const dynamic = 'force-dynamic';
-import 'dotenv/config';
 import { hash } from 'bcryptjs';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import {
+  checkRateLimit,
+  getRequestClientIp,
+  hashRateLimitIdentity,
+} from '@/lib/security/rate-limit';
+
+const RegisterSchema = z
+  .object({
+    name: z.string().trim().min(2).max(100),
+    email: z.string().trim().toLowerCase().email().max(254),
+    password: z.string().min(10).max(128),
+  })
+  .strict();
 
 export async function POST(request: Request) {
+  const ip = getRequestClientIp(request);
+  const ipLimit = checkRateLimit(`register:ip:${ip}`, {
+    limit: 5,
+    windowMs: 15 * 60_000,
+  });
+
+  if (!ipLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos de registro. Esperá unos minutos y volvé a intentar.' },
+      { status: 429, headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) } },
+    );
+  }
+
   try {
-    const { name, email, password } = await request.json();
-
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: 'Todos los campos son obligatorios' }, { status: 400 });
-    }
-
-    // 1. Validar si el email ya existe en el servidor
-    const userExists = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (userExists) {
+    const parsed = RegisterSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'El correo electrónico ya está registrado' },
+        {
+          error: 'Ingresá un nombre, un correo válido y una contraseña de al menos 10 caracteres.',
+        },
         { status: 400 },
       );
     }
 
-    // 2. Encriptar la contraseña de forma segura
-    const hashedPassword = await hash(password, 10);
+    const { name, email, password } = parsed.data;
+    const identityLimit = checkRateLimit(`register:email:${hashRateLimitIdentity(email)}`, {
+      limit: 3,
+      windowMs: 60 * 60_000,
+    });
 
-    // 3. Crear el registro en la base de datos
+    if (!identityLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos para este correo. Probá más tarde.' },
+        { status: 429, headers: { 'Retry-After': String(identityLimit.retryAfterSeconds) } },
+      );
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return NextResponse.json(
+        { error: 'No se pudo crear la cuenta. Verificá el correo e intentá iniciar sesión.' },
+        { status: 409 },
+      );
+    }
+
+    const hashedPassword = await hash(password, 12);
     const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-      },
+      data: { name, email, password: hashedPassword },
+      select: { id: true, name: true, email: true },
     });
-
-    // 4. Retornamos éxito sin cookies intermedias redundantes
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-      },
-    });
-  } catch (error) {
-    console.error('Error en el controlador de registro:', error);
 
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Error interno al registrar el usuario',
-      },
-      { status: 500 },
+      { success: true, user: newUser },
+      { status: 201, headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
     );
+  } catch (error) {
+    console.error('[register] failed:', error instanceof Error ? error.name : 'UnknownError');
+    return NextResponse.json({ error: 'No se pudo crear la cuenta.' }, { status: 500 });
   }
 }

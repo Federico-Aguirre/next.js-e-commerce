@@ -1,17 +1,21 @@
 import https from 'node:https';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
-import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
-import { authOptions } from '@/lib/auth-options';
+import { z } from 'zod';
+import { getAuthenticatedUser } from '@/lib/auth/request-user';
 import { restoreOrderStock } from '@/lib/checkout/inventory';
 import { amountAtExchangeRate } from '@/lib/currency/payment-amount';
 import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
 import { sendOrderConfirmationEmail } from '@/lib/orders/order-confirmation-email';
-import { mercadoPagoPaymentConfig, platformFeeForProducts } from '@/lib/payments/platform-config';
+import { getMercadoPagoSavedCardScope } from '@/lib/payments/mercadopago-saved-cards';
+import {
+  mercadoPagoPaymentConfig,
+  platformFeeForProducts,
+  refreshPlatformSubscriptionPlan,
+} from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, hashRateLimitIdentity } from '@/lib/security/rate-limit';
 import { calculateTaxBreakdown } from '@/lib/tax/tax-calculation';
-
-export const dynamic = 'force-dynamic';
 
 type MercadoPagoPayment = {
   id?: string | number;
@@ -63,6 +67,25 @@ type MercadoPagoHttpResult<T> = {
   requestId: string | null;
   data: T;
 };
+
+const ProcessPaymentSchema = z
+  .object({
+    orderId: z.string().trim().min(1).max(191),
+    token: z.string().trim().min(1).max(8192),
+    installments: z.coerce.number().int().min(1).max(24).optional(),
+    payment_method_id: z.string().trim().min(1).max(64).optional(),
+    issuer_id: z.string().trim().max(64).optional(),
+    description: z.string().trim().max(200).optional(),
+    email: z.string().trim().email().max(254).optional(),
+    docType: z.string().trim().max(16).optional(),
+    docNumber: z
+      .string()
+      .trim()
+      .regex(/^\d{5,20}$/)
+      .optional(),
+    savedPaymentMethodId: z.string().trim().min(1).max(191).optional(),
+  })
+  .passthrough();
 
 async function mercadoPagoRequest<T>({
   accessToken,
@@ -220,9 +243,46 @@ async function findApprovedMercadoPagoPayment(accessToken: string, externalRefer
 export async function POST(req: Request) {
   let pendingOrderId: string | null = null;
   let paymentWasApproved = false;
+  let paymentClaimed = false;
 
   try {
-    const { accessToken, chargeEnabled, splitEnabled } = await mercadoPagoPaymentConfig();
+    const authenticatedUser = await getAuthenticatedUser(req);
+    if (!authenticatedUser) {
+      return NextResponse.json({ message: 'Debés iniciar sesión.' }, { status: 401 });
+    }
+    const userId = authenticatedUser.id;
+    const userEmail = authenticatedUser.email;
+    const rateLimit = checkRateLimit('process-payment:' + hashRateLimitIdentity(userId), {
+      limit: 8,
+      windowMs: 60_000,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { message: 'Demasiados intentos de pago. Esperá un minuto y volvé a intentar.' },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } },
+      );
+    }
+
+    const parsedBody = ProcessPaymentSchema.safeParse(await req.json());
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { message: 'Los datos de pago o la reserva son inválidos.' },
+        { status: 400 },
+      );
+    }
+    const body = parsedBody.data;
+    const orderId = body.orderId;
+    pendingOrderId = orderId;
+
+    if (userEmail === null) {
+      return NextResponse.json(
+        { message: 'La cuenta no tiene un correo asociado.' },
+        { status: 400 },
+      );
+    }
+
+    const paymentConfig = await mercadoPagoPaymentConfig();
+    const { accessToken, chargeEnabled, splitEnabled } = paymentConfig;
     if (!accessToken || !chargeEnabled) {
       return NextResponse.json(
         { message: 'Mercado Pago no tiene credenciales válidas para cobrar.' },
@@ -230,41 +290,48 @@ export async function POST(req: Request) {
       );
     }
 
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.id;
-    const userEmail = session?.user?.email;
+    let savedPaymentMethod:
+      | (NonNullable<Awaited<ReturnType<typeof prisma.savedPaymentMethod.findFirst>>> & {
+          paymentCustomer: { externalCustomerId: string };
+        })
+      | null = null;
+    if (body.savedPaymentMethodId) {
+      if (paymentConfig.sandbox !== true) {
+        return NextResponse.json(
+          { message: 'El pago con tarjetas guardadas solo está habilitado en sandbox por ahora.' },
+          { status: 503 },
+        );
+      }
 
-    if (!userId && !userEmail) {
-      return NextResponse.json({ message: 'Debés iniciar sesión.' }, { status: 401 });
-    }
+      const accountScope = getMercadoPagoSavedCardScope({
+        accessToken,
+        splitEnabled,
+        externalAccountId: paymentConfig.externalAccountId,
+      });
+      savedPaymentMethod = await prisma.savedPaymentMethod.findFirst({
+        where: {
+          id: body.savedPaymentMethodId,
+          paymentCustomer: {
+            is: {
+              userId,
+              provider: 'MERCADOPAGO',
+              accountScope,
+            },
+          },
+        },
+        include: { paymentCustomer: { select: { externalCustomerId: true } } },
+      });
 
-    const body = await req.json();
-    const orderId = String(body.orderId || '');
-    pendingOrderId = orderId || null;
-
-    if (!orderId || !body.token) {
-      return NextResponse.json(
-        { message: 'Faltan la orden reservada o el token de tarjeta.' },
-        { status: 400 },
-      );
+      if (!savedPaymentMethod) {
+        return NextResponse.json(
+          { message: 'La tarjeta guardada no pertenece a esta cuenta o ya no está disponible.' },
+          { status: 404 },
+        );
+      }
     }
 
     const order = await prisma.order.findFirst({
-      where: {
-        id: orderId,
-        OR: [
-          ...(userId ? [{ userId }] : []),
-          ...(userEmail
-            ? [
-                {
-                  user: {
-                    email: userEmail,
-                  },
-                },
-              ]
-            : []),
-        ],
-      },
+      where: { id: orderId, userId },
       include: { items: true },
     });
 
@@ -283,7 +350,11 @@ export async function POST(req: Request) {
       });
     }
 
-    if (order.status !== 'PENDING' || order.paymentProvider !== 'MERCADOPAGO') {
+    if (
+      order.status !== 'PENDING' ||
+      order.paymentProvider !== 'MERCADOPAGO' ||
+      order.expiresAt.getTime() <= Date.now()
+    ) {
       return NextResponse.json(
         { message: 'La orden ya no está disponible para pagar.' },
         { status: 409 },
@@ -313,14 +384,25 @@ export async function POST(req: Request) {
 
     const transactionAmount = Number(order.paymentTotal.toFixed(2));
     const installments = Number(body.installments || 1);
-    const paymentMethodId = String(body.payment_method_id || 'master');
+    const paymentMethodId =
+      savedPaymentMethod?.paymentMethodId || String(body.payment_method_id || 'master');
 
-    console.info('Mercado Pago card token diagnostic', {
-      total: transactionAmount,
-      installments,
-      paymentMethodId,
-      tokenMetadata: body.tokenMetadata ?? null,
+    const processingClaim = await prisma.order.updateMany({
+      where: {
+        id: order.id,
+        userId: order.userId,
+        status: 'PENDING',
+        expiresAt: { gt: new Date() },
+      },
+      data: { status: 'PAYMENT_PROCESSING' },
     });
+    if (processingClaim.count !== 1) {
+      return NextResponse.json(
+        { message: 'La reserva venció o ya está siendo procesada.' },
+        { status: 409 },
+      );
+    }
+    paymentClaimed = true;
 
     let paymentResponse: MercadoPagoPayment;
 
@@ -331,25 +413,30 @@ export async function POST(req: Request) {
         body: {
           transaction_amount: Number(order.paymentTotal!.toFixed(2)),
           application_fee: amountAtExchangeRate(
-            platformFeeForProducts(order.items),
+            await platformFeeForProducts(order.items, order.id),
             'ARS',
             order.paymentExchangeRate,
           ),
           token: body.token,
           description: body.description || `Orden ${order.id}`,
           installments: Number(body.installments || 1),
-          payment_method_id: body.payment_method_id,
+          payment_method_id: paymentMethodId,
           external_reference: order.id,
-          payer: {
-            email: body.email || userEmail || undefined,
-            identification:
-              body.docType && body.docNumber
-                ? {
-                    type: body.docType,
-                    number: body.docNumber,
-                  }
-                : undefined,
-          },
+          payer: savedPaymentMethod
+            ? {
+                type: 'customer',
+                id: savedPaymentMethod.paymentCustomer.externalCustomerId,
+              }
+            : {
+                email: body.email || userEmail || undefined,
+                identification:
+                  body.docType && body.docNumber
+                    ? {
+                        type: body.docType,
+                        number: body.docNumber,
+                      }
+                    : undefined,
+              },
           additional_info: {
             items: order.items.map((item) => ({
               id: item.productId,
@@ -375,7 +462,9 @@ export async function POST(req: Request) {
         },
       });
     } else {
-      const paymentType = await mercadoPagoPaymentType(accessToken, paymentMethodId);
+      const paymentType =
+        savedPaymentMethod?.paymentType ||
+        (await mercadoPagoPaymentType(accessToken, paymentMethodId));
       const orderResponse = await mercadoPagoRequest<MercadoPagoOrder>({
         accessToken,
         path: '/v1/orders',
@@ -386,13 +475,15 @@ export async function POST(req: Request) {
           processing_mode: 'automatic',
           total_amount: transactionAmount.toFixed(2),
           external_reference: order.id,
-          payer: {
-            email: payerEmail,
-            identification:
-              body.docType && body.docNumber
-                ? { type: body.docType, number: body.docNumber }
-                : undefined,
-          },
+          payer: savedPaymentMethod
+            ? { customer_id: savedPaymentMethod.paymentCustomer.externalCustomerId }
+            : {
+                email: payerEmail,
+                identification:
+                  body.docType && body.docNumber
+                    ? { type: body.docType, number: body.docNumber }
+                    : undefined,
+              },
           transactions: {
             payments: [
               {
@@ -464,24 +555,36 @@ export async function POST(req: Request) {
     paymentWasApproved = approved;
 
     if (!approved) {
-      await prisma.$transaction(async (tx) => {
-        const current = await tx.order.findUnique({
-          where: { id: order.id },
-          include: { items: true },
+      const status = String(paymentResponse.status ?? '').toLowerCase();
+      const terminalFailure = new Set([
+        'rejected',
+        'cancelled',
+        'canceled',
+        'expired',
+        'charged_back',
+        'refunded',
+      ]).has(status);
+      const externalId = paymentResponse.id ? String(paymentResponse.id) : null;
+
+      if (terminalFailure) {
+        await prisma.$transaction(async (tx) => {
+          const finalized = await tx.order.updateMany({
+            where: { id: order.id, status: 'PAYMENT_PROCESSING' },
+            data: { status: 'PAYMENT_FAILED', paymentExternalId: externalId },
+          });
+          if (finalized.count !== 1) return;
+          await restoreOrderStock(tx, order.items);
         });
-
-        if (!current || current.status !== 'PENDING') return;
-
-        await restoreOrderStock(tx, current.items);
-        await tx.order.update({
-          where: { id: current.id },
-          data: {
-            status: 'PAYMENT_FAILED',
-            paymentExternalId: paymentResponse.id ? String(paymentResponse.id) : null,
-          },
+        paymentClaimed = false;
+      } else if (externalId) {
+        await prisma.order.updateMany({
+          where: { id: order.id, status: 'PAYMENT_PROCESSING' },
+          data: { paymentExternalId: externalId },
         });
-      });
+      }
 
+      // Unknown or pending provider states keep the reservation locked until
+      // the scheduled reconciler can safely determine the final payment result.
       return NextResponse.json({
         ...paymentResponse,
         orderId: order.id,
@@ -491,7 +594,7 @@ export async function POST(req: Request) {
     const updated = await prisma.order.updateMany({
       where: {
         id: order.id,
-        status: 'PENDING',
+        status: 'PAYMENT_PROCESSING',
       },
       data: {
         status: 'PAID',
@@ -504,6 +607,7 @@ export async function POST(req: Request) {
       throw new Error('El pago fue aprobado pero la orden cambió de estado antes de confirmarse.');
     }
 
+    await refreshPlatformSubscriptionPlan();
     await sendOrderConfirmationEmail(order.id);
     void sendPaidOrderAlert(order.id);
     await sendLowStockAlerts();
@@ -515,16 +619,16 @@ export async function POST(req: Request) {
   } catch (error: unknown) {
     console.error('Error procesando pago:', error);
 
-    if (pendingOrderId && !paymentWasApproved) {
-      const { accessToken, splitEnabled } = await mercadoPagoPaymentConfig();
-      if (accessToken) {
-        try {
+    if (pendingOrderId && paymentClaimed && !paymentWasApproved) {
+      try {
+        const { accessToken, splitEnabled } = await mercadoPagoPaymentConfig();
+        if (accessToken) {
           const approvedRemote = splitEnabled
             ? await findApprovedMercadoPagoPayment(accessToken, pendingOrderId)
             : await findProcessedMercadoPagoOrder(accessToken, pendingOrderId);
           if (approvedRemote?.id != null) {
             const reconciled = await prisma.order.updateMany({
-              where: { id: pendingOrderId, status: 'PENDING' },
+              where: { id: pendingOrderId, status: 'PAYMENT_PROCESSING' },
               data: {
                 status: 'PAID',
                 paymentProvider: 'MERCADOPAGO',
@@ -534,6 +638,8 @@ export async function POST(req: Request) {
 
             if (reconciled.count === 1) {
               paymentWasApproved = true;
+              paymentClaimed = false;
+              await refreshPlatformSubscriptionPlan();
               await sendOrderConfirmationEmail(pendingOrderId);
               void sendPaidOrderAlert(pendingOrderId);
               await sendLowStockAlerts();
@@ -546,29 +652,15 @@ export async function POST(req: Request) {
               });
             }
           }
-        } catch (reconcileError) {
-          console.error('No se pudo reconciliar Mercado Pago tras el error:', reconcileError);
         }
-      }
-
-      try {
-        await prisma.$transaction(async (tx) => {
-          const pending = await tx.order.findUnique({
-            where: { id: pendingOrderId! },
-            include: { items: true },
-          });
-
-          if (!pending || pending.status !== 'PENDING') return;
-
-          await restoreOrderStock(tx, pending.items);
-          await tx.order.update({
-            where: { id: pending.id },
-            data: { status: 'PAYMENT_FAILED' },
-          });
+      } catch (reconcileError) {
+        console.error('Mercado Pago reconciliation deferred to the scheduled job.', {
+          orderId: pendingOrderId,
+          error: reconcileError instanceof Error ? reconcileError.name : 'UnknownError',
         });
-      } catch (cleanupError) {
-        console.error('No se pudo liberar la reserva fallida de Mercado Pago:', cleanupError);
       }
+      // Do not restore stock after an ambiguous provider error. The scheduled
+      // reconciliation will confirm approval or expire the reservation later.
     }
 
     const mpError = error as Error & {

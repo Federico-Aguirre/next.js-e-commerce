@@ -1,12 +1,14 @@
 import { getTranslations } from 'next-intl/server';
+import { connection } from 'next/server';
 import { Link } from '@/lib/I18nRouting';
 import { StoreConfig } from '@/utils/StoreConfig';
 
 export async function Footer() {
+  await connection();
   const t = await getTranslations('Storefront.footer');
 
   return (
-    <footer className="border-border mt-20 border-t">
+    <footer className="mt-20 border-t border-border">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.7fr_0.7fr_0.8fr] lg:px-8">
         <div>
           <div className="text-lg font-semibold tracking-tight">{StoreConfig.name}</div>
@@ -58,7 +60,7 @@ export async function Footer() {
         </div>
       </div>
 
-      <div className="border-border border-t">
+      <div className="border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <span>
             {t('copyright', {

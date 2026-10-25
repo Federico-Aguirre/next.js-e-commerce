@@ -1,0 +1,4 @@
+ALTER TABLE "Order"
+  ADD COLUMN "shippingAmount" DOUBLE PRECISION NOT NULL DEFAULT 0,
+  ADD COLUMN "shippingQuoteRate" DOUBLE PRECISION,
+  ADD COLUMN "shippingQuoteCurrency" TEXT;

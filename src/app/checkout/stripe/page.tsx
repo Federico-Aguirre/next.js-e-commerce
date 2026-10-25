@@ -4,16 +4,14 @@ import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AuthRequiredNotice } from '@/components/checkout/AuthRequiredNotice';
+import CheckoutShippingSummary from '@/components/checkout/CheckoutShippingSummary';
 import DeliveryAddressSummary from '@/components/checkout/DeliveryAddressSummary';
 import StripePaymentForm from '@/components/checkout/stripe/StripePaymentForm';
-import { CurrencyPrice } from '@/components/CurrencyPrice';
-import { TaxInclusivePrice } from '@/components/TaxInclusivePrice';
-import type { TaxProfile } from '@/lib/tax/types';
-import { useCurrency } from '@/providers/CurrencyProvider';
+import { useCheckoutShipping } from '@/components/checkout/useCheckoutShipping';
+import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/store/useCartStore';
-import { StoreConfig } from '@/utils/StoreConfig';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_DEVELOPER_STRIPE_PUBLISHABLE_KEY || '');
 
@@ -35,14 +33,30 @@ type StripeCheckoutData = {
 
 export default function StripeCheckoutPage() {
   const { data: session, status: sessionStatus } = useSession();
-  const { currency: displayCurrency, taxProfile } = useCurrency();
   const cartItems = useCartStore((state) => state.cart);
+  const [deliveryAddressId, setDeliveryAddressId] = useState<string | null>(null);
+  const [deliveryAddressesLoaded, setDeliveryAddressesLoaded] = useState(false);
+  const handleAddressesLoaded = useCallback((id: string | null) => {
+    setDeliveryAddressId(id);
+    setDeliveryAddressesLoaded(true);
+  }, []);
+  const handleSelectedAddressChange = useCallback((id: string) => {
+    setDeliveryAddressId(id);
+  }, []);
+  const shipping = useCheckoutShipping(
+    cartItems,
+    'ARS',
+    sessionStatus === 'authenticated' && deliveryAddressesLoaded && Boolean(deliveryAddressId),
+    deliveryAddressId,
+  );
 
-  const clearCart = useCartStore((state) => state.clearCart);
+  const finishCheckout = useCartStore((state) => state.finishCheckout);
+  const isBuyNow = useCartStore((state) => state.isBuyNow);
 
   const [stripeData, setStripeData] = useState<StripeCheckoutData | null>(null);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [checkoutRequested, setCheckoutRequested] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -51,12 +65,19 @@ export default function StripeCheckoutPage() {
   const checkoutPromiseRef = useRef<Promise<StripeCheckoutData> | null>(null);
   const checkoutKeyRef = useRef<string | null>(null);
 
-  const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
-
   useEffect(() => {
-    if (sessionStatus !== 'authenticated' || cartItems.length === 0 || completed) {
+    if (
+      sessionStatus !== 'authenticated' ||
+      cartItems.length === 0 ||
+      completed ||
+      !checkoutRequested ||
+      !shipping.selectedQuote
+    ) {
       return;
     }
+
+    const selectedShippingQuote = shipping.selectedQuote;
+    if (!selectedShippingQuote) return;
 
     let active = true;
 
@@ -76,6 +97,8 @@ export default function StripeCheckoutPage() {
             items: cartItems,
             paymentMethod: 'stripe',
             checkoutKey,
+            shippingQuoteToken: selectedShippingQuote.quoteToken,
+            ...(deliveryAddressId ? { deliveryAddressId } : {}),
           }),
         });
 
@@ -131,17 +154,29 @@ export default function StripeCheckoutPage() {
     return () => {
       active = false;
     };
-  }, [cartItems, completed, sessionStatus]);
+  }, [
+    cartItems,
+    completed,
+    sessionStatus,
+    checkoutRequested,
+    shipping.selectedQuote,
+    deliveryAddressId,
+  ]);
 
   const handleSuccess = () => {
     setCompleted(true);
 
-    sessionStorage.setItem('stripe_payment_success', 'true');
+    if (isBuyNow) {
+      sessionStorage.removeItem('stripe_payment_success');
+    } else {
+      sessionStorage.setItem('stripe_payment_success', 'true');
+    }
     sessionStorage.removeItem('stripe_checkout_key');
+    sessionStorage.removeItem('stripe_checkout_quote_token');
 
     alert('¡Compra realizada con éxito!');
 
-    clearCart();
+    finishCheckout();
 
     window.location.replace('/historial');
   };
@@ -152,7 +187,11 @@ export default function StripeCheckoutPage() {
 
   if (!session?.user) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10"
+      >
         <AuthRequiredNotice />
       </main>
     );
@@ -160,13 +199,17 @@ export default function StripeCheckoutPage() {
 
   if (cartItems.length === 0 && !completed) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
-          <p className="mb-4 text-lg font-bold text-gray-900">Tu carrito está vacío</p>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex min-h-screen items-center justify-center bg-muted/40 px-4"
+      >
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
+          <p className="mb-4 text-lg font-bold text-foreground">Tu carrito está vacío</p>
 
           <Link
             href="/cart"
-            className="inline-flex rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-indigo-700"
+            className="inline-flex rounded-lg bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Volver al carrito
           </Link>
@@ -176,87 +219,98 @@ export default function StripeCheckoutPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-10">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-muted/40 px-4 py-10">
       <div className="mx-auto w-full max-w-xl">
-        <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+        <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
           <div className="mb-6 flex items-center justify-between gap-4">
-            <h1 className="text-xl font-bold text-gray-900">Pago con Stripe</h1>
+            <h1 className="text-xl font-bold text-foreground">Pago con Stripe</h1>
 
-            <Link href="/cart" className="text-sm font-semibold text-gray-500 hover:text-gray-700">
+            <Link
+              href="/cart"
+              className="text-sm font-semibold text-muted-foreground hover:text-foreground"
+            >
               ← Volver
             </Link>
           </div>
 
-          <div className="mb-6 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <div className="flex items-start justify-between gap-4">
-              <span className="text-sm font-semibold text-gray-600">Precio:</span>
-              <TaxInclusivePrice
-                amount={stripeData?.subtotal ?? cartTotal}
-                fromCurrency={stripeData?.currency ?? StoreConfig.currency}
-                locale={displayCurrency === 'ARS' ? 'es-AR' : 'en-US'}
-                grossAmountOverride={stripeData?.totalInStoreCurrency}
-                taxProfileOverride={
-                  stripeData
-                    ? ({
-                        countryCode: stripeData.taxCountry ?? 'AR',
-                        countryName: stripeData.taxCountry ?? 'Argentina',
-                        taxName: stripeData.taxName ?? 'IVA',
-                        rate: stripeData.taxRate,
-                        calculationMethod:
-                          stripeData.taxCalculationMethod === 'tax_inclusive_base'
-                            ? 'tax_inclusive_base'
-                            : 'tax_exclusive_base',
-                        status:
-                          stripeData.taxRate == null
-                            ? stripeData.taxCountry === 'US' || stripeData.taxCountry === 'BR'
-                              ? 'jurisdictional'
-                              : 'unavailable'
-                            : 'standard',
-                        dataUpdatedAt: null,
-                        lastVerified: null,
-                        officialSourceUrl: null,
-                      } satisfies TaxProfile)
-                    : undefined
+          <DeliveryAddressSummary
+            selectedAddressId={deliveryAddressId}
+            onSelectedAddressChange={handleSelectedAddressChange}
+            onAddressesLoaded={handleAddressesLoaded}
+            disabled={checkoutRequested || Boolean(stripeData)}
+          />
+          <CheckoutShippingSummary
+            selectedQuote={shipping.selectedQuote}
+            availableQuotes={shipping.availableQuotes}
+            onSelectQuote={shipping.selectQuote}
+            loading={shipping.loading}
+            error={shipping.error}
+            onRetry={shipping.refreshQuotes}
+            disabled={checkoutRequested || Boolean(stripeData)}
+          />
+
+          {!checkoutRequested && !stripeData && (
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              disabled={shipping.loading || !shipping.selectedQuote || Boolean(shipping.error)}
+              onClick={() => {
+                const quoteToken = shipping.selectedQuote?.quoteToken;
+                if (!quoteToken) return;
+                const previousQuoteToken = sessionStorage.getItem('stripe_checkout_quote_token');
+                if (previousQuoteToken !== quoteToken) {
+                  sessionStorage.removeItem('stripe_checkout_key');
+                  checkoutKeyRef.current = null;
+                  checkoutPromiseRef.current = null;
+                  sessionStorage.setItem('stripe_checkout_quote_token', quoteToken);
                 }
-                compact={false}
-                className="text-xl font-extrabold text-gray-900"
-              />
-            </div>
-            {stripeData && (
-              <div className="flex items-start justify-between gap-4 border-t border-gray-200 pt-3">
-                <span className="text-sm font-semibold text-gray-600">
-                  Importe que cobrará Stripe:
-                </span>
-                <CurrencyPrice
-                  amount={stripeData.paymentTotal}
-                  fromCurrency={stripeData.paymentCurrency}
-                  toCurrency={stripeData.paymentCurrency}
-                  locale="en-US"
-                  approximate={false}
-                  className="text-base font-bold text-gray-900"
-                />
-              </div>
-            )}
-          </div>
+                setErrorMessage(null);
+                setLoading(true);
+                setCheckoutRequested(true);
+              }}
+              className="mb-6 w-full rounded-lg bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Continuar al pago de{' '}
+              {new Intl.NumberFormat('es-AR', {
+                style: 'currency',
+                currency: 'ARS',
+                currencyDisplay: 'code',
+              }).format(shipping.selectedQuote?.totalInStoreCurrency ?? 0)}
+            </Button>
+          )}
 
           {loading && (
             <div className="flex min-h-40 items-center justify-center">
-              <p className="text-sm font-medium text-gray-500">
+              <p className="text-sm font-medium text-muted-foreground">
                 Preparando el formulario de pago...
               </p>
             </div>
           )}
 
           {errorMessage && !loading && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-              <p className="text-sm font-medium text-red-700">{errorMessage}</p>
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4">
+              <p className="text-sm font-medium text-destructive">{errorMessage}</p>
 
-              <Link
-                href="/cart"
-                className="mt-4 inline-block text-sm font-bold text-red-700 underline"
-              >
-                Volver al carrito
-              </Link>
+              <div className="mt-4 flex flex-wrap gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  onClick={() => {
+                    checkoutPromiseRef.current = null;
+                    setCheckoutRequested(false);
+                    setErrorMessage(null);
+                    setLoading(false);
+                  }}
+                  className="text-sm font-bold text-destructive underline"
+                >
+                  Reintentar el pago
+                </Button>
+                <Link href="/cart" className="text-sm font-bold text-destructive underline">
+                  Volver al carrito
+                </Link>
+              </div>
             </div>
           )}
 
@@ -276,8 +330,6 @@ export default function StripeCheckoutPage() {
               />
             </Elements>
           )}
-
-          <DeliveryAddressSummary />
         </div>
       </div>
     </main>

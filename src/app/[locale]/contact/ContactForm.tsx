@@ -103,10 +103,10 @@ export default function ContactForm() {
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="w-full max-w-xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl md:p-8 dark:border-zinc-800 dark:bg-zinc-900"
+      className="h-full w-full rounded-2xl border border-border bg-card p-6 shadow-xl md:p-8"
     >
       <Form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-        <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t('sendMessage')}</h2>
+        <h2 className="text-2xl font-bold text-foreground">{t('sendMessage')}</h2>
 
         {/* Honeypot */}
         <div className="sr-only" aria-hidden="true">
@@ -133,7 +133,7 @@ export default function ContactForm() {
             {...register('name')}
           />
           {errors.name && (
-            <p id="name-error" role="alert" className="mt-1 text-xs text-red-500">
+            <p id="name-error" role="alert" className="mt-1 text-xs text-destructive">
               {getFormErrorMessage(errors.name.message)}
             </p>
           )}
@@ -152,7 +152,7 @@ export default function ContactForm() {
             {...register('email')}
           />
           {errors.email && (
-            <p id="email-error" role="alert" className="mt-1 text-xs text-red-500">
+            <p id="email-error" role="alert" className="mt-1 text-xs text-destructive">
               {getFormErrorMessage(errors.email.message)}
             </p>
           )}
@@ -171,7 +171,7 @@ export default function ContactForm() {
             {...register('affair')}
           />
           {errors.affair && (
-            <p id="affair-error" role="alert" className="mt-1 text-xs text-red-500">
+            <p id="affair-error" role="alert" className="mt-1 text-xs text-destructive">
               {getFormErrorMessage(errors.affair.message)}
             </p>
           )}
@@ -189,7 +189,7 @@ export default function ContactForm() {
             {...register('consultation')}
           />
           {errors.consultation && (
-            <p id="consultation-error" role="alert" className="mt-1 text-xs text-red-500">
+            <p id="consultation-error" role="alert" className="mt-1 text-xs text-destructive">
               {getFormErrorMessage(errors.consultation.message)}
             </p>
           )}
@@ -198,10 +198,10 @@ export default function ContactForm() {
         {/* Server status */}
         <div aria-live="polite" aria-atomic="true">
           {serverStatus.type === 'success' && (
-            <p className="text-sm font-medium text-emerald-500">{serverStatus.message}</p>
+            <p className="text-sm font-medium text-success">{serverStatus.message}</p>
           )}
           {serverStatus.type === 'error' && (
-            <p className="text-sm font-medium text-red-500">{serverStatus.message}</p>
+            <p className="text-sm font-medium text-destructive">{serverStatus.message}</p>
           )}
         </div>
 

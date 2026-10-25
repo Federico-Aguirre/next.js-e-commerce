@@ -1,27 +1,37 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AuthRequiredNotice } from '@/components/checkout/AuthRequiredNotice';
+import CheckoutShippingSummary from '@/components/checkout/CheckoutShippingSummary';
 import DeliveryAddressSummary from '@/components/checkout/DeliveryAddressSummary';
-import CheckoutForm from '@/components/checkout/mercado-pago/CheckoutForm';
-import TestCardButton from '@/components/checkout/mercado-pago/TestCardButton';
-import OrderSummary from '@/components/checkout/OrderSummary';
-import { useDirectCardCheckout } from '@/hooks/useDirectCardCheckout';
+import MercadoPagoCardForm from '@/components/checkout/mercado-pago/MercadoPagoCardForm';
+import { useCheckoutShipping } from '@/components/checkout/useCheckoutShipping';
+import { useCartStore } from '@/store/useCartStore';
 
 export default function DirectCardCheckoutPage() {
   const { data: session, status } = useSession();
+  const cartItems = useCartStore((state) => state.cart);
   const [secureOriginReady, setSecureOriginReady] = useState(false);
-  const {
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [deliveryAddressId, setDeliveryAddressId] = useState<string | null>(null);
+  const [deliveryAddressesLoaded, setDeliveryAddressesLoaded] = useState(false);
+  const handleAddressesLoaded = useCallback((id: string | null) => {
+    setDeliveryAddressId(id);
+    setDeliveryAddressesLoaded(true);
+  }, []);
+  const handleSelectedAddressChange = useCallback((id: string) => {
+    setDeliveryAddressId(id);
+  }, []);
+  const shipping = useCheckoutShipping(
     cartItems,
-    cartTotal,
-    formData,
-    formErrors,
-    loading,
-    handleAutofill,
-    handleChange,
-    handleSubmit,
-  } = useDirectCardCheckout();
+    'ARS',
+    status === 'authenticated' &&
+      secureOriginReady &&
+      deliveryAddressesLoaded &&
+      Boolean(deliveryAddressId),
+    deliveryAddressId,
+  );
 
   useEffect(() => {
     if (window.location.protocol === 'https:') {
@@ -40,46 +50,77 @@ export default function DirectCardCheckoutPage() {
 
   if (!secureOriginReady) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <p className="text-sm font-medium text-gray-600">Redirigiendo al checkout seguro...</p>
-      </div>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex min-h-screen items-center justify-center bg-muted/40 px-4"
+      >
+        <h1 className="sr-only">Checkout seguro</h1>
+        <p role="status" aria-live="polite" className="text-sm font-medium text-muted-foreground">
+          Redirigiendo al checkout seguro...
+        </p>
+      </main>
     );
   }
 
   if (status === 'loading') {
-    return <div className="p-8 text-center">Cargando...</div>;
+    return (
+      <main id="main-content" tabIndex={-1} className="p-8 text-center">
+        <h1 className="sr-only">Preparando el pago</h1>
+        <p role="status" aria-live="polite">
+          Cargando...
+        </p>
+      </main>
+    );
   }
 
   if (!session?.user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10"
+      >
         <AuthRequiredNotice />
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10">
-      <div className="w-full max-w-xl rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
-        <h2 className="mb-5 text-center text-xl font-bold text-gray-900">
-          Pago Directo con Tarjeta
-        </h2>
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10"
+    >
+      <div className="w-full max-w-xl rounded-xl border border-border bg-card p-8 shadow-sm">
+        <h1 className="mb-5 text-center text-xl font-bold text-foreground">
+          Pago seguro con tarjeta
+        </h1>
 
-        <OrderSummary cartItems={cartItems} />
-
-        <TestCardButton onClick={handleAutofill} />
-
-        <CheckoutForm
-          formData={formData}
-          formErrors={formErrors}
-          loading={loading}
-          cartIsEmpty={cartItems.length === 0}
-          onChange={handleChange}
-          onSubmit={handleSubmit}
+        <DeliveryAddressSummary
+          selectedAddressId={deliveryAddressId}
+          onSelectedAddressChange={handleSelectedAddressChange}
+          onAddressesLoaded={handleAddressesLoaded}
+          disabled={checkoutBusy}
         />
-
-        <DeliveryAddressSummary />
+        <CheckoutShippingSummary
+          selectedQuote={shipping.selectedQuote}
+          availableQuotes={shipping.availableQuotes}
+          onSelectQuote={shipping.selectQuote}
+          loading={shipping.loading}
+          error={shipping.error}
+          onRetry={shipping.refreshQuotes}
+          disabled={checkoutBusy}
+        />
+        <MercadoPagoCardForm
+          cartItems={cartItems}
+          cartTotal={cartItems.reduce((total, item) => total + item.price * item.quantity, 0)}
+          shippingQuoteToken={shipping.selectedQuote?.quoteToken ?? null}
+          paymentTotal={shipping.selectedQuote?.paymentTotal ?? null}
+          deliveryAddressId={deliveryAddressId}
+          onPaymentBusyChange={setCheckoutBusy}
+        />
       </div>
-    </div>
+    </main>
   );
 }

@@ -4,14 +4,14 @@ import { useSession, signOut } from 'next-auth/react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import React from 'react';
-
+import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/store/useCartStore';
 
 function CartCounter() {
   const cartCount = useCartStore((state) => state.getCartCount());
   if (cartCount === 0) return null;
   return (
-    <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm shadow-indigo-600/30">
+    <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-sm shadow-primary/30">
       {cartCount}
     </span>
   );
@@ -31,16 +31,16 @@ export default function Navbar() {
   };
 
   return (
-    <header className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm backdrop-blur-md bg-white/90">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/90 bg-card shadow-sm backdrop-blur-md">
+      <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
           {/* LOGO */}
-          <div className="shrink-0 flex items-center">
+          <div className="flex shrink-0 items-center">
             <Link
               href="/"
-              className="text-xl font-black tracking-tight text-gray-900 hover:text-indigo-600 transition-colors"
+              className="text-xl font-black tracking-tight text-foreground transition-colors hover:text-primary"
             >
-              NOVA<span className="text-indigo-600">STORE</span>
+              NOVA<span className="text-primary">STORE</span>
             </Link>
           </div>
 
@@ -48,7 +48,7 @@ export default function Navbar() {
           <div className="flex items-center gap-x-6">
             <Link
               href="/"
-              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               Catálogo
             </Link>
@@ -56,7 +56,7 @@ export default function Navbar() {
             {/* ❤️ CORREGIDO: Apunta a /favoritos en español como tu archivo */}
             <Link
               href="/favorites"
-              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               title="Mis Favoritos"
             >
               Lista de deseos
@@ -65,7 +65,7 @@ export default function Navbar() {
             {/* 🛍️ UBICACIÓN PREMIUM: "Mis Compras" aparece integrado de forma natural */}
             <Link
               href="/historial"
-              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               Mis Compras
             </Link>
@@ -73,11 +73,11 @@ export default function Navbar() {
             {/* BOTÓN DEL CARRITO */}
             <Link
               href="/cart"
-              className="group -m-2 p-2 flex items-center relative"
+              className="group relative -m-2 flex items-center p-2"
               aria-label="Ver carrito"
             >
               <svg
-                className="shrink-0 h-6 w-6 text-gray-400 group-hover:text-gray-600 transition-colors"
+                className="h-6 w-6 shrink-0 text-muted-foreground transition-colors group-hover:text-muted-foreground"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth="2"
@@ -93,34 +93,34 @@ export default function Navbar() {
             </Link>
 
             {/* Separador visual */}
-            <span className="h-4 w-px bg-gray-200" aria-hidden="true" />
+            <span className="h-4 w-px bg-muted" aria-hidden="true" />
 
             {/* BLOQUE DE AUTH DINÁMICO */}
             {isLoading ? (
-              <span className="text-xs text-gray-400">...</span>
+              <span className="text-xs text-muted-foreground">...</span>
             ) : user ? (
               /* Estado: USUARIO LOGUEADO */
               <div className="flex items-center gap-x-5">
-                <span className="text-sm font-semibold text-gray-700">
+                <span className="text-sm font-semibold text-foreground">
                   Hola{' '}
-                  <span className="text-indigo-600">
-                    {user.name?.split(' ')[0] || 'Comprador'}
-                  </span>
+                  <span className="text-primary">{user.name?.split(' ')[0] || 'Comprador'}</span>
                 </span>
 
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={handleLogout}
-                  className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors bg-red-50 px-2.5 py-1.5 rounded-md"
+                  className="rounded-md bg-destructive/10 px-2.5 py-1.5 text-xs font-bold text-destructive transition-colors hover:text-destructive"
                 >
                   Salir
-                </button>
+                </Button>
               </div>
             ) : (
               /* Estado: USUARIO INVITADO (No logueado) */
               <div className="flex items-center gap-x-4">
                 <Link
                   href="/login"
-                  className="text-sm font-bold text-gray-700 hover:text-indigo-600 transition-colors"
+                  className="text-sm font-bold text-foreground transition-colors hover:text-primary"
                 >
                   Ingresar
                 </Link>

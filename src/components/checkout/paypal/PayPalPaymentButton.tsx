@@ -1,8 +1,11 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+
 type PayPalPaymentButtonProps = {
   amount: number;
   loading: boolean;
+  formLoading: boolean;
   ready: boolean;
   onClick: () => void;
 };
@@ -10,19 +13,24 @@ type PayPalPaymentButtonProps = {
 export default function PayPalPaymentButton({
   amount,
   loading,
+  formLoading,
   ready,
   onClick,
 }: PayPalPaymentButtonProps) {
   return (
-    <button
+    <Button
       type="button"
-      disabled={loading || !ready}
+      variant="paypal"
+      size="lg"
+      disabled={loading || formLoading || !ready}
       onClick={onClick}
-      className="w-full rounded-lg bg-[#0070ba] px-4 py-3 text-base font-bold text-white transition-colors hover:bg-[#005ea8] disabled:cursor-not-allowed disabled:opacity-50"
+      className="w-full"
     >
       {loading
         ? 'Procesando...'
-        : `Pagar ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', currencyDisplay: 'code' }).format(amount)}`}
-    </button>
+        : formLoading
+          ? 'Cargando formulario...'
+          : `Pagar ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', currencyDisplay: 'code' }).format(amount)}`}
+    </Button>
   );
 }

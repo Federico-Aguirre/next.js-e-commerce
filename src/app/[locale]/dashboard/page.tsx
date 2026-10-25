@@ -2,9 +2,13 @@ import { redirect } from 'next/navigation';
 import DashboardClient from './DashboardClient';
 import { getDashboardAdmin, getDashboardData, getPlatformOwner } from './data';
 
-export const dynamic = 'force-dynamic';
-
-export default async function DashboardPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function DashboardPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ planPayment?: string }>;
+}) {
   const { locale } = await params;
   const admin = await getDashboardAdmin();
 
@@ -12,9 +16,24 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
     redirect(`/${locale}/sign-in`);
   }
 
-  const platformOwner = await getPlatformOwner();
+  const [platformOwner, query] = await Promise.all([
+    getPlatformOwner(),
+    searchParams ?? Promise.resolve({ planPayment: undefined }),
+  ]);
   const canManagePaymentConnections = Boolean(platformOwner);
   const data = await getDashboardData(canManagePaymentConnections);
+  const planPaymentStatus =
+    query.planPayment === 'success' ||
+    query.planPayment === 'cancelled' ||
+    query.planPayment === 'storeClosed'
+      ? query.planPayment
+      : null;
 
-  return <DashboardClient data={data} canManagePaymentConnections={canManagePaymentConnections} />;
+  return (
+    <DashboardClient
+      data={data}
+      canManagePaymentConnections={canManagePaymentConnections}
+      planPaymentStatus={planPaymentStatus}
+    />
+  );
 }

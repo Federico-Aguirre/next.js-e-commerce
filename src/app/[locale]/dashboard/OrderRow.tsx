@@ -3,6 +3,9 @@
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { toBuenosAiresDateTimeLocal } from '@/lib/orders/delivery-estimate';
 import { formatOrderNumber, paymentProviderLabel } from '@/lib/orders/format';
 import type { ShippingQuote } from '@/lib/shipping/types';
@@ -313,32 +316,36 @@ export default function OrderRow({ order }: { order: DashboardOrder }) {
               )}
             </div>
             {order.shipping.provider !== 'LOCAL' && (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 type="button"
-                className="rounded-md border px-3 py-2 text-sm disabled:opacity-50"
+                className="rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
                 disabled={shippingPending}
                 onClick={refreshShipping}
               >
                 {shippingPending ? '...' : t('shippingRefresh')}
-              </button>
+              </Button>
             )}
           </div>
         ) : order.paymentStatus === 'PAID' ? (
           <div className="mt-3 space-y-3">
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               type="button"
-              className="rounded-md border px-3 py-2 text-sm disabled:opacity-50"
+              className="rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
               disabled={shippingPending}
               onClick={quoteShipping}
             >
               {shippingPending ? '...' : t('shippingQuote')}
-            </button>
+            </Button>
 
             {shippingQuotes.length > 0 && (
               <div className="grid gap-2 md:grid-cols-[1fr_auto] md:items-end">
                 <label className="grid gap-1 text-sm">
                   <span>{t('shippingChooseRate')}</span>
-                  <select
+                  <Select
                     className="rounded-md border bg-background px-3 py-2"
                     value={selectedQuoteId}
                     onChange={(event) => setSelectedQuoteId(event.target.value)}
@@ -349,16 +356,18 @@ export default function OrderRow({ order }: { order: DashboardOrder }) {
                         {shippingMoney(quote.amount, quote.currency, locale)}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   type="button"
                   className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
                   disabled={shippingPending || !selectedQuoteId}
                   onClick={createShipping}
                 >
                   {shippingPending ? '...' : t('shippingCreateSandbox')}
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -374,7 +383,7 @@ export default function OrderRow({ order }: { order: DashboardOrder }) {
       <div className="mt-4 grid gap-3 md:grid-cols-4">
         <label className="grid gap-1 text-sm">
           <span>{t('fulfillment')}</span>
-          <select
+          <Select
             className="rounded-md border bg-background px-3 py-2"
             value={status}
             onChange={(event) => {
@@ -391,13 +400,13 @@ export default function OrderRow({ order }: { order: DashboardOrder }) {
                 {value === 'CANCELLED' && t('status.cancelled')}
               </option>
             ))}
-          </select>
+          </Select>
           <span className="text-xs text-muted-foreground">{t('fulfillmentHint')}</span>
         </label>
 
         <label className="grid gap-1 text-sm">
           <span>{t('estimatedDelivery')}</span>
-          <input
+          <Input
             className="min-w-0 rounded-md border bg-background px-3 py-2"
             type="datetime-local"
             step={60}
@@ -410,7 +419,7 @@ export default function OrderRow({ order }: { order: DashboardOrder }) {
 
         <label className="grid gap-1 text-sm">
           <span>{t('tracking')}</span>
-          <input
+          <Input
             className="rounded-md border bg-background px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"
             value={tracking}
             maxLength={100}
@@ -422,22 +431,24 @@ export default function OrderRow({ order }: { order: DashboardOrder }) {
           </span>
         </label>
 
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           type="button"
           className="self-end rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
           disabled={pending}
           onClick={save}
         >
           {pending ? '...' : saved ? t('saved') : t('save')}
-        </button>
+        </Button>
       </div>
       {(saveError || emailWarning) && (
         <p
           role={saveError ? 'alert' : 'status'}
           className={`mt-3 rounded-md p-3 text-sm ${
             saveError
-              ? 'border border-red-200 bg-red-50 text-red-700'
-              : 'border border-amber-200 bg-amber-50 text-amber-800'
+              ? 'border border-destructive/20 bg-destructive/10 text-destructive'
+              : 'border border-warning/25 bg-warning/10 text-warning-foreground'
           }`}
         >
           {saveError ?? t('emailNotificationFailed')}

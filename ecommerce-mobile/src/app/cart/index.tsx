@@ -12,24 +12,46 @@ import {
 import { router } from 'expo-router';
 import { useCartStore } from '@/store/useCartStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { authenticatedFetch } from '@/services/authenticatedFetch';
+import {
+  checkoutItemsPayload,
+  formatCheckoutMoney,
+} from '@/services/checkoutShipping';
+import { useCheckoutShippingQuotes } from '@/hooks/useCheckoutShippingQuotes';
 
 const DEFAULT_LOCAL_URL = 'http://192.168.3.9.nip.io:3001';
-const API_BASE_URL = process.env.EXPO_PUBLIC_BASE_URL || DEFAULT_LOCAL_URL;
+const configuredApiBaseUrl =
+  process.env.EXPO_PUBLIC_BASE_URL?.trim() ||
+  process.env.EXPO_PUBLIC_API_URL?.trim();
+const API_BASE_URL =
+  configuredApiBaseUrl?.replace(/\/api\/?$/i, '').replace(/\/+$/, '') ||
+  (__DEV__ ? DEFAULT_LOCAL_URL : '');
 
 export default function CartScreen() {
   const cartItems = useCartStore((state) => state.cart);
-  const getCartTotal = useCartStore((state) => state.getCartTotal);
 
   // Obtener sesión/usuario desde Zustand
   const session = useAuthStore((state) => state.session);
   const user = useAuthStore((state) => state.user) || session?.user;
+  const shippingQuoteState = useCheckoutShippingQuotes(
+    API_BASE_URL,
+    cartItems,
+    Boolean(user),
+  );
+  const selectedShippingQuote = shippingQuoteState.quote;
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  const handleProcessPayment = async (
-    paymentMethod: 'mercadopago' | 'stripe',
-  ) => {
+  const handleProcessPayment = async () => {
+    if (!API_BASE_URL || (!__DEV__ && !API_BASE_URL.startsWith('https://'))) {
+      const message =
+        'La app necesita una URL HTTPS pública configurada en EXPO_PUBLIC_BASE_URL o EXPO_PUBLIC_API_URL.';
+      setCheckoutError(message);
+      Alert.alert('Configuración de conexión', message);
+      return;
+    }
+
     // 🔍 Extraer ID y Email buscando en las estructuras de NextAuth / JWT
     const targetUserId =
       user?.id ||
@@ -65,9 +87,36 @@ export default function CartScreen() {
     setCheckoutError(null);
 
     try {
+      if (!selectedShippingQuote) {
+        throw new Error('Primero cotizá y seleccioná una opción de envío.');
+      }
+      const confirmed = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          'Confirmar total de la compra',
+          [
+            `Subtotal sin impuestos: ${formatCheckoutMoney(selectedShippingQuote.subtotal, selectedShippingQuote.storeCurrency)}`,
+            `${selectedShippingQuote.taxName}${selectedShippingQuote.taxRate ? ` (${selectedShippingQuote.taxRate}%)` : ''}: ${formatCheckoutMoney(selectedShippingQuote.taxAmount, selectedShippingQuote.storeCurrency)}`,
+            `Envío (${selectedShippingQuote.carrier}): ${formatCheckoutMoney(selectedShippingQuote.shippingAmount, selectedShippingQuote.storeCurrency)}`,
+            `Total final: ${formatCheckoutMoney(selectedShippingQuote.totalInStoreCurrency, selectedShippingQuote.storeCurrency)}`,
+            `Importe enviado a Mercado Pago: ${formatCheckoutMoney(selectedShippingQuote.paymentTotal, selectedShippingQuote.paymentCurrency)}`,
+          ].join('\n'),
+          [
+            {
+              text: 'Cancelar',
+              style: 'cancel',
+              onPress: () => resolve(false),
+            },
+            { text: 'Confirmar y continuar', onPress: () => resolve(true) },
+          ],
+          { cancelable: false },
+        );
+      });
+      if (!confirmed) return;
+
       const payload = {
-        items: cartItems,
-        paymentMethod,
+        items: checkoutItemsPayload(cartItems),
+        paymentMethod: 'mercadopago',
+        shippingQuoteToken: selectedShippingQuote.quoteToken,
         userId: targetUserId,
         userEmail: targetUserEmail,
         user: {
@@ -76,14 +125,17 @@ export default function CartScreen() {
         },
       };
 
-      const response = await fetch(`${API_BASE_URL}/api/checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+      const response = await authenticatedFetch(
+        `${API_BASE_URL}/api/checkout`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
 
       const responseText = await response.text();
       let data;
@@ -114,8 +166,6 @@ export default function CartScreen() {
       setIsProcessing(false);
     }
   };
-
-  const cartTotal = getCartTotal();
 
   return (
     <ScrollView className="flex-1 bg-gray-50 px-4 py-6">
@@ -182,19 +232,122 @@ export default function CartScreen() {
             Resumen de Compra
           </Text>
 
-          <View className="flex-row justify-between items-center border-b border-gray-100 pb-4 mb-6">
-            <Text className="text-sm font-medium text-gray-500">
-              Monto Total:
-            </Text>
-            <Text className="text-xl font-black text-gray-950">
-              ${cartTotal.toFixed(2)}
-            </Text>
-          </View>
+          {shippingQuoteState.loading && (
+            <View className="flex-row items-center gap-x-2 py-2">
+              <ActivityIndicator size="small" />
+              <Text className="text-sm text-gray-500">Cotizando el envío…</Text>
+            </View>
+          )}
+          {shippingQuoteState.error && (
+            <View className="mb-4 gap-y-2 rounded-lg bg-amber-50 p-3">
+              <Text className="text-sm text-amber-900">
+                {shippingQuoteState.error}
+              </Text>
+              <TouchableOpacity onPress={shippingQuoteState.refreshQuotes}>
+                <Text className="font-semibold text-amber-900 underline">
+                  Volver a cotizar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {selectedShippingQuote &&
+            !shippingQuoteState.loading &&
+            !shippingQuoteState.error && (
+              <View className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-800">
+                  Envío elegido automáticamente · tarifa más económica
+                </Text>
+                <Text className="font-semibold text-gray-900">
+                  {selectedShippingQuote.carrier} ·{' '}
+                  {selectedShippingQuote.service}
+                </Text>
+                <Text className="mt-1 text-xs text-gray-600">
+                  {selectedShippingQuote.shippingAmount === 0
+                    ? 'Sin costo'
+                    : `Envío: ${formatCheckoutMoney(selectedShippingQuote.shippingAmount, selectedShippingQuote.storeCurrency)}`}
+                </Text>
+              </View>
+            )}
+          {!shippingQuoteState.loading &&
+            !shippingQuoteState.error &&
+            selectedShippingQuote && (
+              <View className="gap-y-2 border-b border-gray-100 pb-4 mb-6">
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-sm text-gray-600">
+                    Subtotal sin impuestos
+                  </Text>
+                  <Text className="text-sm font-semibold text-gray-900">
+                    {formatCheckoutMoney(
+                      selectedShippingQuote.subtotal,
+                      selectedShippingQuote.storeCurrency,
+                    )}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-sm text-gray-600">
+                    {selectedShippingQuote.taxName}
+                    {selectedShippingQuote.taxRate
+                      ? ` (${selectedShippingQuote.taxRate}%)`
+                      : ''}
+                  </Text>
+                  <Text className="text-sm font-semibold text-gray-900">
+                    {formatCheckoutMoney(
+                      selectedShippingQuote.taxAmount,
+                      selectedShippingQuote.storeCurrency,
+                    )}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-sm text-gray-600">
+                    Productos con impuestos
+                  </Text>
+                  <Text className="text-sm font-semibold text-gray-900">
+                    {formatCheckoutMoney(
+                      selectedShippingQuote.productTotal,
+                      selectedShippingQuote.storeCurrency,
+                    )}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-sm text-gray-600">Envío</Text>
+                  <Text className="text-sm font-semibold text-gray-900">
+                    {formatCheckoutMoney(
+                      selectedShippingQuote.shippingAmount,
+                      selectedShippingQuote.storeCurrency,
+                    )}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between items-center border-t border-gray-100 pt-3 mt-1">
+                  <Text className="text-base font-black text-gray-900">
+                    Total final
+                  </Text>
+                  <Text className="text-xl font-black text-gray-950">
+                    {formatCheckoutMoney(
+                      selectedShippingQuote.totalInStoreCurrency,
+                      selectedShippingQuote.storeCurrency,
+                    )}
+                  </Text>
+                </View>
+                <Text className="text-xs text-gray-500">
+                  Importe enviado a la pasarela:{' '}
+                  {formatCheckoutMoney(
+                    selectedShippingQuote.paymentTotal,
+                    selectedShippingQuote.paymentCurrency,
+                  )}
+                </Text>
+              </View>
+            )}
 
           <View className="gap-y-3">
             <TouchableOpacity
-              disabled={isProcessing || cartItems.length === 0}
-              onPress={() => handleProcessPayment('mercadopago')}
+              disabled={
+                isProcessing ||
+                cartItems.length === 0 ||
+                shippingQuoteState.loading ||
+                !selectedShippingQuote ||
+                Boolean(shippingQuoteState.error)
+              }
+              onPress={handleProcessPayment}
               activeOpacity={0.8}
               className="w-full h-12 flex-row items-center justify-center bg-sky-500 rounded-lg shadow-sm"
               style={{
@@ -206,24 +359,6 @@ export default function CartScreen() {
               ) : (
                 <Text className="text-white font-bold text-sm">
                   Pagar con Mercado Pago
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              disabled={isProcessing || cartItems.length === 0}
-              onPress={() => handleProcessPayment('stripe')}
-              activeOpacity={0.8}
-              className="w-full h-12 flex-row items-center justify-center bg-indigo-600 rounded-lg shadow-sm"
-              style={{
-                opacity: isProcessing || cartItems.length === 0 ? 0.5 : 1,
-              }}
-            >
-              {isProcessing ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text className="text-white font-bold text-sm">
-                  Pagar con Stripe
                 </Text>
               )}
             </TouchableOpacity>

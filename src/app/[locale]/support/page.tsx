@@ -73,17 +73,17 @@ export default async function SupportPage({ params }: SupportPageProps) {
   ];
 
   return (
-    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       <section
         aria-labelledby="support-title"
-        className="border-border relative overflow-hidden rounded-3xl border bg-gradient-to-br from-primary/10 via-background to-background px-6 py-10 sm:px-10 sm:py-14"
+        className="relative overflow-hidden rounded-3xl border border-border bg-card px-6 py-10 shadow-sm sm:px-10 sm:py-14"
       >
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 -right-16 size-64 rounded-full bg-primary/10 blur-3xl"
         />
         <div className="relative max-w-3xl">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/80 px-3 py-1.5 text-sm font-medium text-primary">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card px-3 py-1.5 text-sm font-medium text-primary shadow-sm">
             <LifeBuoy className="size-4" aria-hidden="true" />
             <span>{t('eyebrow')}</span>
           </div>
@@ -103,7 +103,7 @@ export default async function SupportPage({ params }: SupportPageProps) {
             </a>
             <Link
               href="/historial"
-              className="border-border inline-flex min-h-11 items-center justify-center gap-2 rounded-full border bg-background px-5 py-2.5 text-sm font-semibold transition hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-primary bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               {t('ordersButton')}
             </Link>
@@ -168,7 +168,7 @@ export default async function SupportPage({ params }: SupportPageProps) {
           {faqs.map((faq) => (
             <details
               key={faq.question}
-              className="group border-border bg-card h-fit rounded-2xl border px-5 py-4 open:border-primary/30 open:bg-muted/30"
+              className="group h-fit rounded-2xl border border-border bg-card px-5 py-4 open:border-primary/30 open:bg-muted/30"
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold [&::-webkit-details-marker]:hidden">
                 <span>{faq.question}</span>
@@ -186,7 +186,7 @@ export default async function SupportPage({ params }: SupportPageProps) {
       <section
         id="contact"
         aria-labelledby="support-contact-title"
-        className="border-border mt-14 scroll-mt-28 rounded-3xl border bg-muted/30 p-5 sm:p-8 lg:p-10"
+        className="mt-14 scroll-mt-28 rounded-3xl border border-border bg-muted/30 p-5 sm:p-8 lg:p-10"
       >
         <div className="grid items-start gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:gap-12">
           <div className="pt-2">
@@ -210,6 +210,6 @@ export default async function SupportPage({ params }: SupportPageProps) {
           <ContactForm />
         </div>
       </section>
-    </main>
+    </div>
   );
 }

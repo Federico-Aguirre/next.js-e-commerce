@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { hasLocale, NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
-
+import { Suspense } from 'react';
 import { Footer } from '@/components/Footer';
 import MotionProvider from '@/components/MotionProvider';
 import { routing } from '@/lib/I18nRouting';
@@ -38,10 +38,16 @@ export default async function RootLayout(props: {
   return (
     <NextIntlClientProvider messages={messages}>
       <MotionProvider>
-        <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 sm:px-0">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 sm:px-0"
+        >
           {props.children}
         </main>
-        <Footer />
+        <Suspense fallback={null}>
+          <Footer />
+        </Suspense>
       </MotionProvider>
     </NextIntlClientProvider>
   );

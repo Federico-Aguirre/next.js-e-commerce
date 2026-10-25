@@ -2,6 +2,8 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function SearchBar() {
   const router = useRouter();
@@ -30,25 +32,25 @@ export default function SearchBar() {
   };
 
   return (
-    <div className="max-w-md mx-auto mb-10 relative">
+    <div className="relative mx-auto mb-10 max-w-md">
       <div className="relative">
-        <input
+        <Input
           type="text"
           placeholder="Buscar productos por nombre..."
           value={texto}
           onChange={(e) => handleSearch(e.target.value)}
-          className="w-full h-12 pl-12 pr-4 text-sm bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-gray-800"
+          className="h-12 w-full rounded-xl border border-border bg-card pr-4 pl-12 text-sm text-foreground shadow-sm transition-all focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
         />
 
         {/* Icono de Lupa */}
-        <div className="absolute left-4 top-3.5 text-gray-400">
+        <div className="absolute top-3.5 left-4 text-muted-foreground">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
             strokeWidth="2"
             stroke="currentColor"
-            className="w-5 h-5"
+            className="h-5 w-5"
           >
             <path
               strokeLinecap="round"
@@ -60,13 +62,15 @@ export default function SearchBar() {
 
         {/* Botón para limpiar (X) */}
         {texto && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             onClick={() => handleSearch('')}
-            className="absolute right-4 top-3 text-gray-400 hover:text-gray-600 text-xs font-bold bg-gray-100 hover:bg-gray-200 w-6 h-6 rounded-full transition-colors cursor-pointer flex items-center justify-center"
+            className="absolute top-3 right-4 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-muted-foreground"
           >
             ✕
-          </button>
+          </Button>
         )}
       </div>
     </div>

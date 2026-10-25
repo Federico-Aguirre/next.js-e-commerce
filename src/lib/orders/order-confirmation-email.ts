@@ -1,6 +1,7 @@
 import 'server-only';
 import { createBrevoIdempotencyKey, sendBrevoEmail } from '@/lib/email/brevo';
 import { prisma } from '@/lib/prisma';
+import { calculateTaxBreakdown } from '@/lib/tax/tax-calculation';
 
 const NOTIFICATION_TYPE = 'PURCHASE_CONFIRMATION';
 const STALE_CLAIM_MS = 10 * 60 * 1000;
@@ -10,6 +11,14 @@ type ConfirmationEmailOrder = {
   status: string;
   orderNumber: number;
   total: number;
+  subtotal: number;
+  taxAmount: number;
+  taxRate: number | null;
+  taxCalculationMethod: string | null;
+  taxName: string | null;
+  shippingAmount: number;
+  shippingQuoteRate: number | null;
+  shippingQuoteCurrency: string | null;
   currency: string;
   paymentTotal: number | null;
   paymentCurrency: string;
@@ -85,7 +94,17 @@ function createConfirmationContent(order: ConfirmationEmailOrder) {
       const title = escapeHtml(item.title);
       const size = escapeHtml(item.size);
       const quantity = String(item.quantity);
-      const lineTotal = formatMoney(item.price * item.quantity, order.currency);
+      const lineTotal = formatMoney(
+        calculateTaxBreakdown(
+          item.price,
+          order.taxRate,
+          order.currency,
+          order.taxCalculationMethod === 'tax_inclusive_base'
+            ? 'tax_inclusive_base'
+            : 'tax_exclusive_base',
+        ).total * item.quantity,
+        order.currency,
+      );
 
       return `<tr>
         <td style="padding:10px;border-bottom:1px solid #e4e4e7">${title}<br><span style="color:#71717a;font-size:12px">Talle: ${size}</span></td>
@@ -95,10 +114,48 @@ function createConfirmationContent(order: ConfirmationEmailOrder) {
     })
     .join('');
 
+  const itemizedRows = [
+    `<tr><td colspan="2" style="padding:8px 10px;text-align:right;color:#52525b">Subtotal sin impuestos</td><td style="padding:8px 10px;text-align:right;white-space:nowrap">${formatMoney(order.subtotal, order.currency)}</td></tr>`,
+    ...(order.taxAmount > 0
+      ? [
+          `<tr><td colspan="2" style="padding:8px 10px;text-align:right;color:#52525b">${escapeHtml(order.taxName || 'Impuesto')}${order.taxRate ? ` (${order.taxRate}%)` : ''}</td><td style="padding:8px 10px;text-align:right;white-space:nowrap">${formatMoney(order.taxAmount, order.currency)}</td></tr>`,
+        ]
+      : []),
+    ...(order.shippingQuoteRate !== null || order.shippingAmount > 0
+      ? [
+          `<tr><td colspan="2" style="padding:8px 10px;text-align:right;color:#52525b">Envío</td><td style="padding:8px 10px;text-align:right;white-space:nowrap">${order.shippingAmount > 0 ? formatMoney(order.shippingAmount, order.currency) : 'Gratis'}</td></tr>`,
+        ]
+      : []),
+  ].join('');
+
+  const textBreakdown = [
+    `Subtotal sin impuestos: ${formatMoney(order.subtotal, order.currency)}`,
+    ...(order.taxAmount > 0
+      ? [
+          `${order.taxName || 'Impuesto'}${order.taxRate ? ` (${order.taxRate}%)` : ''}: ${formatMoney(order.taxAmount, order.currency)}`,
+        ]
+      : []),
+    ...(order.shippingQuoteRate !== null || order.shippingAmount > 0
+      ? [
+          `Envío: ${order.shippingAmount > 0 ? formatMoney(order.shippingAmount, order.currency) : 'Gratis'}`,
+        ]
+      : []),
+  ].join('\n');
+
   const textItems = order.items
     .map(
       (item) =>
-        `- ${item.title} (talle ${item.size}) × ${item.quantity}: ${formatMoney(item.price * item.quantity, order.currency)}`,
+        `- ${item.title} (talle ${item.size}) × ${item.quantity}: ${formatMoney(
+          calculateTaxBreakdown(
+            item.price,
+            order.taxRate,
+            order.currency,
+            order.taxCalculationMethod === 'tax_inclusive_base'
+              ? 'tax_inclusive_base'
+              : 'tax_exclusive_base',
+          ).total * item.quantity,
+          order.currency,
+        )}`,
     )
     .join('\n');
 
@@ -119,7 +176,7 @@ function createConfirmationContent(order: ConfirmationEmailOrder) {
           <th scope="col" style="padding:10px;border-bottom:2px solid #d4d4d8;text-align:center">Cantidad</th>
           <th scope="col" style="padding:10px;border-bottom:2px solid #d4d4d8;text-align:right">Importe</th>
         </tr></thead>
-        <tbody>${itemRows}</tbody>
+        <tbody>${itemRows}${itemizedRows}</tbody>
       </table>
       <p style="font-size:18px;text-align:right;margin:24px 0"><strong>Total del pedido: ${total}</strong></p>
       ${paymentAmount ? `<p style="color:#52525b;font-size:14px;text-align:right">Importe enviado al medio de pago: <strong>${paymentAmount}</strong></p>` : ''}
@@ -137,6 +194,8 @@ function createConfirmationContent(order: ConfirmationEmailOrder) {
       '',
       'Resumen de la compra:',
       textItems,
+      '',
+      textBreakdown,
       '',
       `Total del pedido: ${total}`,
       ...(paymentAmount ? [`Importe enviado al medio de pago: ${paymentAmount}`] : []),

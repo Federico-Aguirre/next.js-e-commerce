@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import React, { useState } from 'react';
 import { TaxInclusivePrice } from '@/components/TaxInclusivePrice';
+import { Button } from '@/components/ui/button';
 import WishlistButton from '@/components/WishlistButton';
 import { useCartStore } from '@/store/useCartStore';
 import type { Product, ProductVariant, ProductSku } from '@/types/product';
@@ -47,28 +48,30 @@ function ProductGallery({
   const images = selectedVariant?.images ?? [];
 
   return (
-    <div className="flex flex-col-reverse">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[88px_minmax(0,1fr)]">
       {images.length > 1 && (
-        <div className="mx-auto mt-6 w-full max-w-2xl sm:block lg:max-w-none">
-          <div className="grid grid-cols-4 gap-6" aria-label="Images gallery">
+        <div className="order-2 col-span-full w-full lg:order-none lg:col-span-1 lg:col-start-1 lg:row-start-1 lg:content-start">
+          <div className="grid grid-cols-4 gap-3 lg:grid-cols-1" aria-label="Images gallery">
             {images.map((img) => (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 key={img.id}
                 onClick={() => setActiveImageUrl(img.url)}
-                className={`relative flex h-24 cursor-pointer items-center justify-center overflow-hidden rounded-md border-2 bg-white transition-all ${
+                className={`relative flex aspect-square h-auto min-h-16 w-full min-w-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border-2 bg-card p-1 transition-all ${
                   activeImageUrl === img.url
-                    ? 'border-indigo-600 ring-2 ring-indigo-600/20'
-                    : 'border-transparent hover:border-gray-300'
+                    ? 'border-primary ring-2 ring-primary/20'
+                    : 'border-transparent hover:border-border'
                 }`}
               >
                 <Image src={img.url} alt="Product angle view" fill className="object-contain p-0" />
-              </button>
+              </Button>
             ))}
           </div>
         </div>
       )}
 
-      <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-gray-100 bg-white">
+      <div className="relative order-1 aspect-square w-full overflow-hidden rounded-lg border border-border bg-card lg:order-none lg:col-start-2 lg:row-start-1">
         {activeImageUrl && (
           <Image
             src={activeImageUrl}
@@ -97,22 +100,25 @@ function ProductGallery({
 function ColorSelector({ variants, selectedVariant, onSelectVariant }: ColorSelectorProps) {
   return (
     <div className="mt-8">
-      <h3 className="text-sm font-semibold text-gray-900">
-        Color: <span className="font-normal text-gray-500">{selectedVariant?.colorName}</span>
+      <h3 className="text-sm font-semibold text-foreground">
+        Color:{' '}
+        <span className="font-normal text-muted-foreground">{selectedVariant?.colorName}</span>
       </h3>
       <div className="mt-3 flex flex-wrap gap-3">
         {variants.map((variant) => (
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             key={variant.id}
             onClick={() => onSelectVariant(variant)}
             className={`rounded-md border px-4 py-2 text-sm font-medium transition-all ${
               selectedVariant?.id === variant.id
-                ? 'border-indigo-600 bg-indigo-50 text-indigo-600 ring-1 ring-indigo-600'
-                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                ? 'border-primary bg-accent text-primary ring-1 ring-primary'
+                : 'border-border bg-card text-foreground hover:bg-accent hover:text-accent-foreground'
             }`}
           >
             {variant.colorName}
-          </button>
+          </Button>
         ))}
       </div>
     </div>
@@ -122,33 +128,35 @@ function ColorSelector({ variants, selectedVariant, onSelectVariant }: ColorSele
 function SizeSelector({ skus, selectedSku, onSelectSku }: SizeSelectorProps) {
   return (
     <div className="mt-8">
-      <h3 className="text-sm font-semibold text-gray-900">Talles Disponibles</h3>
+      <h3 className="text-sm font-semibold text-foreground">Talles Disponibles</h3>
       <div className="mt-3 grid grid-cols-4 gap-4 sm:grid-cols-6 lg:grid-cols-4">
         {skus.map((sku) => {
           const hasStock = sku.stock > 0;
           const isSelected = selectedSku?.id === sku.id;
 
           return (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               key={sku.id}
               disabled={!hasStock}
               onClick={() => onSelectSku(sku)}
               className={`relative flex flex-col items-center justify-center rounded-md border px-4 py-3 text-sm font-medium uppercase transition-all ${
                 hasStock
                   ? isSelected
-                    ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
-                  : 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 line-through'
+                    ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                    : 'border-border bg-card text-foreground hover:bg-accent hover:text-accent-foreground'
+                  : 'cursor-not-allowed border-border bg-muted text-muted-foreground line-through'
               }`}
             >
               <span>{sku.size}</span>
-            </button>
+            </Button>
           );
         })}
       </div>
 
       {selectedSku && (
-        <p className="mt-3 text-sm font-medium text-emerald-600">
+        <p className="mt-3 text-sm font-medium text-success">
           ✓ ¡Disponible! Quedan {selectedSku.stock} unidades en stock.
         </p>
       )}
@@ -167,32 +175,36 @@ function QuantityControl({
 
   return (
     <div className="flex w-full flex-col sm:w-auto">
-      <span className="mb-2 text-xs font-bold tracking-wider text-gray-400 uppercase">
+      <span className="mb-2 text-xs font-bold tracking-wider text-muted-foreground uppercase">
         Cantidad
       </span>
-      <div className="flex h-14 min-w-35 items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4">
-        <button
+      <div className="flex h-14 min-w-35 items-center justify-between rounded-lg border border-border bg-muted/40 px-4">
+        <Button
+          variant="outline"
+          size="sm"
           type="button"
           onClick={onDecrease}
-          className="p-1 text-xl font-black text-gray-500 transition-colors select-none hover:text-indigo-600"
+          className="p-1 text-xl font-black text-muted-foreground transition-colors select-none hover:text-primary"
         >
           −
-        </button>
-        <span className="w-8 text-center text-base font-bold text-gray-800 select-none">
+        </Button>
+        <span className="w-8 text-center text-base font-bold text-foreground select-none">
           {quantity}
         </span>
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           type="button"
           disabled={isIncreaseDisabled}
           onClick={onIncrease}
           className={`p-1 text-xl font-black transition-colors select-none ${
             isIncreaseDisabled
-              ? 'cursor-not-allowed text-gray-300'
-              : 'text-gray-500 hover:text-indigo-600'
+              ? 'cursor-not-allowed text-muted-foreground'
+              : 'text-muted-foreground hover:text-primary'
           }`}
         >
           +
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -288,19 +300,21 @@ export default function ProductViewer({ product }: ProductViewerProps) {
       />
 
       <div className="mt-10 px-4 sm:mt-16 sm:px-0 lg:mt-0">
-        <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">{product?.name}</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">{product?.name}</h1>
 
         <div className="mt-3">
           <TaxInclusivePrice
             amount={Number(product?.price ?? 0)}
             compact={false}
-            className="text-3xl font-bold text-gray-900"
+            className="text-3xl font-bold text-foreground"
           />
         </div>
 
         <div className="mt-6">
-          <h3 className="text-sm font-medium text-gray-900">Descripción</h3>
-          <p className="mt-2 text-base leading-relaxed text-gray-500">{product?.description}</p>
+          <h3 className="text-sm font-medium text-foreground">Descripción</h3>
+          <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+            {product?.description}
+          </p>
         </div>
 
         <ColorSelector
@@ -321,18 +335,16 @@ export default function ProductViewer({ product }: ProductViewerProps) {
           />
 
           <div className="w-full flex-1">
-            <button
+            <Button
               type="button"
+              variant="default"
+              size="lg"
               disabled={!selectedSku}
               onClick={handleAddToCart}
-              className={`flex h-14 w-full items-center justify-center rounded-lg border border-transparent text-base font-bold text-white shadow-lg transition-colors ${
-                selectedSku
-                  ? 'bg-indigo-600 shadow-indigo-600/10 hover:bg-indigo-700'
-                  : 'cursor-not-allowed bg-gray-400 shadow-none'
-              }`}
+              className="h-14 w-full shadow-lg disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
             >
               {selectedSku ? 'Añadir al carrito' : 'Selecciona un talle'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

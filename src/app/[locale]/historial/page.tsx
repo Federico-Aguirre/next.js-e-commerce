@@ -4,6 +4,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import Image from 'next/image';
 import NextLink from 'next/link';
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { Link } from '@/lib/I18nRouting';
 import { formatOrderNumber, paymentProviderLabel } from '@/lib/orders/format';
 import { calculateTaxBreakdown } from '@/lib/tax/tax-calculation';
@@ -27,6 +28,9 @@ interface Order {
   userId: string;
   total: number;
   subtotal: number;
+  shippingAmount: number;
+  shippingQuoteRate: number | null;
+  shippingQuoteCurrency: string | null;
   taxAmount: number;
   taxRate: number | null;
   taxCalculationMethod: string | null;
@@ -201,20 +205,20 @@ export default function HistorialPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <p className="animate-pulse font-medium text-gray-500">{t('loading')}</p>
+      <div className="flex min-h-screen items-center justify-center bg-muted/40">
+        <p className="animate-pulse font-medium text-muted-foreground">{t('loading')}</p>
       </div>
     );
   }
 
   if (errorMsg) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-sm rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
-          <p className="mb-4 font-bold text-amber-600">⚠️ {errorMsg}</p>
+      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+        <div className="max-w-sm rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
+          <p className="mb-4 font-bold text-warning-foreground">⚠️ {errorMsg}</p>
           <NextLink
             href="/api/auth/signin"
-            className="block rounded-lg bg-gray-900 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-gray-800"
+            className="block rounded-lg bg-foreground px-4 py-2 text-sm font-bold text-primary-foreground transition-colors hover:bg-foreground/90"
           >
             {t('signIn')}
           </NextLink>
@@ -224,21 +228,21 @@ export default function HistorialPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-10">
+    <div className="min-h-screen bg-muted/40 px-4 py-10">
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-3xl font-black text-gray-900">{t('title')}</h1>
-          <Link href="/" className="text-sm font-bold text-indigo-600 hover:underline">
+          <h1 className="text-3xl font-black text-foreground">{t('title')}</h1>
+          <Link href="/" className="text-sm font-bold text-primary hover:underline">
             {t('backToStore')}
           </Link>
         </div>
 
         {compras.length === 0 ? (
-          <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
-            <p className="mb-4 text-lg text-gray-400">{t('empty')}</p>
+          <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-sm">
+            <p className="mb-4 text-lg text-muted-foreground">{t('empty')}</p>
             <Link
               href="/"
-              className="inline-block h-10 rounded-lg bg-indigo-600 px-5 text-sm leading-10 font-bold text-white transition-colors hover:bg-indigo-700"
+              className="inline-block h-10 rounded-lg bg-primary px-5 text-sm leading-10 font-bold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               {t('shopNow')}
             </Link>
@@ -257,28 +261,28 @@ export default function HistorialPage() {
               return (
                 <article
                   key={compra.id}
-                  className="space-y-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+                  className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm"
                 >
-                  <div className="flex items-start justify-between border-b border-gray-100 pb-4">
+                  <div className="flex items-start justify-between border-b border-border pb-4">
                     <div>
-                      <h2 className="text-sm font-bold text-gray-900 md:text-base">
+                      <h2 className="text-sm font-bold text-foreground md:text-base">
                         {t('orderNumber', { id: formatOrderNumber(compra.orderNumber) })}
                       </h2>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-muted-foreground">
                         {t('date', { date: formatOrderDate(compra.createdAt) })}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-muted-foreground">
                         {t('paymentMethod', {
                           provider: paymentProviderLabel(compra.paymentProvider),
                         })}
                       </p>
                     </div>
                     {compra.fulfillmentStatus === 'CANCELLED' ? (
-                      <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
+                      <span className="rounded-full bg-destructive/15 px-3 py-1 text-xs font-bold text-destructive">
                         {t('cancelledBadge')}
                       </span>
                     ) : (
-                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                      <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-bold text-success">
                         {t('approved')}
                       </span>
                     )}
@@ -288,10 +292,10 @@ export default function HistorialPage() {
                     {compra.items?.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between gap-4 text-sm text-gray-600"
+                        className="flex items-center justify-between gap-4 text-sm text-muted-foreground"
                       >
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+                          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40">
                             <Image
                               src={item.image}
                               alt={item.title}
@@ -301,16 +305,18 @@ export default function HistorialPage() {
                             />
                           </div>
                           <p className="min-w-0">
-                            <span className="font-medium text-gray-900">{item.title}</span>{' '}
-                            <span className="font-medium text-gray-400">×{item.quantity}</span>
+                            <span className="font-medium text-foreground">{item.title}</span>{' '}
+                            <span className="font-medium text-muted-foreground">
+                              ×{item.quantity}
+                            </span>
                             {item.size && (
-                              <span className="block text-xs text-gray-400">
+                              <span className="block text-xs text-muted-foreground">
                                 {t('size', { size: item.size.toUpperCase() })}
                               </span>
                             )}
                           </p>
                         </div>
-                        <p className="shrink-0 font-semibold text-gray-900">
+                        <p className="shrink-0 font-semibold text-foreground">
                           {formatPrice(
                             calculateTaxBreakdown(
                               item.price,
@@ -327,12 +333,12 @@ export default function HistorialPage() {
                     ))}
                   </div>
 
-                  <section className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                    <h3 className="text-sm font-bold text-gray-900">{t('deliveryAddress')}</h3>
+                  <section className="rounded-xl border border-border bg-muted/40 p-4">
+                    <h3 className="text-sm font-bold text-foreground">{t('deliveryAddress')}</h3>
                     {hasDeliveryData ? (
-                      <div className="mt-2 space-y-1 text-sm text-gray-600">
+                      <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                         <p>
-                          <span className="font-semibold text-gray-800">{t('recipient')}:</span>{' '}
+                          <span className="font-semibold text-foreground">{t('recipient')}:</span>{' '}
                           {recipient || '—'}
                         </p>
                         {addressLines.map((line) => (
@@ -340,28 +346,28 @@ export default function HistorialPage() {
                         ))}
                         {compra.deliveryPhone && (
                           <p>
-                            <span className="font-semibold text-gray-800">{t('phone')}:</span>{' '}
+                            <span className="font-semibold text-foreground">{t('phone')}:</span>{' '}
                             {compra.deliveryPhone}
                           </p>
                         )}
                       </div>
                     ) : (
-                      <p className="mt-2 text-sm text-gray-400">{t('noDeliveryData')}</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{t('noDeliveryData')}</p>
                     )}
                   </section>
 
-                  <section className="rounded-xl border border-gray-100 p-4">
+                  <section className="rounded-xl border border-border p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <p className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                           {t('shippingStatus')}
                         </p>
-                        <p className="font-bold text-gray-900">
+                        <p className="font-bold text-foreground">
                           {fulfillmentLabel(compra.fulfillmentStatus || 'PENDING')}
                         </p>
                       </div>
                       {compra.estimatedDeliveryAt && (
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {t('estimatedDelivery', {
                             date: formatDate(compra.estimatedDeliveryAt),
                           })}
@@ -370,7 +376,7 @@ export default function HistorialPage() {
                     </div>
 
                     {(compra.shippingCarrier || compra.shippingService || compra.trackingCode) && (
-                      <div className="mt-3 space-y-1 text-sm text-gray-600">
+                      <div className="mt-3 space-y-1 text-sm text-muted-foreground">
                         {compra.shippingCarrier && (
                           <p>{t('carrier', { carrier: compra.shippingCarrier })}</p>
                         )}
@@ -385,7 +391,7 @@ export default function HistorialPage() {
                             href={compra.shippingTrackingUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-block font-semibold text-indigo-600 hover:underline"
+                            className="inline-block font-semibold text-primary hover:underline"
                           >
                             {t('trackShipment')}
                           </a>
@@ -394,21 +400,23 @@ export default function HistorialPage() {
                     )}
                   </section>
 
-                  <section className="rounded-xl border border-gray-100 bg-white p-4">
+                  <section className="rounded-xl border border-border bg-card p-4">
                     {compra.fulfillmentStatus === 'PENDING' && compra.canCancel ? (
                       <div className="space-y-3">
-                        <p className="text-xs leading-5 text-gray-500">{t('cancelHint')}</p>
-                        <button
+                        <p className="text-xs leading-5 text-muted-foreground">{t('cancelHint')}</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           type="button"
                           onClick={() => void cancelOrder(compra)}
                           disabled={cancellingOrderId === compra.id}
-                          className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm font-bold text-destructive transition hover:bg-destructive/15 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {cancellingOrderId === compra.id ? t('cancelling') : t('cancelOrder')}
-                        </button>
+                        </Button>
                       </div>
                     ) : compra.fulfillmentStatus === 'CANCELLED' ? (
-                      <p className="text-sm font-semibold text-gray-700">
+                      <p className="text-sm font-semibold text-foreground">
                         {compra.status === 'REFUNDED' ? t('refunded') : t('refundPending')}
                       </p>
                     ) : null}
@@ -416,7 +424,7 @@ export default function HistorialPage() {
                     {cancelFeedback?.orderId === compra.id && (
                       <p
                         className={`mt-3 text-sm font-medium ${
-                          cancelFeedback.error ? 'text-red-600' : 'text-emerald-700'
+                          cancelFeedback.error ? 'text-destructive' : 'text-success'
                         }`}
                       >
                         {cancelFeedback.text}
@@ -424,23 +432,39 @@ export default function HistorialPage() {
                     )}
                   </section>
 
-                  {compra.taxRate !== null && compra.taxRate > 0 && (
-                    <div className="mt-4 space-y-1 border-t border-gray-100 pt-3 text-xs text-muted-foreground">
-                      <div className="flex items-center justify-between gap-4">
-                        <span>Subtotal sin impuestos</span>
-                        <span>{formatPrice(compra.subtotal, compra.currency)}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span>
-                          {compra.taxName || 'Impuesto'} ({compra.taxRate}%)
-                        </span>
-                        <span>{formatPrice(compra.taxAmount, compra.currency)}</span>
-                      </div>
+                  {((compra.taxRate !== null && compra.taxRate > 0) ||
+                    compra.shippingAmount > 0 ||
+                    compra.shippingQuoteRate !== null) && (
+                    <div className="mt-4 space-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+                      {compra.taxRate !== null && compra.taxRate > 0 && (
+                        <>
+                          <div className="flex items-center justify-between gap-4">
+                            <span>Subtotal sin impuestos</span>
+                            <span>{formatPrice(compra.subtotal, compra.currency)}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <span>
+                              {compra.taxName || 'Impuesto'} ({compra.taxRate}%)
+                            </span>
+                            <span>{formatPrice(compra.taxAmount, compra.currency)}</span>
+                          </div>
+                        </>
+                      )}
+                      {(compra.shippingAmount > 0 || compra.shippingQuoteRate !== null) && (
+                        <div className="flex items-center justify-between gap-4">
+                          <span>Envío</span>
+                          <span>
+                            {compra.shippingAmount > 0
+                              ? formatPrice(compra.shippingAmount, compra.currency)
+                              : 'Gratis'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
-                  <div className="flex items-center justify-between border-t border-gray-100 pt-4 font-black text-gray-900">
+                  <div className="flex items-center justify-between border-t border-border pt-4 font-black text-foreground">
                     <p className="text-sm">{t('totalPaid')}</p>
-                    <p className="text-lg text-indigo-600">
+                    <p className="text-lg text-primary">
                       {formatPrice(compra.total, compra.currency)}
                     </p>
                   </div>
@@ -458,6 +482,6 @@ export default function HistorialPage() {
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

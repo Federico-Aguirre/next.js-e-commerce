@@ -134,7 +134,7 @@ export default async function LegalPage() {
           ) : null}
         </dl>
         {missingStoreLegalDetails.length > 0 ? (
-          <div className="mt-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+          <div className="mt-6 rounded-xl border border-warning/40 bg-warning/10 p-4">
             <p className="font-semibold">
               {es ? 'Faltan datos del vendedor' : 'Seller details are incomplete'}
             </p>

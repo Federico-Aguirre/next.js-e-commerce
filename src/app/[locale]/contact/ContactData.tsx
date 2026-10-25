@@ -1,26 +1,43 @@
-import React from 'react';
+import { StoreLegalConfig } from '@/utils/StoreLegalConfig';
 
 type ContactDataProps = {
   locale?: string;
 };
 
 export default function ContactData({ locale = 'es' }: ContactDataProps) {
-  const contactInfo = {
-    address: '100 Ocean Drive, Suite 200, Miami, FL 33139, Estados Unidos',
-    mapEmbedUrl:
-      'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3592.836886475654!2d-80.1325!3d25.7781!2m3!1f02f0!0f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x88d9b48e3e333333%3A0x123456789!2s100%20Ocean%20Dr%2C%20Miami%20Beach%2C%20FL%2033139!5e0!3m2!1ses!2sus!4v1700000000000!5m2!1ses!2sus',
-    mapDirectUrl:
-      'https://www.google.com/maps/search/?api=1&query=100+Ocean+Drive,+Suite+200,+Miami,+FL+33139',
-    supportEmail: 'soporte@tu-ecommerce.com',
-    primaryWhatsapp: {
-      display: '+1 (305) 555-0142',
-      number: '13055550142',
-    },
-    secondaryWhatsapp: {
-      display: '+1 (305) 555-0198',
-      number: '13055550198',
-    },
-  };
+  // Prefer the public/legal contact details, falling back to the store's configured
+  // pickup and shipping-origin details instead of displaying sample Miami contact data.
+  const address = (
+    StoreLegalConfig.address ||
+    process.env.STORE_PICKUP_ADDRESS?.trim() ||
+    [
+      process.env.SHIPPING_ORIGIN_STREET?.trim(),
+      process.env.SHIPPING_ORIGIN_NUMBER?.trim(),
+      process.env.SHIPPING_ORIGIN_FLOOR?.trim(),
+      process.env.SHIPPING_ORIGIN_APARTMENT?.trim(),
+      process.env.SHIPPING_ORIGIN_CITY?.trim(),
+      process.env.SHIPPING_ORIGIN_STATE?.trim(),
+      process.env.SHIPPING_ORIGIN_POSTAL_CODE?.trim(),
+      process.env.SHIPPING_ORIGIN_COUNTRY?.trim(),
+    ]
+      .filter(Boolean)
+      .join(', ')
+  ).trim();
+  const supportEmail = (
+    StoreLegalConfig.email ||
+    process.env.SHIPPING_ORIGIN_EMAIL?.trim() ||
+    ''
+  ).trim();
+  const phone = (StoreLegalConfig.phone || process.env.SHIPPING_ORIGIN_PHONE?.trim() || '').trim();
+  const whatsappNumber = phone.replace(/\D/g, '');
+  const displayPhone =
+    whatsappNumber.startsWith('54') &&
+    whatsappNumber.length === 12 &&
+    whatsappNumber.slice(2, 4) === '11'
+      ? `+54 11 ${whatsappNumber.slice(4, 8)}-${whatsappNumber.slice(8)}`
+      : phone;
+  const mapEmbedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
+  const mapDirectUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 
   const waMessage = encodeURIComponent(
     locale === 'en'
@@ -29,84 +46,85 @@ export default function ContactData({ locale = 'es' }: ContactDataProps) {
   );
 
   return (
-    <div className="w-full max-w-xl space-y-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+    <aside
+      aria-labelledby="contact-information-title"
+      className="h-full w-full space-y-6 rounded-xl border border-border bg-card p-6 shadow-sm"
+    >
+      <h2 id="contact-information-title" className="text-xl font-semibold text-foreground">
         {locale === 'en' ? 'Information & Location' : 'Información y Ubicación'}
       </h2>
 
-      {/* 1. Iframe de Google Maps */}
-      <div className="h-60 w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
-        <iframe
-          src={contactInfo.mapEmbedUrl}
-          width="100%"
-          height="100%"
-          style={{ border: 0 }}
-          allowFullScreen={false}
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          title="Ubicación en Google Maps"
-        />
-      </div>
+      {address && (
+        <>
+          <div className="h-60 w-full overflow-hidden rounded-lg border border-border">
+            <iframe
+              src={mapEmbedUrl}
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              allowFullScreen={false}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title={
+                locale === 'en'
+                  ? 'Store location on Google Maps'
+                  : 'Ubicación de la tienda en Google Maps'
+              }
+            />
+          </div>
 
-      {/* 4. Dirección de Google Maps */}
-      <div>
-        <p className="mb-1 text-xs font-semibold tracking-wider text-zinc-500 uppercase dark:text-zinc-400">
-          {locale === 'en' ? 'Office Address' : 'Dirección de la Oficina'}
-        </p>
-        <a
-          href={contactInfo.mapDirectUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-start gap-2 text-sm text-zinc-800 underline hover:text-blue-600 dark:text-zinc-200 dark:hover:text-blue-400"
-        >
-          <span aria-hidden="true">📍</span>
-          <span>{contactInfo.address}</span>
-        </a>
-      </div>
-
-      <div className="space-y-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-        {/* 2. WhatsApp Web */}
-        <div>
-          <p className="mb-2 text-xs font-semibold tracking-wider text-zinc-500 uppercase dark:text-zinc-400">
-            WhatsApp Web
-          </p>
-          <div className="space-y-2 text-sm">
+          <div>
+            <p className="mb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+              {locale === 'en' ? 'Store Address' : 'Dirección de la tienda'}
+            </p>
             <a
-              href={`https://wa.me/${contactInfo.primaryWhatsapp.number}?text=${waMessage}`}
+              href={mapDirectUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+              className="flex items-start gap-2 text-sm text-foreground underline hover:text-primary"
             >
-              <span aria-hidden="true">💬</span>
-              <span>Principal: {contactInfo.primaryWhatsapp.display}</span>
-            </a>
-
-            <a
-              href={`https://wa.me/${contactInfo.secondaryWhatsapp.number}?text=${waMessage}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
-            >
-              <span aria-hidden="true">💬</span>
-              <span>Secundario: {contactInfo.secondaryWhatsapp.display}</span>
+              <span aria-hidden="true">📍</span>
+              <span>{address}</span>
             </a>
           </div>
-        </div>
+        </>
+      )}
 
-        {/* 3. Soporte Técnico */}
-        <div>
-          <p className="mb-1 text-xs font-semibold tracking-wider text-zinc-500 uppercase dark:text-zinc-400">
-            {locale === 'en' ? 'Technical Support' : 'Soporte Técnico'}
-          </p>
-          <a
-            href={`mailto:${contactInfo.supportEmail}`}
-            className="flex items-center gap-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
-          >
-            <span aria-hidden="true">✉️</span>
-            <span>{contactInfo.supportEmail}</span>
-          </a>
+      {(whatsappNumber || supportEmail) && (
+        <div className="space-y-4 border-t border-border pt-4">
+          {whatsappNumber && (
+            <div>
+              <p className="mb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                WhatsApp
+              </p>
+              <a
+                href={`https://wa.me/${whatsappNumber}?text=${waMessage}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 font-medium text-success hover:underline"
+              >
+                <span aria-hidden="true">💬</span>
+                <span>{displayPhone}</span>
+              </a>
+            </div>
+          )}
+
+          {supportEmail && (
+            <div>
+              <p className="mb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                {locale === 'en' ? 'Email Support' : 'Correo electrónico'}
+              </p>
+              <a
+                href={`mailto:${supportEmail}`}
+                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <span aria-hidden="true">✉️</span>
+                <span>{supportEmail}</span>
+              </a>
+            </div>
+          )}
         </div>
-      </div>
-    </div>
+      )}
+    </aside>
   );
 }

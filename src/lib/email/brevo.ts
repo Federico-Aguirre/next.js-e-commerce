@@ -48,6 +48,7 @@ export async function sendBrevoEmail(input: BrevoEmailInput): Promise<BrevoEmail
       'content-type': 'application/json',
     },
     cache: 'no-store',
+    signal: AbortSignal.timeout(10_000),
     body: JSON.stringify({
       sender: { name: senderName, email: senderEmail },
       to: [{ email: input.to, ...(input.toName ? { name: input.toName } : {}) }],

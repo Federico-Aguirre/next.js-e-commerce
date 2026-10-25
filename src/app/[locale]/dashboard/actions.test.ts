@@ -10,7 +10,7 @@ const { prismaMock, requireDashboardAdminMock, revalidatePathMock, sendFulfillme
     sendFulfillmentEmailMock: vi.fn(),
   }));
 
-vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }));
+vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock, updateTag: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }));
 vi.mock('@/lib/order-alerts', () => ({ sendLowStockAlerts: vi.fn() }));
 vi.mock('@/lib/orders/order-fulfillment-email', () => ({

@@ -1,56 +1,81 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-export default function DatabaseGuard({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [status, setStatus] = useState<'LOADING' | 'WAKING_UP' | 'READY'>(
-    'LOADING',
-  );
+export default function DatabaseGuard({ children }: { children: React.ReactNode }) {
+  const [status, setStatus] = useState<'LOADING' | 'WAKING_UP' | 'READY'>('LOADING');
   const router = useRouter();
   const wasWakingUp = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
-    let timer: NodeJS.Timeout;
+    let timer: NodeJS.Timeout | undefined;
 
     const checkStatus = async () => {
       try {
-        const res = await fetch('/api/aiven-status');
-        if (!res.ok) {
+        const response = await fetch('/api/aiven-status', { cache: 'no-store' });
+
+        // The endpoint only authorizes the platform owner. Public visitors should
+        // render the storefront normally and must never trigger infrastructure wake-up.
+        if (response.status === 401 || response.status === 403) {
           if (isMounted) setStatus('READY');
           return;
         }
 
-        const data = await res.json();
+        if (!response.ok) {
+          if (isMounted) setStatus('READY');
+          return;
+        }
+
+        const data = (await response.json()) as { status?: string };
 
         if (data.status === 'READY') {
           if (isMounted) {
-            // Solo refresca la ruta si la BD realmente tuvo que ser despertada
-            if (wasWakingUp.current) {
-              router.refresh();
-            }
+            if (wasWakingUp.current) router.refresh();
             setStatus('READY');
           }
-        } else {
+          return;
+        }
+
+        if (data.status === 'SLEEPING' && !wasWakingUp.current) {
+          const wakeResponse = await fetch('/api/aiven-status', {
+            method: 'POST',
+            cache: 'no-store',
+          });
+
+          if (!wakeResponse.ok) {
+            if (isMounted) setStatus('READY');
+            return;
+          }
+
+          const wakeResult = (await wakeResponse.json()) as { status?: string };
+          if (wakeResult.status === 'READY') {
+            if (isMounted) {
+              router.refresh();
+              setStatus('READY');
+            }
+            return;
+          }
+        }
+
+        if (data.status === 'SLEEPING' || data.status === 'WAKING_UP') {
           if (isMounted) {
             wasWakingUp.current = true;
             setStatus('WAKING_UP');
+            timer = setTimeout(checkStatus, 5000);
           }
-          // Reintentar en 5 segundos mientras siga iniciando
-          timer = setTimeout(checkStatus, 5000);
+          return;
         }
-      } catch (err) {
-        console.error('Error comprobando estado Aiven:', err);
+
+        if (isMounted) setStatus('READY');
+      } catch (error) {
+        console.error('Error comprobando el estado de Aiven:', error);
         if (isMounted) setStatus('READY');
       }
     };
 
-    checkStatus();
+    void checkStatus();
 
     return () => {
       isMounted = false;
@@ -63,7 +88,10 @@ export default function DatabaseGuard({
   }
 
   return (
-    <div
+    <main
+      id="main-content"
+      tabIndex={-1}
+      aria-busy="true"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -73,11 +101,10 @@ export default function DatabaseGuard({
         fontFamily: 'system-ui, sans-serif',
       }}
     >
-      <h2>Conectando con la base de datos...</h2>
-      <p>
-        El servidor de Aiven se está preparando. Por favor, aguarda unos
-        segundos.
+      <h1>Conectando con la base de datos...</h1>
+      <p role="status" aria-live="polite">
+        El propietario de la plataforma puede iniciar el servicio desde una sesión autorizada.
       </p>
-    </div>
+    </main>
   );
 }

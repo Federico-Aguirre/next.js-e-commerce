@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export const dynamic = 'force-dynamic';
-
 /** Return authoritative, current catalogue prices for locally persisted cart/wishlist entries. */
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { productIds?: unknown };
     if (!Array.isArray(body.productIds) || body.productIds.length > 100) {
-      return NextResponse.json({ error: 'Invalid product list.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid product list.' },
+        { status: 400, headers: { 'Cache-Control': 'private, no-store' } },
+      );
     }
 
     const productIds = [
@@ -40,10 +41,13 @@ export async function POST(request: Request) {
           category: product.category,
         })),
       },
-      { headers: { 'Cache-Control': 'no-store' } },
+      { headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
     );
   } catch (error) {
     console.error('Unable to refresh catalogue prices:', error);
-    return NextResponse.json({ error: 'Unable to refresh catalogue prices.' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Unable to refresh catalogue prices.' },
+      { status: 500, headers: { 'Cache-Control': 'private, no-store' } },
+    );
   }
 }

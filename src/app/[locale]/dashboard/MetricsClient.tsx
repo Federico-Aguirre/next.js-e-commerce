@@ -19,8 +19,8 @@ export default function MetricsClient({
       <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 lg:grid-cols-3">
         {[...Array(3)].map((_, i) => (
           <div key={i} className="rounded-lg border p-4 shadow-sm">
-            <div className="h-6 w-3/4 animate-pulse rounded bg-gray-200"></div>
-            <div className="mt-4 h-10 w-full animate-pulse rounded bg-gray-200"></div>
+            <div className="h-6 w-3/4 animate-pulse rounded bg-muted"></div>
+            <div className="mt-4 h-10 w-full animate-pulse rounded bg-muted"></div>
           </div>
         ))}
       </div>
@@ -30,10 +30,10 @@ export default function MetricsClient({
   if (error) {
     return (
       <div className="p-4">
-        <div className="rounded-lg border border-red-400 bg-red-50 p-4">
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4">
           <div className="flex items-center">
             <svg
-              className="h-4 w-4 text-red-500"
+              className="h-4 w-4 text-destructive"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -45,9 +45,9 @@ export default function MetricsClient({
                 d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <h3 className="ml-2 text-sm font-medium text-red-800">Error</h3>
+            <h3 className="ml-2 text-sm font-medium text-destructive">Error</h3>
           </div>
-          <div className="mt-2 text-sm text-red-700">
+          <div className="mt-2 text-sm text-destructive">
             <p>{error}</p>
           </div>
         </div>
@@ -58,10 +58,10 @@ export default function MetricsClient({
   if (!metrics) {
     return (
       <div className="p-4">
-        <div className="rounded-lg border border-yellow-400 bg-yellow-50 p-4">
+        <div className="rounded-lg border border-warning/40 bg-warning/10 p-4">
           <div className="flex items-center">
             <svg
-              className="h-4 w-4 text-yellow-500"
+              className="h-4 w-4 text-warning-foreground"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -73,9 +73,9 @@ export default function MetricsClient({
                 d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <h3 className="ml-2 text-sm font-medium text-yellow-800">Access Denied</h3>
+            <h3 className="ml-2 text-sm font-medium text-warning-foreground">Access Denied</h3>
           </div>
-          <div className="mt-2 text-sm text-yellow-700">
+          <div className="mt-2 text-sm text-warning-foreground">
             <p>You do not have permission to view this page.</p>
           </div>
         </div>

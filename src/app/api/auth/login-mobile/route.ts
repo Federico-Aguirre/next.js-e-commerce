@@ -1,94 +1,70 @@
 import bcrypt from 'bcryptjs';
-import { encode } from 'next-auth/jwt';
 import { NextResponse } from 'next/server';
-
+import { z } from 'zod';
+import { createMobileSessionResponse } from '@/lib/auth/mobile-session';
 import { prisma } from '@/lib/prisma';
+import {
+  checkRateLimit,
+  getRequestClientIp,
+  hashRateLimitIdentity,
+} from '@/lib/security/rate-limit';
+
+const LoginSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email().max(254),
+    password: z.string().min(1).max(128),
+  })
+  .strict();
 
 export async function POST(request: Request) {
-  try {
-    const { email, password } = await request.json();
+  const ip = getRequestClientIp(request);
+  const ipLimit = checkRateLimit(`mobile-login:ip:${ip}`, {
+    limit: 10,
+    windowMs: 15 * 60_000,
+  });
 
-    if (!email || !password) {
+  if (!ipLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos. Esperá unos minutos y volvé a intentar.' },
+      { status: 429, headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) } },
+    );
+  }
+
+  try {
+    const parsed = LoginSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Faltan credenciales' },
+        { error: 'Correo electrónico o contraseña incorrectos.' },
         { status: 400 },
       );
     }
 
-    // 1. Buscar usuario en Prisma
+    const { email, password } = parsed.data;
+    const identityLimit = checkRateLimit(`mobile-login:email:${hashRateLimitIdentity(email)}`, {
+      limit: 8,
+      windowMs: 15 * 60_000,
+    });
+
+    if (!identityLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos. Esperá unos minutos y volvé a intentar.' },
+        { status: 429, headers: { 'Retry-After': String(identityLimit.retryAfterSeconds) } },
+      );
+    }
+
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.password) {
+    const valid = user?.password ? await bcrypt.compare(password, user.password) : false;
+
+    if (!user || !valid) {
       return NextResponse.json(
-        { error: 'Usuario no encontrado o creado mediante Google' },
+        { error: 'Correo electrónico o contraseña incorrectos.' },
         { status: 401 },
       );
     }
 
-    // 2. Validar la contraseña encriptada
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return NextResponse.json(
-        { error: 'Contraseña incorrecta' },
-        { status: 401 },
-      );
-    }
-
-    // 3. Crear token de sesión con NextAuth (Misma lógica que google-mobile)
-    const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-    if (!secret) {
-      return NextResponse.json(
-        { error: 'Falta NEXTAUTH_SECRET' },
-        { status: 500 },
-      );
-    }
-
-    const cookieName =
-      process.env.NODE_ENV === 'production'
-        ? '__Secure-next-auth.session-token'
-        : 'next-auth.session-token';
-
-    const maxAge = 30 * 24 * 60 * 60;
-    const now = Math.floor(Date.now() / 1000);
-
-    const sessionToken = await encode({
-      token: {
-        name: user.name,
-        email: user.email,
-        picture: user.image,
-        sub: user.id,
-        id: user.id,
-        iat: now,
-        exp: now + maxAge,
-      },
-      secret,
-      maxAge,
-      salt: cookieName,
-    });
-
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-      },
-    });
-
-    response.cookies.set(cookieName, sessionToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge,
-      secure: process.env.NODE_ENV === 'production',
-    });
-
-    return response;
-  } catch (error: any) {
-    console.error('❌ [LOGIN ERROR]:', error);
-    return NextResponse.json(
-      { error: error?.message || 'Error interno' },
-      { status: 500 },
-    );
+    return await createMobileSessionResponse({ ...user, email: user.email ?? email });
+  } catch (error) {
+    console.error('[mobile-login] failed:', error instanceof Error ? error.name : 'UnknownError');
+    return NextResponse.json({ error: 'No se pudo iniciar sesión.' }, { status: 500 });
   }
 }

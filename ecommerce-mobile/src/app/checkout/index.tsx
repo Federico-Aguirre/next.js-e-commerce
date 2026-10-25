@@ -8,19 +8,30 @@ import {
   ActivityIndicator,
   Linking,
   Alert,
-  TextInput,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCartStore, CartItem } from '@/store/useCartStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
+import { authenticatedFetch } from '@/services/authenticatedFetch';
+import {
+  checkoutItemsPayload,
+  fetchCheckoutShippingQuotes,
+  formatCheckoutDeliveryEstimate,
+  formatCheckoutMoney,
+} from '@/services/checkoutShipping';
+import { useCheckoutShippingQuotes } from '@/hooks/useCheckoutShippingQuotes';
 
+const configuredApiBaseUrl =
+  process.env.EXPO_PUBLIC_BASE_URL?.trim() ||
+  process.env.EXPO_PUBLIC_API_URL?.trim();
 const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.3.2:3001';
+  configuredApiBaseUrl?.replace(/\/api\/?$/i, '').replace(/\/+$/, '') ||
+  (__DEV__ ? 'http://192.168.3.2:3001' : '');
 
 export default function CheckoutScreen() {
-  const { cart, addToCart, removeFromCart, getCartTotal } = useCartStore();
+  const { cart, addToCart, removeFromCart } = useCartStore();
   const searchParams = useLocalSearchParams();
   const router = useRouter();
 
@@ -29,90 +40,36 @@ export default function CheckoutScreen() {
   const authUser = useAuthStore((state) => state.user);
   const storeUser = useUserStore((state) => state.user);
   const currentUser = authUser || storeUser || authSession?.user;
+  const shippingQuoteState = useCheckoutShippingQuotes(
+    API_BASE_URL,
+    cart,
+    Boolean(currentUser),
+  );
+  const selectedShippingQuote = shippingQuoteState.quote;
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  // 💳 ESTADO PARA FORMULARIO NATIVO DE MERCADO PAGO
-  const [showMpForm, setShowMpForm] = useState<boolean>(false);
-  const [cardData, setCardData] = useState({
-    cardNumber: '',
-    cardholderName: '',
-    expirationMonth: '',
-    expirationYear: '',
-    securityCode: '',
-    identificationNumber: '12345678',
-  });
-
   // 🛡️ Previene ejecuciones fantasmas o clics dobles rápidos
   const isNavigating = useRef<boolean>(false);
 
-  const subtotal = getCartTotal();
-  const shipping = subtotal > 0 ? 15.0 : 0.0;
-  const total = subtotal + shipping;
-
-  // ⚡ HELPER: Cargar datos de prueba de Mercado Pago al instante
-  const handleFillTestData = () => {
-    setCardData({
-      cardNumber: '4509 9535 6623 3704',
-      cardholderName: 'APRO',
-      expirationMonth: '11',
-      expirationYear: '28',
-      securityCode: '123',
-      identificationNumber: '12345678',
-    });
-  };
-
-  // ⚡ HELPER: Tokenizar tarjeta directamente en Mercado Pago desde React Native
-  const obtenerTokenTarjeta = async () => {
-    const publicKey = process.env.EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
-
-    if (!publicKey) {
-      throw new Error(
-        'Falta configurar EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY en tus variables de entorno.',
-      );
-    }
-
-    const response = await fetch(
-      `https://api.mercadopago.com/v1/card_tokens?public_key=${publicKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          card_number: cardData.cardNumber.replace(/\s+/g, ''),
-          security_code: cardData.securityCode,
-          expiration_month: Number(cardData.expirationMonth),
-          expiration_year: Number(`20${cardData.expirationYear.slice(-2)}`),
-          cardholder: {
-            name: cardData.cardholderName,
-            identification: {
-              type: 'DNI',
-              number: cardData.identificationNumber || '12345678',
-            },
-          },
-        }),
-      },
-    );
-
-    const data = await response.json();
-
-    if (!response.ok || !data.id) {
-      console.error('Error al tokenizar en Mercado Pago:', data);
-      throw new Error(
-        data?.cause?.[0]?.description ||
-          'Datos de tarjeta inválidos o incompletos.',
-      );
-    }
-
-    return data.id;
-  };
+  const subtotal = selectedShippingQuote?.subtotal ?? 0;
+  const taxAmount = selectedShippingQuote?.taxAmount ?? 0;
+  const productTotal = selectedShippingQuote?.productTotal ?? 0;
+  const shippingAmount = selectedShippingQuote?.shippingAmount ?? 0;
+  const total = selectedShippingQuote?.totalInStoreCurrency ?? 0;
 
   const handleProcessPayment = async (
     paymentMethod: 'mercadopago' | 'stripe',
   ) => {
     if (isNavigating.current) return;
+
+    if (!API_BASE_URL || (!__DEV__ && !API_BASE_URL.startsWith('https://'))) {
+      setCheckoutError(
+        'La aplicación no tiene configurada una URL HTTPS válida para el servidor.',
+      );
+      return;
+    }
 
     const targetUserId =
       currentUser?.id || (currentUser as any)?._id || (currentUser as any)?.sub;
@@ -135,59 +92,104 @@ export default function CheckoutScreen() {
     isNavigating.current = true;
 
     try {
-      const itemsPayload = cart.map((item) => ({
-        productId: String(item.articleId || (item as any).productId || item.id),
-        title: item.title,
-        price: Number(item.price),
-        quantity: Number(item.quantity),
-        image: item.image,
-        size: item.size,
-      }));
+      const itemsPayload = checkoutItemsPayload(cart);
+      const paymentCurrency = paymentMethod === 'mercadopago' ? 'ARS' : 'USD';
+      let paymentQuote = selectedShippingQuote;
+      if (!paymentQuote || paymentQuote.paymentCurrency !== paymentCurrency) {
+        const selectedChoice = paymentQuote?.meta.checkoutChoice;
+        const refreshedQuotes = await fetchCheckoutShippingQuotes(
+          API_BASE_URL,
+          cart,
+          paymentCurrency,
+        );
+        paymentQuote =
+          refreshedQuotes.find(
+            (quote) => quote.meta.checkoutChoice === selectedChoice,
+          ) ??
+          refreshedQuotes[0] ??
+          null;
+      }
+      if (!paymentQuote)
+        throw new Error('Primero cotizá y seleccioná una opción de envío.');
 
-      // =========================================================
-      // 💳 OPCIÓN A: MERCADO PAGO DIRECTO EN LA APP (API)
-      // =========================================================
+      const confirmed = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          'Confirmar total de la compra',
+          [
+            `Subtotal sin impuestos: ${formatCheckoutMoney(paymentQuote!.subtotal, paymentQuote!.storeCurrency)}`,
+            `${paymentQuote!.taxName}${paymentQuote!.taxRate ? ` (${paymentQuote!.taxRate}%)` : ''}: ${formatCheckoutMoney(paymentQuote!.taxAmount, paymentQuote!.storeCurrency)}`,
+            `Envío (${paymentQuote!.carrier}): ${formatCheckoutMoney(paymentQuote!.shippingAmount, paymentQuote!.storeCurrency)}`,
+            `Total final: ${formatCheckoutMoney(paymentQuote!.totalInStoreCurrency, paymentQuote!.storeCurrency)}`,
+            `Importe enviado al medio de pago: ${formatCheckoutMoney(paymentQuote!.paymentTotal, paymentQuote!.paymentCurrency)}`,
+          ].join('\n'),
+          [
+            {
+              text: 'Cancelar',
+              style: 'cancel',
+              onPress: () => resolve(false),
+            },
+            { text: 'Confirmar y continuar', onPress: () => resolve(true) },
+          ],
+          { cancelable: false },
+        );
+      });
+      if (!confirmed) return;
+
+      // Mercado Pago: redirigir al checkout alojado por el proveedor.
+      // La app no recoge ni tokeniza directamente los datos de la tarjeta.
       if (paymentMethod === 'mercadopago') {
-        const cardToken = await obtenerTokenTarjeta();
+        const savedOrderId = await AsyncStorage.getItem(
+          'last_pending_order_id',
+        );
+        if (savedOrderId) {
+          await authenticatedFetch(`${API_BASE_URL}/api/checkout`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: savedOrderId }),
+          }).catch(() => {});
+          await AsyncStorage.removeItem('last_pending_order_id');
+        }
 
-        const response = await fetch(`${API_BASE_URL}/api/payment/process`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
+        const response = await authenticatedFetch(
+          `${API_BASE_URL}/api/checkout`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify({
+              items: itemsPayload,
+              paymentMethod: 'mercadopago',
+              shippingQuoteToken: paymentQuote.quoteToken,
+            }),
           },
-          body: JSON.stringify({
-            items: itemsPayload,
-            token: cardToken,
-            paymentMethodId: 'visa',
-            installments: 1,
-            userId: targetUserId,
-            userEmail: targetUserEmail,
-            user: { id: targetUserId, email: targetUserEmail },
-          }),
-        });
+        );
+        const data = await response.json();
 
-        const responseText = await response.text();
-
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (e) {
-          console.error('❌ EL SERVIDOR DEVOLVIÓ HTML EN LUGAR DE JSON:');
-          console.error('STATUS CODE:', response.status);
-          console.error('CONTENIDO:', responseText.slice(0, 300));
+        if (!response.ok) {
           throw new Error(
-            `Error en el servidor (${response.status}). Revisa la consola.`,
+            data.error || 'No se pudo iniciar el checkout de Mercado Pago.',
+          );
+        }
+        if (data.orderId) {
+          await AsyncStorage.setItem('last_pending_order_id', data.orderId);
+        }
+        if (typeof data.url !== 'string') {
+          throw new Error('Mercado Pago no devolvió una URL de pago.');
+        }
+
+        const paymentUrl = new URL(data.url);
+        const isMercadoPagoHost = /(^|\.)mercadopago\.com(\.ar)?$/i.test(
+          paymentUrl.hostname,
+        );
+        if (paymentUrl.protocol !== 'https:' || !isMercadoPagoHost) {
+          throw new Error(
+            'Mercado Pago devolvió una URL de pago no segura o inesperada.',
           );
         }
 
-        if (!response.ok || !data.success) {
-          throw new Error(
-            data.error || 'El pago no pudo ser procesado por Mercado Pago.',
-          );
-        }
-
-        router.push(`/checkout/success?orderId=${data.orderId}`);
+        await Linking.openURL(paymentUrl.toString());
         return;
       }
 
@@ -199,7 +201,7 @@ export default function CheckoutScreen() {
           'last_pending_order_id',
         );
         if (savedOrderId) {
-          await fetch(`${API_BASE_URL}/api/checkout`, {
+          await authenticatedFetch(`${API_BASE_URL}/api/checkout`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ orderId: savedOrderId }),
@@ -207,20 +209,24 @@ export default function CheckoutScreen() {
           await AsyncStorage.removeItem('last_pending_order_id');
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/checkout`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
+        const response = await authenticatedFetch(
+          `${API_BASE_URL}/api/checkout`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify({
+              items: itemsPayload,
+              paymentMethod: 'stripe',
+              userId: targetUserId,
+              userEmail: targetUserEmail,
+              user: { id: targetUserId, email: targetUserEmail },
+              shippingQuoteToken: paymentQuote.quoteToken,
+            }),
           },
-          body: JSON.stringify({
-            items: itemsPayload,
-            paymentMethod: 'stripe',
-            userId: targetUserId,
-            userEmail: targetUserEmail,
-            user: { id: targetUserId, email: targetUserEmail },
-          }),
-        });
+        );
 
         const data = await response.json();
 
@@ -387,172 +393,198 @@ export default function CheckoutScreen() {
           <Text className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-3">
             Resumen del pedido
           </Text>
-          <View className="gap-y-2 text-sm">
-            <View className="flex-row justify-between items-center">
-              <Text className="text-gray-600 text-sm">Subtotal</Text>
-              <Text className="font-semibold text-gray-900 text-sm">
-                ${subtotal.toFixed(2)}
-              </Text>
+          {shippingQuoteState.loading && (
+            <View className="flex-row items-center gap-x-2 py-2">
+              <ActivityIndicator size="small" />
+              <Text className="text-sm text-gray-500">Cotizando el envío…</Text>
             </View>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-gray-600 text-sm">
-                Costo de envío estimado
+          )}
+          {shippingQuoteState.error && (
+            <View className="gap-y-2 rounded-lg bg-amber-50 p-3">
+              <Text className="text-sm text-amber-900">
+                {shippingQuoteState.error}
               </Text>
-              <Text className="font-semibold text-gray-900 text-sm">
-                ${shipping.toFixed(2)}
-              </Text>
-            </View>
-            <View className="flex-row justify-between items-center border-t border-gray-100 pt-3 mt-1">
-              <Text className="font-black text-gray-900 text-base">Total</Text>
-              <Text className="font-black text-gray-900 text-xl">
-                ${total.toFixed(2)}
-              </Text>
-            </View>
-          </View>
-
-          {showMpForm ? (
-            <View className="border-t border-gray-100 pt-4 gap-y-3">
-              <View className="flex-row justify-between items-center mb-1">
-                <Text className="text-xs font-bold text-sky-600 uppercase">
-                  Tarjeta de Crédito / Débito
+              <Pressable onPress={shippingQuoteState.refreshQuotes}>
+                <Text className="font-semibold text-amber-900 underline">
+                  Volver a cotizar
                 </Text>
-                <Pressable
-                  onPress={handleFillTestData}
-                  className="bg-sky-50 px-2 py-1 rounded"
-                >
-                  <Text className="text-xs text-sky-600 font-bold">
-                    ⚡ Usar Tarjeta APRO
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View>
-                <Text className="text-xs font-bold text-gray-600 mb-1">
-                  Número de Tarjeta
-                </Text>
-                <TextInput
-                  placeholder="4509 9535 6623 3704"
-                  value={cardData.cardNumber}
-                  onChangeText={(text) =>
-                    setCardData({ ...cardData, cardNumber: text })
-                  }
-                  keyboardType="numeric"
-                  className="w-full text-sm p-3 border border-gray-200 rounded-lg text-gray-800 bg-gray-50"
-                />
-              </View>
-
-              <View>
-                <Text className="text-xs font-bold text-gray-600 mb-1">
-                  Nombre del Titular
-                </Text>
-                <TextInput
-                  placeholder="APRO"
-                  value={cardData.cardholderName}
-                  onChangeText={(text) =>
-                    setCardData({ ...cardData, cardholderName: text })
-                  }
-                  className="w-full text-sm p-3 border border-gray-200 rounded-lg text-gray-800 bg-gray-50"
-                />
-              </View>
-
-              <View className="flex-row gap-x-2">
-                <View className="flex-1">
-                  <Text className="text-xs font-bold text-gray-600 mb-1">
-                    Mes (MM)
-                  </Text>
-                  <TextInput
-                    placeholder="11"
-                    maxLength={2}
-                    keyboardType="numeric"
-                    value={cardData.expirationMonth}
-                    onChangeText={(text) =>
-                      setCardData({ ...cardData, expirationMonth: text })
-                    }
-                    className="w-full text-sm p-3 border border-gray-200 rounded-lg text-gray-800 bg-gray-50 text-center"
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-xs font-bold text-gray-600 mb-1">
-                    Año (AA)
-                  </Text>
-                  <TextInput
-                    placeholder="28"
-                    maxLength={2}
-                    keyboardType="numeric"
-                    value={cardData.expirationYear}
-                    onChangeText={(text) =>
-                      setCardData({ ...cardData, expirationYear: text })
-                    }
-                    className="w-full text-sm p-3 border border-gray-200 rounded-lg text-gray-800 bg-gray-50 text-center"
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-xs font-bold text-gray-600 mb-1">
-                    CVV
-                  </Text>
-                  <TextInput
-                    placeholder="123"
-                    maxLength={4}
-                    keyboardType="numeric"
-                    value={cardData.securityCode}
-                    onChangeText={(text) =>
-                      setCardData({ ...cardData, securityCode: text })
-                    }
-                    className="w-full text-sm p-3 border border-gray-200 rounded-lg text-gray-800 bg-gray-50 text-center"
-                  />
-                </View>
-              </View>
-
-              <Pressable
-                disabled={isProcessing}
-                onPress={() => handleProcessPayment('mercadopago')}
-                className={`w-full bg-sky-500 h-12 rounded-lg justify-center items-center active:bg-sky-600 shadow-md mt-2 ${isProcessing ? 'opacity-50' : ''}`}
-              >
-                {isProcessing ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text className="text-white text-sm font-bold">
-                    Confirmar y Pagar ${total.toFixed(2)}
-                  </Text>
-                )}
-              </Pressable>
-
-              <Pressable
-                onPress={() => setShowMpForm(false)}
-                className="py-2 items-center"
-              >
-                <Text className="text-xs text-gray-400 font-semibold">
-                  Cancelar / Volver
-                </Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View className="gap-y-3 pt-2">
-              <Pressable
-                disabled={isProcessing}
-                onPress={() => setShowMpForm(true)}
-                className={`w-full bg-sky-500 h-12 rounded-lg justify-center items-center active:bg-sky-600 shadow-md ${isProcessing ? 'opacity-50' : ''}`}
-              >
-                <Text className="text-white text-sm font-bold">
-                  Pagar con Mercado Pago
-                </Text>
-              </Pressable>
-
-              <Pressable
-                disabled={isProcessing}
-                onPress={() => handleProcessPayment('stripe')}
-                className={`w-full bg-indigo-600 h-12 rounded-lg justify-center items-center active:bg-indigo-700 shadow-md ${isProcessing ? 'opacity-50' : ''}`}
-              >
-                {isProcessing ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text className="text-white text-sm font-bold">
-                    Pagar con Stripe
-                  </Text>
-                )}
               </Pressable>
             </View>
           )}
+          {selectedShippingQuote &&
+            !shippingQuoteState.loading &&
+            !shippingQuoteState.error &&
+            shippingQuoteState.availableQuotes.length > 1 && (
+              <View className="mb-3 gap-y-2">
+                <Text className="font-semibold text-gray-900">
+                  Elegí cómo querés recibir tu pedido
+                </Text>
+                {shippingQuoteState.availableQuotes.map((quote) => {
+                  const selected = quote.id === selectedShippingQuote.id;
+                  const isFaster = quote.meta.checkoutChoice === 'faster';
+                  return (
+                    <Pressable
+                      key={quote.id}
+                      onPress={() => shippingQuoteState.selectQuote(quote.id)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selected }}
+                      className={`flex-row items-start gap-x-3 rounded-lg border p-3 ${
+                        selected
+                          ? 'border-indigo-500 bg-indigo-50'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                    >
+                      <View
+                        className={`mt-1 h-4 w-4 rounded-full border-2 items-center justify-center ${
+                          selected ? 'border-indigo-600' : 'border-gray-400'
+                        }`}
+                      >
+                        {selected && (
+                          <View className="h-2 w-2 rounded-full bg-indigo-600" />
+                        )}
+                      </View>
+                      <View className="flex-1 gap-y-1">
+                        <Text className="font-semibold text-gray-900">
+                          {isFaster
+                            ? 'Entrega más rápida'
+                            : 'Envío más económico'}
+                        </Text>
+                        <Text className="text-sm text-gray-700">
+                          {quote.carrier} · {quote.service}
+                        </Text>
+                        <Text className="text-xs text-gray-500">
+                          {formatCheckoutDeliveryEstimate(
+                            quote.estimatedDeliveryAt,
+                          )}
+                        </Text>
+                      </View>
+                      <Text className="text-right text-sm font-semibold text-gray-900">
+                        {quote.shippingAmount === 0
+                          ? 'Sin costo'
+                          : formatCheckoutMoney(
+                              quote.shippingAmount,
+                              quote.storeCurrency,
+                            )}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          {selectedShippingQuote &&
+            !shippingQuoteState.loading &&
+            !shippingQuoteState.error &&
+            shippingQuoteState.availableQuotes.length === 1 && (
+              <View className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-800">
+                  Envío elegido automáticamente · tarifa más económica
+                </Text>
+                <Text className="font-semibold text-gray-900">
+                  {selectedShippingQuote.carrier} ·{' '}
+                  {selectedShippingQuote.service}
+                </Text>
+                <Text className="mt-1 text-xs text-gray-600">
+                  {selectedShippingQuote.shippingAmount === 0
+                    ? 'Sin costo'
+                    : `Envío: ${formatCheckoutMoney(selectedShippingQuote.shippingAmount, selectedShippingQuote.storeCurrency)}`}
+                </Text>
+                <Text className="mt-2 text-xs text-gray-600">
+                  {formatCheckoutDeliveryEstimate(
+                    selectedShippingQuote.estimatedDeliveryAt,
+                  )}
+                </Text>
+              </View>
+            )}
+          {!shippingQuoteState.loading &&
+            !shippingQuoteState.error &&
+            selectedShippingQuote && (
+              <View className="gap-y-2 text-sm">
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-gray-600 text-sm">
+                    Subtotal sin impuestos
+                  </Text>
+                  <Text className="font-semibold text-gray-900 text-sm">
+                    {formatCheckoutMoney(
+                      subtotal,
+                      selectedShippingQuote.storeCurrency,
+                    )}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-gray-600 text-sm">
+                    {selectedShippingQuote.taxName}
+                    {selectedShippingQuote.taxRate
+                      ? ` (${selectedShippingQuote.taxRate}%)`
+                      : ''}
+                  </Text>
+                  <Text className="font-semibold text-gray-900 text-sm">
+                    {formatCheckoutMoney(
+                      taxAmount,
+                      selectedShippingQuote.storeCurrency,
+                    )}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-gray-600 text-sm">
+                    Productos con impuestos
+                  </Text>
+                  <Text className="font-semibold text-gray-900 text-sm">
+                    {formatCheckoutMoney(
+                      productTotal,
+                      selectedShippingQuote.storeCurrency,
+                    )}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-gray-600 text-sm">Envío</Text>
+                  <Text className="font-semibold text-gray-900 text-sm">
+                    {formatCheckoutMoney(
+                      shippingAmount,
+                      selectedShippingQuote.storeCurrency,
+                    )}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between items-center border-t border-gray-100 pt-3 mt-1">
+                  <Text className="font-black text-gray-900 text-base">
+                    Total final
+                  </Text>
+                  <Text className="font-black text-gray-900 text-xl">
+                    {formatCheckoutMoney(
+                      total,
+                      selectedShippingQuote.storeCurrency,
+                    )}
+                  </Text>
+                </View>
+                <Text className="text-xs text-gray-500">
+                  Importe enviado a la pasarela:{' '}
+                  {formatCheckoutMoney(
+                    selectedShippingQuote.paymentTotal,
+                    selectedShippingQuote.paymentCurrency,
+                  )}
+                </Text>
+              </View>
+            )}
+
+          <View className="gap-y-3 pt-2">
+            <Pressable
+              disabled={
+                isProcessing ||
+                shippingQuoteState.loading ||
+                !selectedShippingQuote ||
+                Boolean(shippingQuoteState.error)
+              }
+              onPress={() => handleProcessPayment('mercadopago')}
+              className={`w-full bg-sky-500 h-12 rounded-lg justify-center items-center active:bg-sky-600 shadow-md ${isProcessing ? 'opacity-50' : ''}`}
+            >
+              {isProcessing ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text className="text-white text-sm font-bold">
+                  Pagar de forma segura con Mercado Pago
+                </Text>
+              )}
+            </Pressable>
+          </View>
         </View>
       </View>
     </ScrollView>

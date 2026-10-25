@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useCartStore } from '@/store/useCartStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { authenticatedFetch } from '@/services/authenticatedFetch';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001';
 
@@ -61,7 +62,7 @@ export default function CartSynchronizer() {
           }
         `;
 
-        const response = await fetch(`${API_URL}/api/graphql`, {
+        const response = await authenticatedFetch(`${API_URL}/api/graphql`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

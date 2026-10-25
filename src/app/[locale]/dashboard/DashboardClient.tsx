@@ -2,13 +2,18 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import { useMemo, useState, useTransition } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Link } from '@/lib/I18nRouting';
 import { StoreConfig } from '@/utils/StoreConfig';
 import { updateCatalog } from './actions';
 import CatalogRow from './CatalogRow';
 import OrderRow from './OrderRow';
 import PaymentConnectionsCard from './PaymentConnectionsCard';
+import StorefrontLifecycleManager from './StorefrontLifecycleManager';
 import SubscriptionCard from './SubscriptionCard';
+import SubscriptionPlanManager from './SubscriptionPlanManager';
 import type { DashboardData } from './types';
 
 function money(amount: number, locale: string) {
@@ -65,9 +70,11 @@ function sortCatalogItems<T extends DashboardData['catalogControls'][number]>(
 export default function DashboardClient({
   data,
   canManagePaymentConnections,
+  planPaymentStatus,
 }: {
   data: DashboardData;
   canManagePaymentConnections: boolean;
+  planPaymentStatus: 'success' | 'cancelled' | 'storeClosed' | null;
 }) {
   const t = useTranslations('Dashboard');
   const locale = useLocale();
@@ -179,7 +186,7 @@ export default function DashboardClient({
 
       <Link
         href="/dashboard/solicitudes-legales"
-        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 transition hover:bg-muted/40"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 transition hover:bg-accent"
       >
         <span className="font-semibold">
           {locale === 'es' ? 'Solicitudes de arrepentimiento' : 'Withdrawal requests'}
@@ -193,7 +200,7 @@ export default function DashboardClient({
         <p className="text-xs text-muted-foreground">{t('moneyStatsNote')}</p>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {cards.map(([label, value]) => (
-            <article key={label} className="rounded-2xl border p-5 shadow-sm">
+            <article key={label} className="rounded-2xl border bg-card p-5 shadow-sm">
               <p className="text-sm text-muted-foreground">{label}</p>
               <p className="mt-2 text-2xl font-semibold">{value}</p>
             </article>
@@ -202,7 +209,7 @@ export default function DashboardClient({
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <article className="rounded-2xl border p-5">
+        <article className="rounded-2xl border bg-card p-5">
           <h2 className="text-lg font-semibold">{t('topProducts')}</h2>
           <div className="mt-4 space-y-3">
             {data.topProducts.length === 0 ? (
@@ -228,7 +235,7 @@ export default function DashboardClient({
           </div>
         </article>
 
-        <article className="rounded-2xl border p-5">
+        <article className="rounded-2xl border bg-card p-5">
           <h2 className="text-lg font-semibold">{t('devices')}</h2>
           {deviceTotal === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">{t('noVisits')}</p>
@@ -267,7 +274,7 @@ export default function DashboardClient({
         </article>
       </section>
 
-      <section className="rounded-2xl border p-5">
+      <section className="rounded-2xl border bg-card p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold">{t('catalogControl')}</h2>
@@ -275,7 +282,7 @@ export default function DashboardClient({
           </div>
           <label className="grid gap-1 text-sm">
             <span>{t('sortBy')}</span>
-            <select
+            <Select
               className="rounded-md border bg-background px-3 py-2"
               value={catalogSort}
               onChange={(event) => setCatalogSort(event.target.value as CatalogSort)}
@@ -286,7 +293,7 @@ export default function DashboardClient({
               <option value="stock-desc">{t('sortStockDesc')}</option>
               <option value="price-asc">{t('sortPriceAsc')}</option>
               <option value="price-desc">{t('sortPriceDesc')}</option>
-            </select>
+            </Select>
           </label>
         </div>
 
@@ -294,7 +301,7 @@ export default function DashboardClient({
           <div className="flex flex-wrap items-end gap-4">
             <label className="grid gap-1 text-sm">
               <span className="font-medium">{t('stockAlertThreshold')}</span>
-              <input
+              <Input
                 className="w-36 rounded-md border bg-background px-3 py-2"
                 type="number"
                 min="0"
@@ -306,16 +313,18 @@ export default function DashboardClient({
               />
             </label>
 
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               aria-pressed={alertsEnabled}
               className={`rounded-md border px-4 py-2 text-sm font-medium ${
-                alertsEnabled ? 'border-sky-300 bg-sky-50 text-sky-800' : 'bg-background'
+                alertsEnabled ? 'border-primary/30 bg-accent text-primary' : 'bg-background'
               }`}
               onClick={() => setAlertsEnabled((current) => !current)}
             >
               📱 {alertsEnabled ? t('stockAlertOn') : t('stockAlertOff')}
-            </button>
+            </Button>
 
             <p className="max-w-xl text-xs leading-5 text-muted-foreground">
               {t('stockAlertExplanation')}
@@ -348,14 +357,16 @@ export default function DashboardClient({
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
           <p className="text-sm text-muted-foreground">{catalogFeedback ?? t('catalogSaveHint')}</p>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
             disabled={catalogPending}
             onClick={saveCatalog}
           >
             {catalogPending ? t('saving') : t('saveAllCatalog')}
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -363,7 +374,7 @@ export default function DashboardClient({
         <PaymentConnectionsCard connections={data.paymentConnections} />
       )}
 
-      <section className="rounded-2xl border p-5">
+      <section className="rounded-2xl border bg-card p-5">
         <div>
           <h2 className="text-lg font-semibold">{t('recentOrders')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t('recentOrdersSubtitle')}</p>
@@ -379,6 +390,15 @@ export default function DashboardClient({
         commissionPercent={data.commissionPercent}
         monthlyCompletedRevenue={data.monthlyCompletedRevenue}
         commissionAmount={data.commissionAmount}
+      />
+
+      <StorefrontLifecycleManager
+        status={data.subscription.storefrontStatus}
+        closedAt={data.subscription.storefrontClosedAt}
+      />
+      <SubscriptionPlanManager
+        subscription={data.subscription}
+        planPaymentStatus={planPaymentStatus}
       />
     </div>
   );

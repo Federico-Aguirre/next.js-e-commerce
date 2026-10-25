@@ -73,13 +73,21 @@ export function CredentialsForm({ mode }: CredentialsFormProps) {
   return (
     <form action={formAction} className="space-y-4">
       {mode === 'sign-in' && isRegistered && (
-        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-600 dark:text-emerald-400">
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-lg border border-success/20 bg-success/10 p-3 text-xs text-success"
+        >
           ¡Cuenta creada exitosamente! Ya puedes iniciar sesión.
         </div>
       )}
 
       {state?.error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500">
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive"
+        >
           {state.error}
         </div>
       )}
@@ -105,24 +113,18 @@ export function CredentialsForm({ mode }: CredentialsFormProps) {
         {buttonLabel}
       </Button>
 
-      <p className="pt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="pt-2 text-center text-xs text-muted-foreground">
         {mode === 'sign-in' ? (
           <>
             {t('noAccount')}{' '}
-            <Link
-              href="/sign-up"
-              className="font-semibold text-zinc-900 underline dark:text-zinc-100"
-            >
+            <Link href="/sign-up" className="font-semibold text-foreground underline">
               {t('signUpLink')}
             </Link>
           </>
         ) : (
           <>
             {t('alreadyHaveAccount')}{' '}
-            <Link
-              href="/sign-in"
-              className="font-semibold text-zinc-900 underline dark:text-zinc-100"
-            >
+            <Link href="/sign-in" className="font-semibold text-foreground underline">
               {t('signInLink')}
             </Link>
           </>

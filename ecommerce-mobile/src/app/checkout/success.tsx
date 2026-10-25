@@ -9,6 +9,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCartStore } from '@/store/useCartStore';
+import { authenticatedFetch } from '@/services/authenticatedFetch';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || 'http://192.168.3.2:3001';
@@ -38,11 +39,14 @@ export default function SuccessScreen() {
         ordenProcesada.current = true;
 
         try {
-          const res = await fetch(`${API_BASE_URL}/api/orders/confirm`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paymentId }),
-          });
+          const res = await authenticatedFetch(
+            `${API_BASE_URL}/api/orders/confirm`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ paymentId }),
+            },
+          );
 
           if (!res.ok) throw new Error('Falló la confirmación de la orden');
 

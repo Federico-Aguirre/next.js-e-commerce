@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   ANALYTICS_CONSENT_EVENT,
   readAnalyticsConsent,
@@ -65,30 +66,36 @@ export default function AnalyticsConsentBanner() {
             </Link>
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               onClick={() => choose('accepted')}
               className="min-h-10 cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
               {es ? 'Aceptar analítica opcional' : 'Accept optional analytics'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               onClick={() => choose('rejected')}
               className="min-h-10 cursor-pointer rounded-lg border px-4 py-2 text-sm font-medium"
             >
               {es ? 'Rechazar analítica' : 'Reject analytics'}
-            </button>
+            </Button>
           </div>
         </aside>
       ) : (
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           type="button"
           onClick={reopen}
           className="fixed bottom-3 left-3 z-[90] rounded-full border bg-background/95 px-3 py-2 text-xs font-medium shadow-lg sm:bottom-4 sm:left-4"
         >
           {es ? 'Preferencias de cookies' : 'Cookie preferences'}
-        </button>
+        </Button>
       )}
     </>
   );

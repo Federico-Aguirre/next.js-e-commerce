@@ -14,6 +14,7 @@ import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
 import { useAuthStore } from '@/store/useAuthStore';
+import { storeMobileAuthToken } from '@/services/authenticatedFetch';
 
 const DEFAULT_LOCAL_URL = 'http://192.168.3.9.nip.io:3001';
 
@@ -45,6 +46,7 @@ export default function RootLayout() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error en autenticación');
 
+        await storeMobileAuthToken(data.accessToken);
         setSession({ user: data.user });
 
         if (platform === 'web') {

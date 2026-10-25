@@ -1,19 +1,20 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-
 import type { PayPalCardSession } from './types';
 
 type PayPalCardFieldsProps = {
   session: PayPalCardSession | null;
   onReady: () => void;
   onError: (message: string) => void;
+  className?: string;
 };
 
 export default function PayPalCardFields({
   session,
   onReady,
   onError,
+  className,
 }: PayPalCardFieldsProps) {
   const numberRef = useRef<HTMLDivElement>(null);
   const expiryRef = useRef<HTMLDivElement>(null);
@@ -76,39 +77,36 @@ export default function PayPalCardFields({
   }, [session, onReady, onError]);
 
   return (
-    <div className="space-y-4">
+    <div
+      className={`space-y-4 ${className || ''}`}
+      aria-hidden={Boolean(className?.includes('hidden'))}
+    >
       <div>
-        <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+        <label className="mb-1.5 block text-sm font-semibold text-foreground">
           Número de tarjeta
         </label>
 
-        <div
-          ref={numberRef}
-          className="h-11 w-full rounded-md border border-gray-300 bg-white px-3"
-        />
+        <div ref={numberRef} className="h-11 w-full rounded-md border border-border bg-card px-3" />
       </div>
 
       <div className="flex gap-3">
         <div className="flex-1">
-          <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+          <label className="mb-1.5 block text-sm font-semibold text-foreground">
             Fecha de vencimiento
           </label>
 
           <div
             ref={expiryRef}
-            className="h-11 w-full rounded-md border border-gray-300 bg-white px-3"
+            className="h-11 w-full rounded-md border border-border bg-card px-3"
           />
         </div>
 
         <div className="flex-1">
-          <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+          <label className="mb-1.5 block text-sm font-semibold text-foreground">
             Código de seguridad
           </label>
 
-          <div
-            ref={cvvRef}
-            className="h-11 w-full rounded-md border border-gray-300 bg-white px-3"
-          />
+          <div ref={cvvRef} className="h-11 w-full rounded-md border border-border bg-card px-3" />
         </div>
       </div>
     </div>

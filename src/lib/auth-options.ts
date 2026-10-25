@@ -1,20 +1,37 @@
+import 'server-only';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import bcrypt from 'bcryptjs';
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import FacebookProvider from 'next-auth/providers/facebook';
 import GoogleProvider from 'next-auth/providers/google';
+import {
+  refreshSessionTokenIdentity,
+  resolveNextAuthSecret,
+  SESSION_MAX_AGE_SECONDS,
+  type SessionIdentityLookup,
+} from '@/lib/auth/session-security';
 import { Env } from '@/lib/Env';
 import { prisma } from '@/lib/prisma';
+import {
+  checkRateLimit,
+  getRequestClientIpFromHeaders,
+  hashRateLimitIdentity,
+} from '@/lib/security/rate-limit';
+
+const invalidCredentialsMessage = 'Correo electrónico o contraseña incorrectos';
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  secret: process.env.NEXTAUTH_SECRET || Env.NEXTAUTH_SECRET || 'dev_secret_key_123456789',
-  // En desarrollo la app puede abrirse por localhost/HTTP o por ngrok/HTTPS.
-  // No fijamos Secure en ese entorno para que la sesión funcione en ambos casos.
+  secret: resolveNextAuthSecret(process.env.NEXTAUTH_SECRET, process.env.NODE_ENV),
+  // NextAuth usa cookies HttpOnly y SameSite=Lax por defecto; Secure se activa en producción.
   useSecureCookies: process.env.NODE_ENV === 'production',
   session: {
     strategy: 'jwt', // Necesario para combinar PrismaAdapter con CredentialsProvider
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  },
+  jwt: {
+    maxAge: SESSION_MAX_AGE_SECONDS,
   },
   providers: [
     GoogleProvider({
@@ -32,23 +49,42 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'text' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error('Faltan datos de inicio de sesión');
+      async authorize(credentials, request) {
+        const ip = getRequestClientIpFromHeaders(request.headers ?? {});
+        const ipLimit = checkRateLimit('credentials-login:ip:' + hashRateLimitIdentity(ip), {
+          limit: 12,
+          windowMs: 15 * 60_000,
+        });
+        if (!ipLimit.allowed) {
+          throw new Error(invalidCredentialsMessage);
+        }
+
+        const email = credentials?.email?.trim().toLowerCase() ?? '';
+        const password = credentials?.password ?? '';
+        if (!email || email.length > 254 || !password || password.length > 128) {
+          throw new Error(invalidCredentialsMessage);
+        }
+
+        const emailLimit = checkRateLimit(
+          'credentials-login:email:' + hashRateLimitIdentity(email),
+          { limit: 8, windowMs: 15 * 60_000 },
+        );
+        if (!emailLimit.allowed) {
+          throw new Error(invalidCredentialsMessage);
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email },
         });
 
-        if (!user || !user.password) {
-          throw new Error('Usuario no encontrado o autenticado con proveedor');
+        if (!user?.password) {
+          throw new Error(invalidCredentialsMessage);
         }
 
-        const isValid = await bcrypt.compare(credentials.password, user.password);
+        const isValid = await bcrypt.compare(password, user.password);
 
         if (!isValid) {
-          throw new Error('Contraseña incorrecta');
+          throw new Error(invalidCredentialsMessage);
         }
 
         return {
@@ -62,26 +98,32 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
+      if (user?.id) {
         token.id = user.id;
-        token.isAdmin = user.isAdmin;
-      } else if (token.email && token.isAdmin === undefined) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email },
-          select: { isAdmin: true },
-        });
-        token.isAdmin = dbUser?.isAdmin;
       }
-      return token;
+
+      return refreshSessionTokenIdentity(token, async (lookup: SessionIdentityLookup) => {
+        const where = 'id' in lookup ? { id: lookup.id } : { email: lookup.email };
+
+        return prisma.user.findUnique({
+          where,
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            isAdmin: true,
+            isPlatformOwner: true,
+          },
+        });
+      });
     },
     async session({ session, token }) {
       if (session.user) {
-        if (token.id) {
-          session.user.id = token.id as string;
-        }
-        if (token.isAdmin !== undefined) {
-          session.user.isAdmin = token.isAdmin as boolean;
-        }
+        session.user.id = typeof token.id === 'string' ? token.id : '';
+        session.user.isAdmin = token.isAdmin === true;
+        session.user.isPlatformOwner = token.isPlatformOwner === true;
+        session.user.email = typeof token.email === 'string' ? token.email : null;
+        session.user.name = typeof token.name === 'string' ? token.name : null;
       }
       return session;
     },

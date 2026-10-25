@@ -4,6 +4,8 @@ import { Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Link } from '@/lib/I18nRouting';
 import { RatingStars } from './RatingStars';
 
@@ -127,7 +129,7 @@ export function ProductReviews({
 
   return (
     <section
-      className="border-border space-y-6 border-t pt-10"
+      className="space-y-6 border-t border-border pt-10"
       aria-labelledby="product-reviews-title"
     >
       <div>
@@ -150,7 +152,7 @@ export function ProductReviews({
       {reviews.length === 0 ? (
         <p className="text-sm text-muted-foreground">{labels.empty}</p>
       ) : (
-        <div className="divide-border border-border divide-y rounded-2xl border">
+        <div className="divide-y divide-border rounded-2xl border border-border">
           {reviews.map((review) => {
             const authorName = review.authorName?.trim().split(/\s+/)[0];
             const reviewDate = new Intl.DateTimeFormat(dateLocale, {
@@ -187,65 +189,69 @@ export function ProductReviews({
         </div>
       )}
 
-      <div className="border-border rounded-2xl border bg-muted/30 p-5 sm:p-6">
+      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         {hasReviewed ? (
           <p className="text-sm text-muted-foreground">{labels.alreadyReviewed}</p>
         ) : canReview ? (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <p className="mb-2 text-sm font-medium">{labels.ratingLabel}</p>
+            <fieldset className="min-w-0 border-0 p-0">
+              <legend className="mb-2 text-sm font-medium">{labels.ratingLabel}</legend>
               <div className="flex items-center gap-1">
                 {Array.from({ length: 5 }, (_, index) => {
                   const value = index + 1;
                   const selected = value <= rating;
 
                   return (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       key={value}
                       type="button"
                       aria-label={`${value} ${labels.star}`}
                       aria-pressed={rating === value}
                       onClick={() => setRating(value)}
-                      className="cursor-pointer rounded p-1 text-amber-500 transition hover:bg-amber-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      className="cursor-pointer rounded p-1 text-rating transition hover:bg-rating/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                     >
                       <Star size={27} strokeWidth={1.8} fill={selected ? 'currentColor' : 'none'} />
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
-            </div>
+            </fieldset>
 
             <div>
               <label htmlFor="product-review-comment" className="mb-2 block text-sm font-medium">
                 {labels.commentLabel}
               </label>
-              <textarea
+              <Textarea
                 id="product-review-comment"
                 value={comment}
                 onChange={(event) => setComment(event.target.value)}
                 maxLength={1000}
                 rows={3}
                 placeholder={labels.commentPlaceholder}
-                className="border-border w-full resize-y rounded-lg border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="w-full resize-y rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               />
             </div>
 
             {message ? (
               <p
                 role="status"
-                className={`text-sm ${messageIsError ? 'text-red-600' : 'text-green-700'}`}
+                className={`text-sm ${messageIsError ? 'text-destructive' : 'text-success'}`}
               >
                 {message}
               </p>
             ) : null}
 
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="submit"
               disabled={submitting}
               className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
             >
               {submitting ? labels.submitting : labels.submit}
-            </button>
+            </Button>
           </form>
         ) : (
           <p className="text-sm leading-6 text-muted-foreground">

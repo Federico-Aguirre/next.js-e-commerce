@@ -1,6 +1,9 @@
 import 'server-only';
 import { productsData } from '@/data/products';
-import { prisma } from '@/lib/prisma';
+import {
+  getCachedCatalogReviewAggregates,
+  getPublicCatalogProducts,
+} from '@/lib/catalog/public-catalog';
 import type { Product } from '@/types/product';
 import { StoreConfig } from '@/utils/StoreConfig';
 import type { CatalogCategory, CatalogMedia, CatalogProduct } from './catalog-domain';
@@ -110,34 +113,8 @@ const toCatalogProduct = (
 
 export async function createProductCatalog(translate: CatalogTranslator) {
   const [databaseProducts, reviewAggregates] = await Promise.all([
-    prisma.product.findMany({
-      orderBy: { id: 'asc' },
-      select: {
-        id: true,
-        price: true,
-        isActive: true,
-        variants: {
-          orderBy: { id: 'asc' },
-          select: {
-            id: true,
-            colorName: true,
-            skus: {
-              orderBy: { articleId: 'asc' },
-              select: {
-                id: true,
-                articleId: true,
-                size: true,
-                stock: true,
-              },
-            },
-          },
-        },
-      },
-    }),
-    prisma.productReview.groupBy({
-      by: ['productId'],
-      _avg: { rating: true },
-    }),
+    getPublicCatalogProducts(),
+    getCachedCatalogReviewAggregates(),
   ]);
   const ratingByProductId = new Map(
     reviewAggregates.map((aggregate) => [aggregate.productId, aggregate._avg.rating ?? undefined]),

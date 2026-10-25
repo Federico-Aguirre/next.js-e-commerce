@@ -5,6 +5,7 @@ import { CatalogFilters } from '@/components/ecommerce/CatalogFilters';
 import { Pagination } from '@/components/ecommerce/Pagination';
 import { ProductGrid } from '@/components/ecommerce/ProductGrid';
 import { StorefrontState } from '@/components/ecommerce/StorefrontStates';
+import { SectionHeading } from '@/components/ui/section-heading';
 
 type ProductsPageProps = {
   params: Promise<{ locale: string }>;
@@ -137,31 +138,24 @@ export default async function ProductsPage(props: ProductsPageProps) {
 
   return (
     <div className="space-y-10 py-8 sm:py-12">
-      <section className="space-y-4">
-        <p className="text-xs font-semibold tracking-[0.2em] text-primary uppercase">
-          {t('eyebrow')}
-        </p>
-
-        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{t('title')}</h1>
-
-            <p className="mt-3 text-base leading-7 text-muted-foreground sm:text-lg">
-              {t('description')}
-            </p>
-          </div>
-
+      <SectionHeading
+        level="h1"
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('description')}
+        action={
           <p className="text-sm text-muted-foreground">
             {t('resultCount', { count: filtered.length })}
           </p>
-        </div>
-      </section>
+        }
+        className="gap-5"
+        contentClassName="max-w-3xl"
+      />
 
       <div className="grid gap-8 lg:grid-cols-[minmax(180px,20%)_1fr] lg:items-start">
         <aside className="lg:sticky lg:top-24">
           <CatalogFilters
             categories={categories}
-            searchParams={query}
             options={{
               colors: [
                 ...new Map(

@@ -7,8 +7,6 @@ import {
   requestOrigin,
 } from '@/lib/payments/onboarding';
 
-export const dynamic = 'force-dynamic';
-
 function base64url(value: Buffer) {
   return value.toString('base64url');
 }

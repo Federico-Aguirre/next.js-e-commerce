@@ -40,7 +40,7 @@ model Session {
 }
 
 model User {
-  id                 String     @id @default(uuid())
+  id                 String            @id @default(uuid())
   name               String?
   firstName          String?
   lastName           String?
@@ -52,20 +52,75 @@ model User {
   shippingCity       String?
   shippingProvince   String?
   shippingPostalCode String?
-  shippingCountry    String?    @default("Argentina")
-  email              String?    @unique
+  shippingCountry    String?           @default("Argentina")
+  email              String?           @unique
   emailVerified      DateTime?
   image              String?
   password           String? // es opcional porque los de Google no tienen contraseña
-  createdAt          DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  accounts      Account[]
-  sessions      Session[]
-  orders        Order[]
-  cartItems      CartItem[]
-  productReviews ProductReview[]
-  isAdmin        Boolean       @default(false)
-  isPlatformOwner Boolean      @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  accounts           Account[]
+  sessions           Session[]
+  orders             Order[]
+  paymentCustomers   PaymentCustomer[]
+  deliveryAddresses  DeliveryAddress[]
+  cartItems          CartItem[]
+  productReviews     ProductReview[]
+  isAdmin            Boolean           @default(false)
+  isPlatformOwner    Boolean           @default(false)
+}
+
+model DeliveryAddress {
+  id                 String   @id @default(cuid())
+  userId             String
+  label              String   @default("Casa")
+  shippingStreet     String
+  shippingNumber     String
+  shippingApartment  String?
+  shippingCity       String
+  shippingProvince   String
+  shippingPostalCode String
+  shippingCountry    String   @default("Argentina")
+  isDefault          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isDefault, createdAt])
+}
+
+model PaymentCustomer {
+  id                 String               @id @default(cuid())
+  userId             String
+  provider           String
+  accountScope       String
+  externalCustomerId String
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cards              SavedPaymentMethod[]
+
+  @@unique([userId, provider, accountScope])
+  @@unique([provider, accountScope, externalCustomerId])
+  @@index([userId, provider])
+}
+
+model SavedPaymentMethod {
+  id                String          @id @default(cuid())
+  paymentCustomerId String
+  externalCardId    String
+  paymentMethodId   String
+  paymentType       String?
+  paymentMethodName String?
+  lastFourDigits    String?
+  expirationMonth   Int?
+  expirationYear    Int?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  paymentCustomer   PaymentCustomer @relation(fields: [paymentCustomerId], references: [id], onDelete: Cascade)
+
+  @@unique([paymentCustomerId, externalCardId])
+  @@index([paymentCustomerId, createdAt])
 }
 
 model WishlistItem {
@@ -149,77 +204,84 @@ model ProductSku {
 }
 
 model Order {
-  id                 String      @id @default(uuid())
-  orderNumber        Int         @unique @default(autoincrement())
-  userId             String
-  total              Float // Final total including the saved tax snapshot, in currency
-  subtotal           Float       @default(0) // Order item subtotal before tax
-  taxAmount          Float       @default(0) // Saved tax total in order currency
-  taxRate            Float? // Percentage rate saved at checkout; null when destination tax is jurisdictional/unknown
-  taxCalculationMethod String?
-  taxCountry         String?
-  taxName            String?
-  currency           String      @default("ARS")
-  paymentCurrency    String      @default("USD")
-  paymentTotal       Float? // Exact amount sent to the payment provider
-  paymentExchangeRate Float? // Multiplier from store base currency to payment currency
-  status             String // Payment status: "PENDING", "PAID", "REFUND_PENDING", "REFUNDED", "EXPIRED"
-  checkoutKey        String?     @unique
-  paymentProvider     String?
-  paymentExternalId   String?
-  refundExternalId    String?
-  refundStatus        String?
-  refundedAt          DateTime?
-  cancelledAt         DateTime?
-  deliveredAt         DateTime?
-  fulfillmentStatus   String      @default("PENDING")
-  trackingCode        String?
-  estimatedDeliveryAt DateTime?
-  lastDeliveryAlertAt DateTime?
-  shippingProvider    String?
-  shippingMode        String?
-  shippingExternalId  String?
-  shippingCarrier     String?
-  shippingService     String?
-  shippingRate        Float?
-  shippingCurrency    String?
-  shippingLabelUrl    String?
-  shippingTrackingUrl String?
-  shippingStatus      String?
-  shippingError       String?       @db.Text
-  deliveryFirstName   String?
-  deliveryLastName    String?
-  deliveryPhone       String?
-  deliveryDni         String?
-  deliveryStreet      String?
-  deliveryNumber      String?
-  deliveryApartment   String?
-  deliveryCity        String?
-  deliveryProvince    String?
-  deliveryPostalCode  String?
-  deliveryCountry     String?
-  createdAt           DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  expiresAt          DateTime
-  user               User        @relation(fields: [userId], references: [id])
-  items              OrderItem[]
-  emailNotifications OrderEmailNotification[]
-  productReviews     ProductReview[]
+  id                    String                   @id @default(uuid())
+  orderNumber           Int                      @unique @default(autoincrement())
+  userId                String
+  total                 Float // Final total including the saved tax snapshot, in currency
+  subtotal              Float                    @default(0) // Order item subtotal before tax
+  taxAmount             Float                    @default(0) // Saved tax total in order currency
+  taxRate               Float? // Percentage rate saved at checkout; null when destination tax is jurisdictional/unknown
+  taxCalculationMethod  String?
+  taxCountry            String?
+  taxName               String?
+  currency              String                   @default("ARS")
+  paymentCurrency       String                   @default("USD")
+  paymentTotal          Float? // Exact amount sent to the payment provider
+  paymentExchangeRate   Float? // Multiplier from store base currency to payment currency
+  platformCommissionPercent Float? // Effective platform commission snapshot applied to this payment
+  platformFeeAmount      Float? // Platform commission snapshot in store currency (ARS)
+  platformRecoveryAmount Float    @default(0) // Portion of this payment allocated to customization-cost recovery
+  platformRecoveryCycleStartedAt DateTime? // Recovery cycle to which this payment belongs
+  status                String // Payment status: "PENDING", "PAID", "REFUND_PENDING", "REFUNDED", "EXPIRED"
+  checkoutKey           String?                  @unique
+  paymentProvider       String?
+  paymentExternalId     String?
+  refundExternalId      String?
+  refundStatus          String?
+  refundedAt            DateTime?
+  cancelledAt           DateTime?
+  deliveredAt           DateTime?
+  fulfillmentStatus     String                   @default("PENDING")
+  trackingCode          String?
+  estimatedDeliveryAt   DateTime?
+  lastDeliveryAlertAt   DateTime?
+  shippingProvider      String?
+  shippingMode          String?
+  shippingExternalId    String?
+  shippingCarrier       String?
+  shippingService       String?
+  shippingRate          Float?
+  shippingCurrency      String?
+  shippingAmount        Float                    @default(0) // Shipping amount charged to the buyer, in order currency
+  shippingQuoteRate     Float? // Carrier quote selected at checkout, in the quote currency
+  shippingQuoteCurrency String?
+  shippingLabelUrl      String?
+  shippingTrackingUrl   String?
+  shippingStatus        String?
+  shippingError         String?                  @db.Text
+  deliveryFirstName     String?
+  deliveryLastName      String?
+  deliveryPhone         String?
+  deliveryDni           String?
+  deliveryStreet        String?
+  deliveryNumber        String?
+  deliveryApartment     String?
+  deliveryCity          String?
+  deliveryProvince      String?
+  deliveryPostalCode    String?
+  deliveryCountry       String?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  expiresAt             DateTime
+  user                  User                     @relation(fields: [userId], references: [id])
+  items                 OrderItem[]
+  emailNotifications    OrderEmailNotification[]
+  productReviews        ProductReview[]
 }
 
 model OrderEmailNotification {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   orderId           String
-  type              String   @default("PURCHASE_CONFIRMATION")
+  type              String    @default("PURCHASE_CONFIRMATION")
   recipientEmail    String
-  status            String   @default("PENDING")
-  attempts          Int      @default(0)
+  status            String    @default("PENDING")
+  attempts          Int       @default(0)
   providerMessageId String?
-  lastError         String?  @db.Text
+  lastError         String?   @db.Text
   sentAt            DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@unique([orderId, type])
   @@index([status, updatedAt])
@@ -284,12 +346,54 @@ model InventoryAlertSettings {
 }
 
 model StoreSubscription {
-  id                String    @id @default("default")
-  status            String    @default("ACTIVE")
-  nextPaymentAt     DateTime?
-  commissionPercent Float     @default(10)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                          String                     @id @default("default")
+  status                      String                     @default("ACTIVE")
+  storefrontStatus            String                     @default("OPEN")
+  storefrontClosedAt          DateTime?
+  planType                    String                     @default("STANDARD")
+  nextPaymentAt               DateTime?
+  commissionPercent           Float                      @default(8)
+  setupRecoveryTarget         Float                      @default(200000)
+  setupRecoveryStartedAt      DateTime?
+  customizationRecoveryActive Boolean                    @default(false)
+  monthlyPriceARS             Float                      @default(75000)
+  pendingProCheckoutSessionId String?
+  pendingProCheckoutExpiresAt DateTime?
+  pendingProPaymentId         String?
+  pendingProPaymentProvider   String?
+  pendingProPaymentExpiresAt  DateTime?
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+  proPayments                 StoreSubscriptionPayment[]
+}
+
+model StoreSubscriptionPayment {
+  id                     String           @id @default(cuid())
+  subscriptionId         String           @default("default")
+  adminUserId            String
+  stripeCheckoutSessionId String?          @unique
+  stripePaymentIntentId  String?          @unique
+  paymentProvider        String           @default("STRIPE")
+  externalPaymentId      String?
+  providerTransactionId  String?
+  paymentAttemptId       String?          @unique
+  paymentMethodRef       String?
+  amountARS              Int
+  paymentAmount          Float            @default(75000)
+  paymentCurrency        String           @default("ARS")
+  exchangeRate           Float            @default(1)
+  currency               String           @default("ARS")
+  status                 String           @default("PAID")
+  paidAt                 DateTime?
+  paidThrough            DateTime
+  createdAt              DateTime         @default(now())
+  subscription           StoreSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([paymentProvider, externalPaymentId])
+  @@unique([paymentProvider, providerTransactionId])
+  @@index([adminUserId, createdAt])
+  @@index([adminUserId, paymentProvider, createdAt])
+  @@index([paidThrough])
 }
 
 model StorePaymentConnection {

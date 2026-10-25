@@ -18,8 +18,17 @@ export interface CartItem {
 
 interface CartState {
   cart: CartItem[];
+  isBuyNow: boolean;
+  buyNowBackup: CartItem[] | null;
   // stockMaximo ahora es un segundo parámetro opcional
   addToCart: (item: Omit<CartItem, 'quantity'>, stockMaximo?: number) => void;
+  beginBuyNow: (
+    item: Omit<CartItem, 'quantity'>,
+    quantity: number,
+    stockMaximo?: number,
+  ) => boolean;
+  finishCheckout: () => void;
+  cancelBuyNow: () => void;
   removeFromCart: (articleId: number, size: string) => void;
   clearCart: () => void;
   getCartCount: () => number;
@@ -32,6 +41,8 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       cart: [],
+      isBuyNow: false,
+      buyNowBackup: null,
 
       addToCart: (newItem, stockMaximo) => {
         const currentCart = get().cart;
@@ -69,6 +80,48 @@ export const useCartStore = create<CartState>()(
           // Si hay stock, lo agregamos al array con cantidad inicial de 1
           set({ cart: [...currentCart, { ...newItem, quantity: 1 }] });
         }
+      },
+
+      beginBuyNow: (item, quantity, stockMaximo) => {
+        if (
+          !Number.isInteger(quantity) ||
+          quantity < 1 ||
+          (stockMaximo !== undefined && stockMaximo < 1)
+        ) {
+          return false;
+        }
+
+        const safeQuantity = Math.min(quantity, stockMaximo ?? 99);
+        const current = get();
+        set({
+          cart: [{ ...item, quantity: safeQuantity }],
+          buyNowBackup: current.isBuyNow ? current.buyNowBackup : current.cart,
+          isBuyNow: true,
+        });
+        return true;
+      },
+
+      finishCheckout: () => {
+        const current = get();
+        if (current.isBuyNow) {
+          set({
+            cart: current.buyNowBackup ?? [],
+            buyNowBackup: null,
+            isBuyNow: false,
+          });
+          return;
+        }
+        set({ cart: [] });
+      },
+
+      cancelBuyNow: () => {
+        const current = get();
+        if (!current.isBuyNow) return;
+        set({
+          cart: current.buyNowBackup ?? [],
+          buyNowBackup: null,
+          isBuyNow: false,
+        });
       },
 
       removeFromCart: (articleId, size) => {

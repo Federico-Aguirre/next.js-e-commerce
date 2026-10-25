@@ -21,10 +21,10 @@ export default function OrderSummary({ cartItems }: OrderSummaryProps) {
   );
 
   return (
-    <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-      <h3 className="mb-4 text-base font-bold text-gray-900">Resumen de compra</h3>
+    <div className="mb-6 rounded-lg border border-border bg-muted/40 p-4">
+      <h3 className="mb-4 text-base font-bold text-foreground">Resumen de compra</h3>
       <div className="flex items-start justify-between gap-4">
-        <span className="text-sm font-semibold text-gray-600">
+        <span className="text-sm font-semibold text-muted-foreground">
           {currency === 'ARS' ? 'Total:' : 'Precio base:'}
         </span>
         <TaxInclusivePrice
@@ -32,7 +32,7 @@ export default function OrderSummary({ cartItems }: OrderSummaryProps) {
           grossAmountOverride={totals.total}
           locale={currency === 'ARS' ? 'es-AR' : 'en-US'}
           compact={false}
-          className="text-xl font-extrabold text-gray-900"
+          className="text-xl font-extrabold text-foreground"
         />
       </div>
     </div>

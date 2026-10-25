@@ -1,10 +1,9 @@
-import { NextResponse } from 'next/server';
+import { connection, NextResponse } from 'next/server';
 import { CURRENCIES, SUPPORTED_CURRENCY_CODES } from '@/lib/currency/currencies';
 import { getLatestUsdExchangeRates } from '@/lib/currency/exchange-rates';
 
-export const revalidate = 86400;
-
 export async function GET() {
+  await connection();
   try {
     const data = await getLatestUsdExchangeRates();
     const rates = Object.fromEntries(

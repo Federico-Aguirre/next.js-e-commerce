@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { Link } from '@/lib/I18nRouting';
 import { prisma } from '@/lib/prisma';
 import { getDashboardAdmin } from '../data';
 import { updateConsumerRequestStatus } from './actions';
-
-export const dynamic = 'force-dynamic';
 
 export default async function LegalRequestsPage({
   params,
@@ -115,7 +115,7 @@ export default async function LegalRequestsPage({
                   <span className="text-muted-foreground">
                     {es ? 'Estado de gestión' : 'Handling status'}
                   </span>
-                  <select
+                  <Select
                     name="status"
                     defaultValue={request.status}
                     className="min-h-10 rounded-md border bg-background px-3 py-2"
@@ -123,14 +123,16 @@ export default async function LegalRequestsPage({
                     <option value="RECEIVED">{es ? 'Recibida' : 'Received'}</option>
                     <option value="IN_REVIEW">{es ? 'En revisión' : 'In review'}</option>
                     <option value="COMPLETED">{es ? 'Resuelta' : 'Resolved'}</option>
-                  </select>
+                  </Select>
                 </label>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   type="submit"
                   className="min-h-10 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
                 >
                   {es ? 'Guardar estado' : 'Save status'}
-                </button>
+                </Button>
               </form>
             </article>
           ))}

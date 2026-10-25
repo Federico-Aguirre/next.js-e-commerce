@@ -1,29 +1,41 @@
 import { MercadoPagoConfig, Preference } from 'mercadopago';
-import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { z } from 'zod';
 import { isCheckoutProfileComplete } from '@/lib/account/checkout-profile';
-import { authOptions } from '@/lib/auth-options';
+import { getAuthenticatedUser } from '@/lib/auth/request-user';
 import { resolveCartSku, restoreOrderStock } from '@/lib/checkout/inventory';
+import { roundCurrencyAmount } from '@/lib/currency/currencies';
+import { amountInPaymentCurrency } from '@/lib/currency/payment-amount';
+import type { PaymentConversion, ProviderCurrency } from '@/lib/currency/payment-amount';
+import { expireStaleCheckoutOrders } from '@/lib/orders/expired-checkout-cleanup';
+import { sendOrderConfirmationEmail } from '@/lib/orders/order-confirmation-email';
 import {
-  amountAtExchangeRate,
-  amountInPaymentCurrency,
-  loadPaymentConversion,
-} from '@/lib/currency/payment-amount';
-import type { ProviderCurrency } from '@/lib/currency/payment-amount';
+  buildPayPalOrderCardSource,
+  getPayPalSavedCardScope,
+  getPayPalSandboxAccessToken,
+  getPayPalVaultHeaders,
+} from '@/lib/payments/paypal-saved-cards';
 import {
   mercadoPagoPaymentConfig,
   paypalAuthAssertion,
   paypalPaymentConfig,
   platformFeeForProducts,
+  refreshPlatformSubscriptionPlan,
   stripePaymentConfig,
 } from '@/lib/payments/platform-config';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, hashRateLimitIdentity } from '@/lib/security/rate-limit';
+import { verifyCheckoutQuoteToken } from '@/lib/shipping/checkout-quote-token';
+import type { CheckoutShippingOption } from '@/lib/shipping/types';
+import {
+  StorefrontClosedError,
+  getStorefrontStatus,
+  lockOpenStorefrontForNewOrder,
+} from '@/lib/storefront/storefront-status';
 import { calculateBasketTax, calculateTaxBreakdown } from '@/lib/tax/tax-calculation';
 import { getCountryTaxProfile } from '@/lib/tax/tax-rates';
 import { StoreConfig } from '@/utils/StoreConfig';
-
-export const dynamic = 'force-dynamic';
 
 const PAYPAL_API_BASE =
   process.env.PAYPAL_ENVIRONMENT === 'production'
@@ -69,124 +81,99 @@ async function generatePayPalAccessToken() {
   return data.access_token;
 }
 
-async function cleanupLegacyPendingOrders(userId: string) {
-  const legacyOrders = await prisma.order.findMany({
-    where: {
-      userId,
-      status: 'PENDING',
-      checkoutKey: null,
-    },
-    include: { items: true },
-  });
+const CheckoutIdSchema = z.union([
+  z.string().trim().min(1).max(191),
+  z.number().int().positive().safe(),
+]);
 
-  for (const order of legacyOrders) {
-    let canRelease = false;
-
-    if (order.paymentProvider === 'MERCADOPAGO' && !order.paymentExternalId) {
-      canRelease = true;
-    } else if (order.paymentProvider === 'STRIPE' && order.paymentExternalId) {
-      const { secretKey: stripeSecretKey } = await stripePaymentConfig();
-      if (!stripeSecretKey) continue;
-
-      const stripe = new Stripe(stripeSecretKey);
-      const paymentIntent = await stripe.paymentIntents.retrieve(order.paymentExternalId);
-      if (paymentIntent.status === 'succeeded') continue;
-      if (paymentIntent.status !== 'canceled') {
-        await stripe.paymentIntents.cancel(paymentIntent.id);
-      }
-      canRelease = true;
+const CheckoutRequestSchema = z
+  .object({
+    items: z
+      .array(
+        z.object({
+          id: CheckoutIdSchema.optional(),
+          articleId: CheckoutIdSchema.optional(),
+          productId: CheckoutIdSchema.optional(),
+          variantId: z.string().trim().min(1).max(191).optional(),
+          colorName: z.string().trim().max(100).optional(),
+          title: z.string().trim().max(200).optional().default(''),
+          price: z.coerce.number().finite().nonnegative().optional(),
+          quantity: z.coerce.number().int().min(1).max(99),
+          image: z.string().max(2048).optional().default(''),
+          size: z.string().trim().min(1).max(32),
+        }),
+      )
+      .min(1)
+      .max(100),
+    paymentMethod: z.enum(['mercadopago', 'mercadopago-card', 'stripe', 'paypal']),
+    checkoutKey: z.string().uuid().optional(),
+    savePaymentMethod: z.boolean().optional().default(false),
+    savedPaymentMethodId: z.string().trim().min(1).max(191).optional(),
+    deliveryAddressId: z.string().trim().min(1).max(191).optional(),
+    shippingQuoteToken: z.string().min(1).max(20_000),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      (value.savePaymentMethod || value.savedPaymentMethodId) &&
+      value.paymentMethod !== 'paypal'
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'El guardado de tarjetas indicado no corresponde a PayPal.',
+      });
     }
-
-    if (!canRelease) continue;
-
-    await prisma.$transaction(async (tx) => {
-      const current = await tx.order.findUnique({
-        where: { id: order.id },
-        include: { items: true },
+    if (value.savePaymentMethod && value.savedPaymentMethodId) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Elegí guardar una tarjeta nueva o usar una guardada, no ambas opciones.',
       });
-      if (!current || current.status !== 'PENDING') return;
-      await restoreOrderStock(tx, current.items);
-      await tx.order.update({
-        where: { id: current.id },
-        data: { status: 'EXPIRED' },
-      });
-    });
-  }
-}
-
-type CartItem = {
-  id?: string;
-  articleId?: string | number;
-  productId?: string | number;
-  variantId?: string;
-  colorName?: string;
-  title: string;
-  price: number;
-  quantity: number;
-  image: string;
-  size: string;
-};
-
-// 🔍 Helper de autenticación flexible (Resuelve Web, Móvil y garantiza el usuario en DB)
-async function resolveUser(body: any) {
-  let session = null;
-  try {
-    session = await getServerSession(authOptions);
-  } catch {
-    console.log('⚠️ Petición sin cookies web válidas (App Móvil)');
-  }
-
-  const idCandidate = session?.user?.id || body?.userId || body?.user?.id;
-  const emailCandidate = session?.user?.email || body?.userEmail || body?.user?.email;
-
-  if (!idCandidate && !emailCandidate) {
-    return null;
-  }
-
-  const safeEmail = emailCandidate
-    ? String(emailCandidate).toLowerCase()
-    : `user_${idCandidate}@placeholder.com`;
-
-  const dbUser = await prisma.user.upsert({
-    where: { email: safeEmail },
-    update: {},
-    create: {
-      ...(idCandidate ? { id: String(idCandidate) } : {}),
-      email: safeEmail,
-      name: session?.user?.name || body?.user?.name || 'Usuario',
-    },
+    }
   });
-
-  return dbUser;
-}
 
 // =========================================================================
 // 🚀 CREAR ORDEN Y RESERVAR STOCK (POST)
 // =========================================================================
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { items, paymentMethod } = body as {
-      items: CartItem[];
-      paymentMethod: 'mercadopago' | 'mercadopago-card' | 'stripe' | 'paypal';
-      checkoutKey?: string;
-    };
+    const contentLength = Number(req.headers.get('content-length') || 0);
+    if (Number.isFinite(contentLength) && contentLength > 100_000) {
+      return NextResponse.json(
+        { error: 'La solicitud de checkout supera el tamaño permitido.' },
+        { status: 413 },
+      );
+    }
 
-    const dbUser = await resolveUser(body);
+    const parsedBody = CheckoutRequestSchema.safeParse(await req.json());
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: 'El carrito o el medio de pago contiene datos inválidos.' },
+        { status: 400 },
+      );
+    }
+    const {
+      items,
+      paymentMethod,
+      checkoutKey = '',
+      savePaymentMethod = false,
+      savedPaymentMethodId,
+      deliveryAddressId: requestedDeliveryAddressId,
+      shippingQuoteToken,
+    } = parsedBody.data;
+
+    const dbUser = await getAuthenticatedUser(req);
 
     if (!dbUser) {
       return NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 });
     }
 
-    if (!isCheckoutProfileComplete(dbUser)) {
+    const rateLimit = checkRateLimit(`checkout:${hashRateLimitIdentity(dbUser.id)}`, {
+      limit: 12,
+      windowMs: 60_000,
+    });
+    if (!rateLimit.allowed) {
       return NextResponse.json(
-        {
-          code: 'PROFILE_INCOMPLETE',
-          error:
-            'Completá y guardá tus datos personales y dirección de entrega en Mi cuenta antes de realizar la compra.',
-          accountUrl: '/account',
-        },
-        { status: 400 },
+        { error: 'Demasiados intentos de checkout. Esperá un minuto y volvé a intentar.' },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } },
       );
     }
 
@@ -194,10 +181,80 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Cart is empty.' }, { status: 400 });
     }
 
-    const checkoutKey = typeof body.checkoutKey === 'string' ? body.checkoutKey.trim() : '';
+    const savedAddress = await prisma.deliveryAddress.findFirst({
+      where: {
+        userId: dbUser.id,
+        ...(requestedDeliveryAddressId ? { id: requestedDeliveryAddressId } : { isDefault: true }),
+      },
+    });
+    if (!savedAddress) {
+      return NextResponse.json(
+        {
+          code: 'DELIVERY_ADDRESS_REQUIRED',
+          error:
+            'Guardá o elegí una dirección de entrega en Mi cuenta antes de realizar la compra.',
+          accountUrl: '/account',
+        },
+        { status: 400, headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
+      );
+    }
+
+    const checkoutUser = {
+      ...dbUser,
+      deliveryAddressId: savedAddress.id,
+      shippingStreet: savedAddress.shippingStreet,
+      shippingNumber: savedAddress.shippingNumber,
+      shippingApartment: savedAddress.shippingApartment,
+      shippingCity: savedAddress.shippingCity,
+      shippingProvince: savedAddress.shippingProvince,
+      shippingPostalCode: savedAddress.shippingPostalCode,
+      shippingCountry: savedAddress.shippingCountry,
+    };
+
+    if (!isCheckoutProfileComplete(checkoutUser)) {
+      return NextResponse.json(
+        {
+          code: 'PROFILE_INCOMPLETE',
+          error:
+            'Completá y guardá tus datos personales y dirección de entrega en Mi cuenta antes de realizar la compra.',
+          accountUrl: '/account',
+        },
+        { status: 400, headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
+      );
+    }
+
     const paymentProvider = paymentMethod.startsWith('mercadopago')
       ? 'MERCADOPAGO'
       : paymentMethod.toUpperCase();
+    // Stripe supports ARS card payments, so its charge matches the store's final ARS total.
+    // PayPal's Orders API does not support ARS and remains USD-only.
+    const paymentCurrency: ProviderCurrency =
+      paymentMethod.startsWith('mercadopago') || paymentMethod === 'stripe' ? 'ARS' : 'USD';
+
+    let shippingSelection: CheckoutShippingOption;
+    try {
+      shippingSelection = verifyCheckoutQuoteToken(shippingQuoteToken, checkoutUser, items);
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Volvé a cotizar el envío.' },
+        { status: 422 },
+      );
+    }
+    if (shippingSelection.paymentCurrency !== paymentCurrency) {
+      return NextResponse.json(
+        { error: 'La cotización fue emitida para otra moneda de pago. Volvé a cotizar el envío.' },
+        { status: 422 },
+      );
+    }
+
+    let paypalConfigForCheckout: Awaited<ReturnType<typeof paypalPaymentConfig>> | null = null;
+    let paypalAccessTokenForCheckout: string | undefined;
+    let paypalSavedCardForCheckout: {
+      id: string;
+      externalCardId: string;
+      paymentCustomer: { id: string; externalCustomerId: string };
+    } | null = null;
+    let paypalVaultCustomerId: string | undefined;
 
     // Fail closed: para Mercado Pago permitimos dos modos explícitos:
     // standalone (credenciales propias del comercio, sin split) y OAuth (split de plataforma).
@@ -215,15 +272,86 @@ export async function POST(req: Request) {
       }
     } else if (paymentMethod === 'paypal') {
       const config = await paypalPaymentConfig();
+      paypalConfigForCheckout = config;
       if (
         !config.clientId ||
         !config.clientSecret ||
         !config.sellerMerchantId ||
-        !config.splitEnabled
+        !config.splitEnabled ||
+        config.sandbox !== true
       ) {
         throw new Error(
           'PayPal está bloqueado hasta que el comercio complete el onboarding sandbox con la plataforma.',
         );
+      }
+
+      const accountScope = getPayPalSavedCardScope(config.sellerMerchantId);
+      if (savedPaymentMethodId) {
+        const savedCard = await prisma.savedPaymentMethod.findFirst({
+          where: {
+            id: savedPaymentMethodId,
+            paymentCustomer: {
+              userId: dbUser.id,
+              provider: 'PAYPAL',
+              accountScope,
+            },
+          },
+          include: { paymentCustomer: true },
+        });
+        if (!savedCard) {
+          return NextResponse.json(
+            { error: 'La tarjeta guardada no pertenece a tu cuenta de PayPal.' },
+            { status: 404, headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
+          );
+        }
+
+        paypalAccessTokenForCheckout = await getPayPalSandboxAccessToken(config);
+        const remoteTokenResponse = await fetch(
+          `https://api-m.sandbox.paypal.com/v3/vault/payment-tokens/${encodeURIComponent(savedCard.externalCardId)}`,
+          {
+            headers: getPayPalVaultHeaders(config, paypalAccessTokenForCheckout),
+            cache: 'no-store',
+          },
+        );
+        const remoteToken = (await remoteTokenResponse.json().catch(() => ({}))) as {
+          id?: string;
+          customer?: { id?: string };
+        };
+        if (
+          !remoteTokenResponse.ok ||
+          remoteToken.id !== savedCard.externalCardId ||
+          remoteToken.customer?.id !== savedCard.paymentCustomer.externalCustomerId
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                'PayPal ya no reconoce esa tarjeta guardada. Actualizá la lista e intentá de nuevo.',
+            },
+            { status: 409, headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
+          );
+        }
+        paypalSavedCardForCheckout = {
+          id: savedCard.id,
+          externalCardId: savedCard.externalCardId,
+          paymentCustomer: {
+            id: savedCard.paymentCustomer.id,
+            externalCustomerId: savedCard.paymentCustomer.externalCustomerId,
+          },
+        };
+      }
+
+      if (savePaymentMethod) {
+        const existingPayPalCustomer = await prisma.paymentCustomer.findUnique({
+          where: {
+            userId_provider_accountScope: {
+              userId: dbUser.id,
+              provider: 'PAYPAL',
+              accountScope,
+            },
+          },
+          select: { externalCustomerId: true },
+        });
+        paypalVaultCustomerId = existingPayPalCustomer?.externalCustomerId;
       }
     }
 
@@ -243,6 +371,13 @@ export async function POST(req: Request) {
         if (existingOrder.status !== 'PENDING') {
           return NextResponse.json(
             { error: 'Este intento de checkout ya terminó. Iniciá uno nuevo.' },
+            { status: 409 },
+          );
+        }
+
+        if (existingOrder.expiresAt.getTime() <= Date.now()) {
+          return NextResponse.json(
+            { error: 'La reserva venció. Iniciá un checkout nuevo.' },
             { status: 409 },
           );
         }
@@ -297,56 +432,75 @@ export async function POST(req: Request) {
       }
     }
 
+    // A retry with an existing checkoutKey has already returned above so an order
+    // accepted before closure can keep paying. Only a brand-new order is blocked.
+    let storefrontStatus: 'OPEN' | 'CLOSED';
+    try {
+      storefrontStatus = await getStorefrontStatus();
+    } catch (error) {
+      console.error('[checkout] storefront status unavailable:', {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+      return NextResponse.json(
+        {
+          code: 'STOREFRONT_UNAVAILABLE',
+          error: 'La tienda no está disponible temporalmente. No se inició ninguna compra nueva.',
+        },
+        { status: 503, headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
+      );
+    }
+
+    if (storefrontStatus !== 'OPEN') {
+      return NextResponse.json(
+        {
+          code: 'STOREFRONT_CLOSED',
+          error:
+            'La tienda está dada de baja y no acepta compras nuevas. Los pedidos ya iniciados pueden continuar.',
+        },
+        { status: 409, headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
+      );
+    }
+
     // The catalogue is fixed in ARS before tax. Save the destination's rate with the order;
     // payment gateways receive the item totals including that saved tax snapshot.
-    const taxProfile = await getCountryTaxProfile(dbUser.shippingCountry || 'Argentina');
+    const taxProfile = await getCountryTaxProfile(checkoutUser.shippingCountry || 'Argentina');
     if (!taxProfile || taxProfile.status !== 'standard' || taxProfile.rate === null) {
       throw new Error(
-        `No se puede confirmar el impuesto para ${dbUser.shippingCountry || 'el destino seleccionado'}. Completá una dirección de entrega válida o conectá una configuración fiscal para esa jurisdicción antes de pagar.`,
+        `No se puede confirmar el impuesto para ${checkoutUser.shippingCountry || 'el destino seleccionado'}. Completá una dirección de entrega válida o conectá una configuración fiscal para esa jurisdicción antes de pagar.`,
       );
+    }
+    if (
+      taxProfile.countryCode !== shippingSelection.taxCountry ||
+      taxProfile.calculationMethod !== shippingSelection.taxCalculationMethod ||
+      Math.abs(taxProfile.rate - shippingSelection.taxRate) > 0.0001 ||
+      shippingSelection.storeCurrency !== StoreConfig.currency
+    ) {
+      throw new Error('Cambió la configuración fiscal. Volvé a cotizar el envío antes de pagar.');
     }
     const taxRate = taxProfile.rate;
-    const paymentCurrency: ProviderCurrency = paymentMethod.startsWith('mercadopago')
-      ? 'ARS'
-      : 'USD';
-    const paymentConversion = await loadPaymentConversion(paymentCurrency);
+    const paymentConversion: PaymentConversion = {
+      paymentCurrency,
+      exchangeRate: shippingSelection.paymentExchangeRate,
+      rates: null,
+    };
 
-    await cleanupLegacyPendingOrders(dbUser.id);
+    // Opportunistically clean a few of this customer's stale reservations.
+    // The scheduled job handles the global queue; provider verification prevents
+    // restoring stock while an external payment is still pending or approved.
+    await expireStaleCheckoutOrders({ limit: 3, userId: dbUser.id });
 
     const now = new Date();
-    const expirationTime = new Date(now.getTime() + 15 * 60 * 1000); // 15 Minutos
-
-    // 🛡️ PASO 0: LAZY CLEANING
-    const expiredOrders = await prisma.order.findMany({
-      where: {
-        status: 'PENDING',
-        expiresAt: { lt: now },
-      },
-      include: { items: true },
-    });
-
-    if (expiredOrders.length > 0) {
-      await prisma.$transaction(
-        async (tx: any) => {
-          for (const oldOrder of expiredOrders) {
-            await restoreOrderStock(tx, oldOrder.items);
-          }
-
-          const expiredIds = expiredOrders.map((o: { id: string }) => o.id);
-          await tx.order.updateMany({
-            where: { id: { in: expiredIds } },
-            data: { status: 'EXPIRED' },
-          });
-        },
-        { maxWait: 10_000, timeout: 20_000 },
-      );
-    }
+    const expirationTime = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutes
 
     // 🔒 TRANSACCIÓN PRINCIPAL DE COMPRA
     // El navegador puede tener un carrito viejo. Aiven es la fuente de verdad para
     // SKU, precio y stock; nunca confiamos en esos valores enviados por el cliente.
     const order = await prisma.$transaction(
       async (tx) => {
+        // Re-check while locking the same row used by the closure transition.
+        // If the store closes now, the stock changes below are rolled back.
+        await lockOpenStorefrontForNewOrder(tx);
+
         const groupedItems = new Map<
           string,
           {
@@ -426,24 +580,47 @@ export async function POST(req: Request) {
         );
         const subtotal = taxBreakdown.subtotal;
         const taxAmount = taxBreakdown.taxAmount;
-        const total = taxBreakdown.total;
-
-        // Match the provider's per-unit rounding so line items reconcile with the charged total.
-        const paymentTotal = Number(
-          resolvedItems
-            .reduce((sum, item) => {
-              const grossUnitPrice = calculateTaxBreakdown(
-                item.price,
-                taxRate,
-                StoreConfig.currency,
-                taxProfile?.calculationMethod,
-              ).total;
-              return (
-                sum + amountInPaymentCurrency(grossUnitPrice, paymentConversion) * item.quantity
-              );
-            }, 0)
-            .toFixed(2),
+        const productTotal = taxBreakdown.total;
+        if (
+          Math.abs(productTotal - shippingSelection.productTotal) > 0.02 ||
+          Math.abs(subtotal - shippingSelection.subtotal) > 0.02 ||
+          Math.abs(taxAmount - shippingSelection.taxAmount) > 0.02
+        ) {
+          throw new Error(
+            'Cambió el precio de un producto. Actualizá la cotización del envío y revisá el total.',
+          );
+        }
+        const shippingAmount = roundCurrencyAmount(
+          shippingSelection.shippingAmount,
+          StoreConfig.currency,
         );
+        const total = roundCurrencyAmount(productTotal + shippingAmount, StoreConfig.currency);
+
+        // Keep product rounding consistent with the quote and add the previously quoted delivery fee.
+        const productPaymentTotal = roundCurrencyAmount(
+          resolvedItems.reduce((sum, item) => {
+            const grossUnitPrice = calculateTaxBreakdown(
+              item.price,
+              taxRate,
+              StoreConfig.currency,
+              taxProfile?.calculationMethod,
+            ).total;
+            return sum + amountInPaymentCurrency(grossUnitPrice, paymentConversion) * item.quantity;
+          }, 0),
+          paymentCurrency,
+        );
+        const paymentTotal = roundCurrencyAmount(
+          productPaymentTotal + shippingSelection.paymentShippingAmount,
+          paymentCurrency,
+        );
+        if (
+          Math.abs(paymentTotal - shippingSelection.paymentTotal) > 0.02 ||
+          Math.abs(total - shippingSelection.totalInStoreCurrency) > 0.02
+        ) {
+          throw new Error(
+            'El total cambió desde la cotización del envío. Volvé a cotizar antes de pagar.',
+          );
+        }
 
         return tx.order.create({
           data: {
@@ -455,6 +632,9 @@ export async function POST(req: Request) {
             taxCountry: taxProfile?.countryCode ?? null,
             taxName: taxProfile?.taxName ?? null,
             total,
+            shippingAmount,
+            shippingQuoteRate: shippingSelection.amount,
+            shippingQuoteCurrency: shippingSelection.currency,
             currency: StoreConfig.currency,
             paymentCurrency,
             paymentTotal,
@@ -463,17 +643,17 @@ export async function POST(req: Request) {
             checkoutKey: checkoutKey || null,
             paymentProvider,
             expiresAt: expirationTime,
-            deliveryFirstName: dbUser.firstName,
-            deliveryLastName: dbUser.lastName,
-            deliveryPhone: dbUser.phone,
-            deliveryDni: dbUser.dni,
-            deliveryStreet: dbUser.shippingStreet,
-            deliveryNumber: dbUser.shippingNumber,
-            deliveryApartment: dbUser.shippingApartment,
-            deliveryCity: dbUser.shippingCity,
-            deliveryProvince: dbUser.shippingProvince,
-            deliveryPostalCode: dbUser.shippingPostalCode,
-            deliveryCountry: dbUser.shippingCountry,
+            deliveryFirstName: checkoutUser.firstName,
+            deliveryLastName: checkoutUser.lastName,
+            deliveryPhone: checkoutUser.phone,
+            deliveryDni: checkoutUser.dni,
+            deliveryStreet: checkoutUser.shippingStreet,
+            deliveryNumber: checkoutUser.shippingNumber,
+            deliveryApartment: checkoutUser.shippingApartment,
+            deliveryCity: checkoutUser.shippingCity,
+            deliveryProvince: checkoutUser.shippingProvince,
+            deliveryPostalCode: checkoutUser.shippingPostalCode,
+            deliveryCountry: checkoutUser.shippingCountry,
             items: {
               create: resolvedItems,
             },
@@ -517,26 +697,37 @@ export async function POST(req: Request) {
 
       const responseMP = await preference.create({
         body: {
-          items: order.items.map((item) => ({
-            id: item.productId,
-            title: `${item.title} (${item.size.toUpperCase()})`,
-            unit_price: amountInPaymentCurrency(
-              calculateTaxBreakdown(
-                Number(item.price),
-                order.taxRate,
-                StoreConfig.currency,
-                order.taxCalculationMethod === 'tax_inclusive_base'
-                  ? 'tax_inclusive_base'
-                  : 'tax_exclusive_base',
-              ).total,
-              paymentConversion,
-            ),
-            quantity: Number(item.quantity),
-            currency_id: 'ARS',
-          })),
-          payer: {
-            email: 'comprador.test@gmail.com',
-          },
+          items: [
+            ...order.items.map((item) => ({
+              id: item.productId,
+              title: `${item.title} (${item.size.toUpperCase()})`,
+              unit_price: amountInPaymentCurrency(
+                calculateTaxBreakdown(
+                  Number(item.price),
+                  order.taxRate,
+                  StoreConfig.currency,
+                  order.taxCalculationMethod === 'tax_inclusive_base'
+                    ? 'tax_inclusive_base'
+                    : 'tax_exclusive_base',
+                ).total,
+                paymentConversion,
+              ),
+              quantity: Number(item.quantity),
+              currency_id: 'ARS',
+            })),
+            ...(order.shippingAmount > 0
+              ? [
+                  {
+                    id: `shipping-${order.id}`,
+                    title: `Envío${shippingSelection.carrier ? ` - ${shippingSelection.carrier}` : ''}`,
+                    unit_price: amountInPaymentCurrency(order.shippingAmount, paymentConversion),
+                    quantity: 1,
+                    currency_id: 'ARS',
+                  },
+                ]
+              : []),
+          ],
+          ...(dbUser.email ? { payer: { email: dbUser.email } } : {}),
           binary_mode: false,
           ...(isHttps ? { auto_return: 'approved' } : {}),
           back_urls: {
@@ -547,7 +738,7 @@ export async function POST(req: Request) {
           external_reference: order.id,
           expiration_date_to: expirationTime.toISOString(),
           marketplace_fee: amountInPaymentCurrency(
-            platformFeeForProducts(order.items),
+            await platformFeeForProducts(order.items, order.id),
             paymentConversion,
           ),
         },
@@ -575,7 +766,10 @@ export async function POST(req: Request) {
 
       const stripe = new Stripe(stripeSecretKey);
       const feeAmount = Math.round(
-        amountInPaymentCurrency(platformFeeForProducts(order.items), paymentConversion) * 100,
+        amountInPaymentCurrency(
+          await platformFeeForProducts(order.items, order.id),
+          paymentConversion,
+        ) * 100,
       );
 
       const paymentIntent = await stripe.paymentIntents.create({
@@ -617,18 +811,24 @@ export async function POST(req: Request) {
     }
 
     if (paymentMethod === 'paypal') {
-      const paypalConfig = await paypalPaymentConfig();
+      const paypalConfig = paypalConfigForCheckout ?? (await paypalPaymentConfig());
       const paypalSplitEnabled =
         paypalConfig.splitEnabled && paypalConfig.clientId && paypalConfig.sellerMerchantId;
-      if (!paypalSplitEnabled) {
+      if (!paypalSplitEnabled || paypalConfig.sandbox !== true) {
         throw new Error(
           'PayPal está bloqueado hasta que el comercio complete el onboarding sandbox con la plataforma.',
         );
       }
-      const paypalAccessToken = await generatePayPalAccessToken();
+      const paypalAccessToken = paypalAccessTokenForCheckout || (await generatePayPalAccessToken());
       const paypalAssertion = paypalSplitEnabled
         ? paypalAuthAssertion(paypalConfig.clientId!, paypalConfig.sellerMerchantId!)
         : undefined;
+
+      const paypalCardPaymentSource = buildPayPalOrderCardSource({
+        savedPaymentMethodId: paypalSavedCardForCheckout?.externalCardId,
+        savePaymentMethod,
+        existingCustomerId: paypalVaultCustomerId,
+      });
 
       const paypalOrderResponse = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
         method: 'POST',
@@ -643,6 +843,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           intent: 'CAPTURE',
+          ...(paypalCardPaymentSource ? { payment_source: paypalCardPaymentSource } : {}),
           purchase_units: [
             {
               reference_id: order.id,
@@ -655,7 +856,7 @@ export async function POST(req: Request) {
                     amount: {
                       currency_code: 'USD',
                       value: amountInPaymentCurrency(
-                        platformFeeForProducts(order.items),
+                        await platformFeeForProducts(order.items, order.id),
                         paymentConversion,
                       ).toFixed(2),
                     },
@@ -674,9 +875,48 @@ export async function POST(req: Request) {
       const paypalOrder = await paypalOrderResponse.json();
 
       if (!paypalOrderResponse.ok || !paypalOrder.id) {
-        console.error('❌ Error creando Order de PayPal:', paypalOrder);
+        console.error('PayPal order creation failed.', {
+          status: paypalOrderResponse.status,
+          providerName: typeof paypalOrder?.name === 'string' ? paypalOrder.name : 'unknown',
+          savingCard: savePaymentMethod,
+          usingSavedCard: Boolean(paypalSavedCardForCheckout),
+        });
 
-        throw new Error(paypalOrder?.message || 'No se pudo crear la orden de PayPal.');
+        // A deterministic provider-side 4xx means no PayPal order was created.
+        // Release this reservation atomically so a Vault eligibility error does
+        // not lock the buyer's stock for the full checkout timeout. Leave 5xx
+        // and ambiguous responses for reconciliation to avoid a double sale.
+        if (paypalOrderResponse.status >= 400 && paypalOrderResponse.status < 500) {
+          try {
+            await prisma.$transaction(
+              async (tx) => {
+                const cancelled = await tx.order.updateMany({
+                  where: {
+                    id: order.id,
+                    userId: dbUser.id,
+                    status: 'PENDING',
+                    paymentProvider: 'PAYPAL',
+                    paymentExternalId: null,
+                  },
+                  data: { status: 'CANCELLED' },
+                });
+                if (cancelled.count === 1) await restoreOrderStock(tx, order.items);
+              },
+              { maxWait: 10_000, timeout: 20_000 },
+            );
+          } catch (releaseError) {
+            console.error('[checkout] PayPal rejected the order and reservation release failed.', {
+              errorName: releaseError instanceof Error ? releaseError.name : 'UnknownError',
+            });
+          }
+        }
+
+        const message = savePaymentMethod
+          ? 'PayPal no aceptó guardar la tarjeta. Puede que Vault no esté habilitado para esta cuenta sandbox; desmarcá la opción e intentá pagar de nuevo.'
+          : paypalSavedCardForCheckout
+            ? 'PayPal no pudo iniciar el pago con la tarjeta guardada. Actualizá tus tarjetas o elegí otra.'
+            : 'No se pudo crear la orden de PayPal.';
+        throw new Error(message);
       }
 
       await prisma.order.update({
@@ -701,91 +941,171 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ error: 'Method not supported.' }, { status: 400 });
-  } catch (error: any) {
-    console.error('=== 🚨 CHECKOUT ERROR ===', error);
+  } catch (error: unknown) {
+    if (error instanceof StorefrontClosedError) {
+      return NextResponse.json(
+        {
+          code: 'STOREFRONT_CLOSED',
+          error:
+            'La tienda se dio de baja antes de crear la orden. No se reservó stock ni se inició un cobro nuevo.',
+        },
+        { status: 409, headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
+      );
+    }
+
+    console.error('[checkout] failed:', {
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
+    const safeProviderMessage = error instanceof Error ? error.message : '';
+    const allowedPayPalMessages = [
+      'PayPal no aceptó guardar la tarjeta.',
+      'PayPal no pudo iniciar el pago con la tarjeta guardada.',
+    ];
+    const publicMessage = allowedPayPalMessages.some((prefix) =>
+      safeProviderMessage.startsWith(prefix),
+    )
+      ? safeProviderMessage
+      : 'No se pudo iniciar el checkout. Revisá los datos e intentá nuevamente.';
     return NextResponse.json(
-      {
-        error: error?.message || 'Internal Server Error',
-        details: error?.cause || error?.api_response || null,
-      },
-      { status: 400 },
+      { error: publicMessage },
+      { status: 400, headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
     );
   }
 }
 
 // =========================================================================
-// 🔓 LIBERACIÓN INMEDIATA DE STOCK AL CANCELAR O REGRESAR (DELETE)
+// Release a checkout reservation only after the payment path is safely stopped.
 // =========================================================================
 export async function DELETE(req: Request) {
   try {
     const body = await req.json();
     const { orderId } = body;
-
-    const dbUser = await resolveUser(body);
+    const dbUser = await getAuthenticatedUser(req);
 
     if (!dbUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    if (!orderId) {
+    if (typeof orderId !== 'string' || !orderId) {
       return NextResponse.json({ error: 'Falta el orderId para cancelar' }, { status: 400 });
     }
 
     const orderToCancel = await prisma.order.findFirst({
-      where: {
-        id: orderId,
-        userId: dbUser.id,
-        status: 'PENDING',
-      },
+      where: { id: orderId, userId: dbUser.id, status: 'PENDING' },
       include: { items: true },
     });
-
     if (!orderToCancel) {
       return NextResponse.json(
-        { message: 'La orden no existe o ya cambió de estado' },
-        { status: 200 },
+        { message: 'La reserva no existe o ya cambió de estado.' },
+        { status: 409 },
+      );
+    }
+    if (orderToCancel.expiresAt.getTime() <= Date.now()) {
+      return NextResponse.json(
+        { message: 'La reserva ya venció y se liberará mediante la limpieza programada.' },
+        { status: 409 },
+      );
+    }
+
+    // Mercado Pago Checkout Pro preferences are not persisted as an external ID.
+    // Do not restore stock while the customer could still complete that provider flow.
+    if (orderToCancel.paymentProvider !== 'PAYPAL' && orderToCancel.paymentProvider !== 'STRIPE') {
+      return NextResponse.json(
+        { message: 'Este medio de pago se liberará automáticamente al vencer la reserva.' },
+        { status: 409 },
+      );
+    }
+
+    const claim = await prisma.order.updateMany({
+      where: {
+        id: orderToCancel.id,
+        userId: dbUser.id,
+        status: 'PENDING',
+        expiresAt: { gt: new Date() },
+        paymentProvider: orderToCancel.paymentProvider,
+        paymentExternalId: orderToCancel.paymentExternalId,
+      },
+      data: { status: 'CANCELLING' },
+    });
+    if (claim.count !== 1) {
+      return NextResponse.json(
+        { message: 'La reserva ya está siendo procesada.' },
+        { status: 409 },
       );
     }
 
     if (orderToCancel.paymentProvider === 'STRIPE' && orderToCancel.paymentExternalId) {
-      const { secretKey: stripeSecretKey } = await stripePaymentConfig();
-      if (!stripeSecretKey) {
-        return NextResponse.json(
-          { error: 'No se puede liberar la reserva de Stripe: falta configuración.' },
-          { status: 500 },
-        );
-      }
+      try {
+        const { secretKey } = await stripePaymentConfig();
+        if (!secretKey) throw new Error('Stripe is not configured.');
+        const stripe = new Stripe(secretKey);
+        let intent = await stripe.paymentIntents.retrieve(orderToCancel.paymentExternalId);
 
-      const stripe = new Stripe(stripeSecretKey);
-      const paymentIntent = await stripe.paymentIntents.retrieve(orderToCancel.paymentExternalId);
-      if (paymentIntent.status === 'succeeded') {
+        if (intent.status !== 'succeeded' && intent.status !== 'canceled') {
+          intent = await stripe.paymentIntents.cancel(intent.id);
+        }
+        if (intent.status !== 'succeeded' && intent.status !== 'canceled') {
+          intent = await stripe.paymentIntents.retrieve(orderToCancel.paymentExternalId);
+        }
+
+        if (intent.status === 'succeeded') {
+          const paid = await prisma.order.updateMany({
+            where: { id: orderToCancel.id, status: 'CANCELLING' },
+            data: {
+              status: 'PAID',
+              paymentProvider: 'STRIPE',
+              paymentExternalId: intent.id,
+            },
+          });
+          if (paid.count === 1) {
+            await refreshPlatformSubscriptionPlan();
+            await sendOrderConfirmationEmail(orderToCancel.id);
+          }
+          return NextResponse.json(
+            { message: 'El proveedor confirmó el pago; no se liberó el stock.' },
+            { status: 409 },
+          );
+        }
+        if (intent.status !== 'canceled') throw new Error('Stripe cancellation was not confirmed.');
+      } catch {
+        await prisma.order.updateMany({
+          where: { id: orderToCancel.id, status: 'CANCELLING' },
+          data: { status: 'PENDING' },
+        });
         return NextResponse.json(
-          { error: 'El pago ya fue cobrado y la reserva no se puede liberar.' },
-          { status: 409 },
+          {
+            error:
+              'No se pudo confirmar la cancelación del pago. La reserva se conserva por seguridad.',
+          },
+          { status: 502 },
         );
-      }
-      if (paymentIntent.status !== 'canceled') {
-        await stripe.paymentIntents.cancel(paymentIntent.id);
       }
     }
 
-    await prisma.$transaction(
-      async (tx: any) => {
-        await restoreOrderStock(tx, orderToCancel.items);
-
-        await tx.order.update({
-          where: { id: orderToCancel.id },
+    const restored = await prisma.$transaction(
+      async (tx) => {
+        const finalized = await tx.order.updateMany({
+          where: { id: orderToCancel.id, status: 'CANCELLING' },
           data: { status: 'CANCELLED' },
         });
+        if (finalized.count !== 1) return false;
+        await restoreOrderStock(tx, orderToCancel.items);
+        return true;
       },
       { maxWait: 10_000, timeout: 20_000 },
     );
 
-    return NextResponse.json({
-      success: true,
-      message: 'Reserva liberada con éxito',
+    if (!restored) {
+      return NextResponse.json(
+        { message: 'La reserva cambió de estado; no se liberó stock.' },
+        { status: 409 },
+      );
+    }
+
+    return NextResponse.json({ success: true, message: 'Reserva liberada con éxito.' });
+  } catch (error) {
+    console.error('Checkout reservation cancellation failed.', {
+      error: error instanceof Error ? error.name : 'UnknownError',
     });
-  } catch {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

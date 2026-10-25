@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/useAuthStore';
+import { authenticatedFetch } from '@/services/authenticatedFetch';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || 'http://192.168.3.2:3001';
@@ -52,13 +53,11 @@ export default function HistorialScreen() {
       }
 
       try {
-        const res = await fetch(`${API_BASE_URL}/api/orders`, {
+        const res = await authenticatedFetch(`${API_BASE_URL}/api/orders`, {
           method: 'GET',
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            'x-user-id': user.id || '',
-            'x-user-email': user.email || '',
           },
         });
 

@@ -2,9 +2,21 @@ import type { CartItem } from '@/store/useCartStore';
 
 export type { CartItem };
 
+export type SavedPayPalCard = {
+  id: string;
+  brand: string;
+  lastFourDigits: string | null;
+  expirationMonth: number | null;
+  expirationYear: number | null;
+};
+
 export type PayPalCardFormProps = {
   cartItems: CartItem[];
   onSuccess: () => void;
+  shippingQuoteToken: string | null;
+  paymentTotal: number | null;
+  deliveryAddressId?: string | null;
+  onPaymentBusyChange?: (busy: boolean) => void;
 };
 
 export type PayPalCardSession = {

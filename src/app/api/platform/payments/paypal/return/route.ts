@@ -14,8 +14,6 @@ import {
 import { paypalAuthAssertion } from '@/lib/payments/platform-config';
 import { saveStorePaymentConnection } from '@/lib/payments/store-connections';
 
-export const dynamic = 'force-dynamic';
-
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const locale = normalizeDashboardLocale(url.searchParams.get('locale'));

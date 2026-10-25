@@ -1,6 +1,8 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import type { DashboardData } from './types';
 
 type CatalogItem = DashboardData['catalogControls'][number];
@@ -32,19 +34,19 @@ export default function CatalogRow({
 
   return (
     <article
-      className={`rounded-xl border p-4 ${lowStock ? 'border-amber-300 bg-amber-50/50' : ''}`}
+      className={`rounded-xl border p-4 ${lowStock ? 'border-warning/30 bg-warning/10' : ''}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium">{item.productName}</p>
             {lowStock && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning-foreground">
                 {t('lowStockBadge')}
               </span>
             )}
             {lowStock && item.lowStockAlertSent && (
-              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
+              <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-primary">
                 {t('stockAlertSent')}
               </span>
             )}
@@ -59,7 +61,7 @@ export default function CatalogRow({
       <div className="mt-3 grid gap-3 md:grid-cols-3">
         <label className="grid gap-1 text-sm">
           <span>{t('price')}</span>
-          <input
+          <Input
             className="rounded-md border bg-background px-3 py-2"
             type="number"
             min="0"
@@ -71,7 +73,7 @@ export default function CatalogRow({
 
         <label className="grid gap-1 text-sm">
           <span>{t('stock')}</span>
-          <input
+          <Input
             className="rounded-md border bg-background px-3 py-2"
             type="number"
             min="0"
@@ -82,7 +84,7 @@ export default function CatalogRow({
         </label>
 
         <label className="flex items-center gap-2 self-end text-sm">
-          <input
+          <Checkbox
             type="checkbox"
             checked={value.isActive}
             onChange={(event) => onActiveChange(event.target.checked)}

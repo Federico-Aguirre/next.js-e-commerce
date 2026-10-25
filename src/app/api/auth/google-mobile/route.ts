@@ -1,98 +1,96 @@
-import { encode } from 'next-auth/jwt';
 import { NextResponse } from 'next/server';
-
+import { z } from 'zod';
+import { createMobileSessionResponse } from '@/lib/auth/mobile-session';
+import { Env } from '@/lib/Env';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, getRequestClientIp } from '@/lib/security/rate-limit';
+
+const GoogleLoginSchema = z
+  .object({
+    idToken: z.string().min(20).max(8192),
+  })
+  .strict();
+
+type GoogleTokenInfo = {
+  email?: string;
+  email_verified?: boolean | string;
+  name?: string;
+  picture?: string;
+  aud?: string;
+  iss?: string;
+};
 
 export async function POST(request: Request) {
-  try {
-    const { idToken } = await request.json();
+  const ip = getRequestClientIp(request);
+  const rateLimit = checkRateLimit(`google-mobile:ip:${ip}`, {
+    limit: 10,
+    windowMs: 15 * 60_000,
+  });
 
-    if (!idToken) {
-      return NextResponse.json({ error: 'Falta el idToken' }, { status: 400 });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos. Esperá unos minutos y volvé a intentar.' },
+      { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } },
+    );
+  }
+
+  try {
+    const parsed = GoogleLoginSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Token de Google inválido.' }, { status: 400 });
     }
 
-    // 1. Validar el token con Google
-    const googleRes = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`,
+    const tokenInfoResponse = await fetch(
+      'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(parsed.data.idToken),
+      { signal: AbortSignal.timeout(5_000), cache: 'no-store' },
     );
-    if (!googleRes.ok) {
+
+    if (!tokenInfoResponse.ok) {
+      return NextResponse.json({ error: 'Token de Google inválido.' }, { status: 401 });
+    }
+
+    const payload = (await tokenInfoResponse.json()) as GoogleTokenInfo;
+    const configuredAudiences = [
+      Env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    ].filter((value): value is string => typeof value === 'string' && value.length > 0);
+
+    const issuerValid =
+      payload.iss === 'accounts.google.com' || payload.iss === 'https://accounts.google.com';
+    const emailVerified = payload.email_verified === true || payload.email_verified === 'true';
+    const email = payload.email?.trim().toLowerCase();
+
+    if (
+      !email ||
+      !emailVerified ||
+      !issuerValid ||
+      configuredAudiences.length === 0 ||
+      !configuredAudiences.includes(payload.aud || '')
+    ) {
       return NextResponse.json(
-        { error: 'Token de Google inválido' },
+        { error: 'No se pudo verificar la identidad de Google.' },
         { status: 401 },
       );
     }
 
-    const payload = await googleRes.json();
-    const { email, name, picture } = payload;
-
-    // 2. Buscar o crear usuario con Prisma
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       user = await prisma.user.create({
         data: {
           email,
-          name: name || email.split('@')[0],
-          image: picture || null,
+          name: payload.name || email.split('@')[0],
+          image: payload.picture || null,
         },
       });
     }
 
-    // 3. Crear sesión con NextAuth
-    const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-    if (!secret) {
-      return NextResponse.json(
-        { error: 'Falta NEXTAUTH_SECRET' },
-        { status: 500 },
-      );
-    }
-
-    const cookieName =
-      process.env.NODE_ENV === 'production'
-        ? '__Secure-next-auth.session-token'
-        : 'next-auth.session-token';
-
-    const maxAge = 30 * 24 * 60 * 60;
-    const now = Math.floor(Date.now() / 1000);
-
-    const sessionToken = await encode({
-      token: {
-        name: user.name,
-        email: user.email,
-        picture: user.image,
-        sub: user.id,
-        id: user.id,
-        iat: now,
-        exp: now + maxAge,
-      },
-      secret,
-      maxAge,
-      salt: cookieName,
-    });
-
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-      },
-    });
-
-    response.cookies.set(cookieName, sessionToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge,
-      secure: process.env.NODE_ENV === 'production',
-    });
-
-    return response;
-  } catch (error: any) {
-    console.error('❌ [AUTH ERROR]:', error);
-    return NextResponse.json(
-      { error: error?.message || 'Error interno' },
-      { status: 500 },
+    return await createMobileSessionResponse({ ...user, email: user.email ?? email });
+  } catch (error) {
+    console.error(
+      '[google-mobile-login] failed:',
+      error instanceof Error ? error.name : 'UnknownError',
     );
+    return NextResponse.json({ error: 'No se pudo iniciar sesión con Google.' }, { status: 500 });
   }
 }

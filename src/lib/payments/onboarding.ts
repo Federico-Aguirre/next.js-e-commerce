@@ -45,6 +45,12 @@ export async function isPlatformOwner() {
   return user?.isPlatformOwner === true;
 }
 
+export async function requirePlatformOwner() {
+  if (!(await isPlatformOwner())) {
+    throw new Error('FORBIDDEN_PLATFORM_OWNER');
+  }
+}
+
 export function assertPayPalSandbox() {
   if (
     process.env.PAYPAL_ENVIRONMENT === 'production' ||

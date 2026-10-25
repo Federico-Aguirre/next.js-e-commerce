@@ -23,7 +23,7 @@ export default function SubscriptionCard({
   const locale = useLocale();
 
   return (
-    <section className="rounded-2xl border p-5">
+    <section className="rounded-2xl border bg-card p-5">
       <div>
         <h2 className="text-lg font-semibold">{t('subscription')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t('serviceSummaryNote')}</p>

@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { AuthRequiredNotice } from '@/components/checkout/AuthRequiredNotice';
 import { TaxInclusivePrice } from '@/components/TaxInclusivePrice';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SectionHeading } from '@/components/ui/section-heading';
 import { calculateBasketTax } from '@/lib/tax/tax-calculation';
 import { useCurrency } from '@/providers/CurrencyProvider';
 import { useCartStore } from '@/store/useCartStore';
@@ -14,9 +18,15 @@ export default function CartPage() {
   // Carrito REAL de Zustand
   const cartItems = useCartStore((state) => state.cart);
   const clearCart = useCartStore((state) => state.clearCart);
+  const isBuyNow = useCartStore((state) => state.isBuyNow);
+  const cancelBuyNow = useCartStore((state) => state.cancelBuyNow);
 
   const { data: session } = useSession();
   const [showAuthNotice, setShowAuthNotice] = useState(false);
+
+  useEffect(() => {
+    if (isBuyNow) cancelBuyNow();
+  }, [isBuyNow, cancelBuyNow]);
   const [paymentMethods, setPaymentMethods] = useState<{
     mercadoPago: boolean;
     paypal: boolean;
@@ -25,7 +35,7 @@ export default function CartPage() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/payment-methods/status', { cache: 'no-store' })
+    fetch('/api/payment-methods/status')
       .then(async (response) => {
         if (!response.ok) throw new Error('No se pudo verificar los medios de pago.');
         return response.json();
@@ -53,27 +63,41 @@ export default function CartPage() {
     StoreConfig.currency,
     taxProfile?.calculationMethod,
   );
+  const canPayWithPayPal =
+    Boolean(session?.user) && paymentMethods?.paypal === true && cartItems.length > 0;
+  const canPayWithStripe =
+    Boolean(session?.user) && paymentMethods?.stripe === true && cartItems.length > 0;
+  const canPayWithMercadoPago =
+    Boolean(session?.user) && paymentMethods?.mercadoPago === true && cartItems.length > 0;
 
   return (
-    <main className="min-h-screen bg-background px-4 py-12 text-foreground sm:px-6 lg:px-8">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="min-h-screen bg-background px-4 py-12 text-foreground sm:px-6 lg:px-8"
+    >
       <div className="mx-auto max-w-4xl">
-        <h1 className="mb-8 text-3xl font-black text-gray-900">Your Shopping Cart</h1>
+        <SectionHeading level="h1" title="Your Shopping Cart" className="mb-8" />
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           {/* LEFT SIDE: ITEMS */}
           <div className="space-y-4 md:col-span-2">
             {cartItems.length === 0 ? (
-              <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
-                <p className="font-medium text-gray-500">Your cart is currently empty.</p>
-              </div>
+              <EmptyState
+                className="border-solid py-8 shadow-sm"
+                title="Your cart is currently empty."
+              />
             ) : (
               cartItems.map((item) => (
-                <div
+                <Card
+                  as="article"
                   key={`${item.articleId}-${item.size}`}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                  variant="default"
+                  padding="default"
+                  className="flex-row items-center justify-between gap-4"
                 >
                   <div className="flex min-w-0 items-center gap-4">
-                    <div className="relative h-20 w-20 flex-shrink-0 rounded-xl border border-gray-100 bg-gray-50 p-2">
+                    <div className="relative h-20 w-20 flex-shrink-0 rounded-xl border border-border bg-muted/40 p-2">
                       {item.image ? (
                         <img
                           src={item.image}
@@ -81,18 +105,22 @@ export default function CartPage() {
                           className="h-full w-full object-contain mix-blend-multiply"
                         />
                       ) : (
-                        <div className="h-full w-full rounded-lg bg-gray-200" />
+                        <div className="h-full w-full rounded-lg bg-muted" />
                       )}
                     </div>
 
                     <div className="min-w-0">
-                      <h4 className="line-clamp-1 text-sm font-bold text-gray-900">{item.title}</h4>
+                      <h2 className="line-clamp-1 text-sm font-bold text-foreground">
+                        {item.title}
+                      </h2>
 
-                      <p className="mt-1 text-xs text-gray-400">Quantity: {item.quantity}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Quantity: {item.quantity}
+                      </p>
 
-                      <p className="text-xs text-gray-400">Size: {item.size}</p>
+                      <p className="text-xs text-muted-foreground">Size: {item.size}</p>
 
-                      <p className="text-xs text-gray-400">Color: {item.colorName}</p>
+                      <p className="text-xs text-muted-foreground">Color: {item.colorName}</p>
 
                       <TaxInclusivePrice
                         amount={item.price}
@@ -114,40 +142,44 @@ export default function CartPage() {
                         ).total
                       }
                       locale={currency === 'ARS' ? 'es-AR' : 'en-US'}
-                      className="text-sm font-black text-gray-950"
+                      className="text-sm font-black text-foreground"
                     />
 
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       type="button"
                       onClick={() =>
                         useCartStore.getState().removeFromCart(item.articleId, item.size)
                       }
-                      className="text-xs font-semibold text-red-500 hover:text-red-700"
+                      className="text-xs font-semibold text-destructive hover:text-destructive"
                     >
                       Remove
-                    </button>
+                    </Button>
                   </div>
-                </div>
+                </Card>
               ))
             )}
 
             {cartItems.length > 0 && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={clearCart}
-                className="text-sm font-semibold text-red-500 hover:text-red-700"
+                className="text-sm font-semibold text-destructive hover:text-destructive"
               >
                 Clear cart
-              </button>
+              </Button>
             )}
           </div>
 
           {/* RIGHT SIDE: ORDER SUMMARY */}
-          <div className="h-fit rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 text-lg font-black text-gray-900">Order Summary</h3>
+          <Card variant="default" padding="lg" className="h-fit gap-0">
+            <h2 className="mb-4 text-lg font-black text-foreground">Order Summary</h2>
 
-            <div className="mb-6 flex items-center justify-between border-b border-gray-100 pb-4">
-              <span className="text-sm font-medium text-gray-500">
+            <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
+              <span className="text-sm font-medium text-muted-foreground">
                 {currency === 'ARS' ? 'Total:' : 'Base price:'}
               </span>
 
@@ -155,71 +187,82 @@ export default function CartPage() {
                 amount={cartTotal}
                 grossAmountOverride={basketTax.total}
                 locale={currency === 'ARS' ? 'es-AR' : 'en-US'}
-                className="text-xl font-black text-gray-950"
+                className="text-xl font-black text-foreground"
               />
             </div>
 
             <div className="space-y-3">
               {showAuthNotice && <AuthRequiredNotice />}
               {paymentMethods === null && (
-                <p className="text-xs font-medium text-gray-500">Verificando medios de pago...</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Verificando medios de pago...
+                </p>
               )}
-              <Link
-                href="/checkout/paypal"
-                onClick={(event) => {
-                  if (!session?.user || paymentMethods?.paypal !== true) {
-                    event.preventDefault();
-                    if (!session?.user) setShowAuthNotice(true);
-                  }
-                }}
-                className={`flex h-12 w-full items-center justify-center rounded-lg bg-[#0070ba] text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#005ea8] ${
-                  cartItems.length === 0 || paymentMethods?.paypal !== true
-                    ? 'pointer-events-none opacity-50'
-                    : ''
-                }`}
+              <Button
+                asChild
+                variant="paypal"
+                size="lg"
+                className={`h-12 w-full ${canPayWithPayPal ? '' : 'cursor-not-allowed opacity-50'}`}
               >
-                {paymentMethods?.paypal === false ? 'PayPal no conectado' : 'Pay with PayPal'}
-              </Link>
+                <Link
+                  href="/checkout/paypal"
+                  onClick={(event) => {
+                    if (!canPayWithPayPal) {
+                      event.preventDefault();
+                      if (!session?.user) setShowAuthNotice(true);
+                    }
+                  }}
+                  aria-disabled={!canPayWithPayPal}
+                >
+                  {paymentMethods?.paypal === false ? 'PayPal no conectado' : 'Pay with PayPal'}
+                </Link>
+              </Button>
 
               {/* STRIPE */}
-              <Link
-                href="/checkout/stripe"
-                onClick={(event) => {
-                  if (!session?.user || paymentMethods?.stripe !== true) {
-                    event.preventDefault();
-                    if (!session?.user) setShowAuthNotice(true);
-                  }
-                }}
-                className={`flex h-12 w-full items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700 ${
-                  cartItems.length === 0 || paymentMethods?.stripe !== true
-                    ? 'pointer-events-none opacity-50'
-                    : ''
-                }`}
+              <Button
+                asChild
+                variant="stripe"
+                size="lg"
+                className={`h-12 w-full ${canPayWithStripe ? '' : 'cursor-not-allowed opacity-50'}`}
               >
-                {paymentMethods?.stripe === false ? 'Stripe no conectado' : 'Pay with Stripe'}
-              </Link>
+                <Link
+                  href="/checkout/stripe"
+                  onClick={(event) => {
+                    if (!canPayWithStripe) {
+                      event.preventDefault();
+                      if (!session?.user) setShowAuthNotice(true);
+                    }
+                  }}
+                  aria-disabled={!canPayWithStripe}
+                >
+                  {paymentMethods?.stripe === false ? 'Stripe no conectado' : 'Pay with Stripe'}
+                </Link>
+              </Button>
 
               {/* MERCADO PAGO */}
-              <Link
-                href="/checkout"
-                onClick={(event) => {
-                  if (!session?.user || paymentMethods?.mercadoPago !== true) {
-                    event.preventDefault();
-                    if (!session?.user) setShowAuthNotice(true);
-                  }
-                }}
-                className={`flex h-12 w-full items-center justify-center rounded-lg bg-sky-500 text-sm font-bold text-white shadow-sm transition-colors hover:bg-sky-600 ${
-                  cartItems.length === 0 || paymentMethods?.mercadoPago !== true
-                    ? 'pointer-events-none opacity-50'
-                    : ''
-                }`}
+              <Button
+                asChild
+                variant="mercadopago"
+                size="lg"
+                className={`h-12 w-full ${canPayWithMercadoPago ? '' : 'cursor-not-allowed opacity-50'}`}
               >
-                {paymentMethods?.mercadoPago === false
-                  ? 'Mercado Pago no conectado'
-                  : 'Pagar con Mercado Pago'}
-              </Link>
+                <Link
+                  href="/checkout"
+                  onClick={(event) => {
+                    if (!canPayWithMercadoPago) {
+                      event.preventDefault();
+                      if (!session?.user) setShowAuthNotice(true);
+                    }
+                  }}
+                  aria-disabled={!canPayWithMercadoPago}
+                >
+                  {paymentMethods?.mercadoPago === false
+                    ? 'Mercado Pago no conectado'
+                    : 'Pagar con Mercado Pago'}
+                </Link>
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
     </main>

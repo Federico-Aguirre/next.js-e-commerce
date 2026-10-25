@@ -1,18 +1,37 @@
-import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
-import { authOptions } from '@/lib/auth-options';
+import { getAuthenticatedUser } from '@/lib/auth/request-user';
 import { refundPaidOrder, type PaymentProvider } from '@/lib/payments/refund-order';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, hashRateLimitIdentity } from '@/lib/security/rate-limit';
 
 const REFUND_COMPLETE = new Set(['succeeded', 'completed', 'approved', 'refunded']);
 
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ orderId: string }> },
-) {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  if (!userId) return NextResponse.json({ error: 'UNAUTHENTICATED' }, { status: 401 });
+export async function POST(request: Request, { params }: { params: Promise<{ orderId: string }> }) {
+  const authenticatedUser = await getAuthenticatedUser(request);
+  const userId = authenticatedUser?.id;
+  if (!userId) {
+    return NextResponse.json(
+      { error: 'UNAUTHENTICATED' },
+      { status: 401, headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
+    );
+  }
+
+  const rateLimit = checkRateLimit('order-cancel:' + hashRateLimitIdentity(userId), {
+    limit: 5,
+    windowMs: 60 * 60_000,
+  });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'RATE_LIMITED' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rateLimit.retryAfterSeconds),
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      },
+    );
+  }
 
   const { orderId } = await params;
   const order = await prisma.order.findFirst({
@@ -27,7 +46,11 @@ export async function POST(
   if (order.status !== 'PAID') {
     return NextResponse.json({ error: 'NOT_PAID' }, { status: 409 });
   }
-  if (order.fulfillmentStatus !== 'PENDING' || order.shippingExternalId) {
+  if (
+    order.fulfillmentStatus !== 'PENDING' ||
+    order.shippingExternalId ||
+    order.shippingStatus === 'CREATING'
+  ) {
     return NextResponse.json({ error: 'TOO_LATE' }, { status: 409 });
   }
 
@@ -50,6 +73,7 @@ export async function POST(
       status: 'PAID',
       fulfillmentStatus: 'PENDING',
       shippingExternalId: null,
+      OR: [{ shippingStatus: null }, { shippingStatus: { not: 'CREATING' } }],
     },
     data: { fulfillmentStatus: 'CANCELLING' },
   });
@@ -101,11 +125,15 @@ export async function POST(
       where: { id: order.id, userId, fulfillmentStatus: 'CANCELLING' },
       data: { fulfillmentStatus: 'PENDING' },
     });
-    console.error('Order cancellation refund failed:', error);
+    console.error(
+      'Order cancellation refund failed:',
+      error instanceof Error ? error.name : 'UnknownError',
+    );
     return NextResponse.json(
       {
         error: 'REFUND_FAILED',
-        message: error instanceof Error ? error.message : 'No se pudo reembolsar el pago.',
+        message:
+          'No se pudo confirmar el reembolso. El pedido requiere verificación antes de volver a intentarlo.',
       },
       { status: 502 },
     );

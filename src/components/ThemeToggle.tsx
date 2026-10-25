@@ -1,33 +1,42 @@
 'use client';
 
 import { Moon, Sun } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-
 import { Button } from '@/components/ui/button';
+import {
+  isThemePreference,
+  parseThemeCookie,
+  serializeThemeCookie,
+  type ThemePreference,
+} from '@/lib/preferences/theme';
+
+function persistTheme(theme: ThemePreference) {
+  localStorage.setItem('theme', theme);
+  document.cookie = serializeThemeCookie(theme, window.location.protocol === 'https:');
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+  document.documentElement.style.colorScheme = theme;
+}
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const pathname = usePathname();
+  const isSpanish = pathname.startsWith('/es');
+  const [theme, setTheme] = useState<ThemePreference>('light');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Read local storage safely without unsafe type assertions
-    const storedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia(
-      '(prefers-color-scheme: dark)',
-    ).matches;
+    const cookieTheme = parseThemeCookie(document.cookie);
+    const localTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    let activeTheme: 'light' | 'dark' = 'light';
+    // The early theme script reads the cookie before paint. Keep browser storage
+    // in sync with it; localStorage remains a migration fallback for existing visitors.
+    const activeTheme =
+      cookieTheme ??
+      (isThemePreference(localTheme) ? localTheme : systemPrefersDark ? 'dark' : 'light');
 
-    if (storedTheme === 'dark' || storedTheme === 'light') {
-      activeTheme = storedTheme;
-    } else if (systemPrefersDark) {
-      activeTheme = 'dark';
-    }
+    persistTheme(activeTheme);
 
-    document.documentElement.classList.toggle('dark', activeTheme === 'dark');
-    document.documentElement.style.colorScheme = activeTheme;
-
-    // Defer state update to avoid synchronous cascading re-renders in React Compiler
     queueMicrotask(() => {
       setTheme(activeTheme);
       setMounted(true);
@@ -36,14 +45,17 @@ export function ThemeToggle() {
 
   const toggleTheme = () => {
     const nextTheme = theme === 'light' ? 'dark' : 'light';
+    persistTheme(nextTheme);
     setTheme(nextTheme);
-    localStorage.setItem('theme', nextTheme);
-    document.documentElement.classList.toggle('dark', nextTheme === 'dark');
-    document.documentElement.style.colorScheme = nextTheme;
   };
 
   if (!mounted) {
-    return <div className="size-9" />;
+    return (
+      <div
+        aria-hidden="true"
+        className="size-10 rounded-md border border-border bg-card shadow-sm"
+      />
+    );
   }
 
   return (
@@ -51,14 +63,11 @@ export function ThemeToggle() {
       onClick={toggleTheme}
       variant="outline"
       size="icon"
-      className="cursor-pointer"
-      aria-label="Toggle theme"
+      className="cursor-pointer border-border bg-card text-foreground shadow-sm hover:bg-accent"
+      aria-label={isSpanish ? 'Cambiar tema claro u oscuro' : 'Toggle light or dark theme'}
+      aria-pressed={theme === 'dark'}
     >
-      {theme === 'dark' ? (
-        <Sun className="h-4 w-4" />
-      ) : (
-        <Moon className="h-4 w-4" />
-      )}
+      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </Button>
   );
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { connection, NextResponse } from 'next/server';
 import { paypalAuthAssertion, paypalPaymentConfig } from '@/lib/payments/platform-config';
 
 const PAYPAL_API_BASE =
@@ -6,9 +6,8 @@ const PAYPAL_API_BASE =
     ? 'https://api-m.paypal.com'
     : 'https://api-m.sandbox.paypal.com';
 
-export const dynamic = 'force-dynamic';
-
 export async function GET() {
+  await connection();
   const { clientId, clientSecret, sellerMerchantId, partnerAttributionId, splitEnabled } =
     await paypalPaymentConfig();
 

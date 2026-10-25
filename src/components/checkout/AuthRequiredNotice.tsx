@@ -1,25 +1,21 @@
 'use client';
 
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 type AuthRequiredNoticeProps = {
   loginLabel?: string;
 };
 
-export function AuthRequiredNotice({
-  loginLabel = 'Ir al login',
-}: AuthRequiredNoticeProps) {
+export function AuthRequiredNotice({ loginLabel = 'Ir al login' }: AuthRequiredNoticeProps) {
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center shadow-sm dark:border-amber-900 dark:bg-amber-950/30">
-      <p className="text-base font-semibold text-amber-900 dark:text-amber-100">
+    <div className="rounded-xl border border-warning/25 bg-warning/10 p-6 text-center shadow-sm">
+      <p className="text-base font-semibold text-warning-foreground">
         No puede acceder sin loguearse
       </p>
-      <Link
-        href="/login"
-        className="mt-4 inline-flex cursor-pointer items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
-      >
-        {loginLabel}
-      </Link>
+      <Button asChild size="lg" className="mt-4">
+        <Link href="/login">{loginLabel}</Link>
+      </Button>
     </div>
   );
 }

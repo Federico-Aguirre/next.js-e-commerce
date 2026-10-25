@@ -1,117 +1,203 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import type { AccountFormData } from '@/lib/account/accountSchema';
+import { Radio } from '@/components/ui/radio';
+import type { DeliveryAddressFormData } from '@/lib/account/delivery-address-schema';
 
-type DeliveryAddress = Partial<AccountFormData>;
+type SavedAddress = DeliveryAddressFormData & {
+  id: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 
-const requiredFields: (keyof AccountFormData)[] = [
-  'firstName',
-  'lastName',
-  'phone',
-  'shippingStreet',
-  'shippingNumber',
-  'shippingCity',
-  'shippingProvince',
-  'shippingPostalCode',
-  'shippingCountry',
-];
+type ProfileDetails = {
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  dni?: string | null;
+};
 
-export default function DeliveryAddressSummary() {
-  const [address, setAddress] = useState<DeliveryAddress | null>(null);
+type Props = {
+  selectedAddressId: string | null;
+  onSelectedAddressChange: (id: string) => void;
+  onAddressesLoaded: (id: string | null) => void;
+  disabled?: boolean;
+};
+
+export default function DeliveryAddressSummary({
+  selectedAddressId,
+  onSelectedAddressChange,
+  onAddressesLoaded,
+  disabled = false,
+}: Props) {
+  const t = useTranslations('Account');
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [profile, setProfile] = useState<ProfileDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    const loadAddress = async () => {
+    const loadAddresses = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const response = await fetch('/api/account', { cache: 'no-store' });
+        const [addressResponse, profileResponse] = await Promise.all([
+          fetch('/api/account/addresses', { cache: 'no-store' }),
+          fetch('/api/account', { cache: 'no-store' }),
+        ]);
+        const [addressData, profileData] = await Promise.all([
+          addressResponse.json(),
+          profileResponse.json(),
+        ]);
 
-        if (!response.ok) {
-          throw new Error('No se pudo cargar la dirección de entrega.');
+        if (!addressResponse.ok || !Array.isArray(addressData.addresses)) {
+          throw new Error(addressData.error || 'No se pudieron cargar las direcciones guardadas.');
+        }
+        if (!profileResponse.ok) {
+          throw new Error(profileData.error || 'No se pudieron cargar tus datos de entrega.');
         }
 
-        const data = (await response.json()) as DeliveryAddress;
+        const loadedAddresses = addressData.addresses as SavedAddress[];
+        const preferredAddress =
+          loadedAddresses.find((address) => address.isDefault) ?? loadedAddresses[0] ?? null;
 
         if (!cancelled) {
-          setAddress(data);
+          setAddresses(loadedAddresses);
+          setProfile(profileData as ProfileDetails);
+          onAddressesLoaded(preferredAddress?.id ?? null);
         }
       } catch (requestError) {
-        console.error('Error cargando la dirección de entrega:', requestError);
-
+        console.error('Error cargando direcciones de entrega:', requestError);
         if (!cancelled) {
-          setError(true);
+          setError(
+            requestError instanceof Error
+              ? requestError.message
+              : 'No se pudieron cargar las direcciones guardadas.',
+          );
+          setAddresses([]);
+          onAddressesLoaded(null);
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     };
 
-    void loadAddress();
+    void loadAddresses();
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [onAddressesLoaded]);
 
-  const complete = address && requiredFields.every((field) => String(address[field] ?? '').trim());
-
-  if (loading) {
-    return (
-      <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-        Cargando dirección de entrega...
-      </div>
-    );
-  }
-
-  if (error || !complete || !address) {
-    return (
-      <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
-        <h3 className="text-sm font-bold text-amber-900">Dirección de entrega</h3>
-        <p className="mt-1 text-sm text-amber-800">
-          Completá tus datos de entrega antes de realizar el pedido.
-        </p>
-        <Link
-          href="/account"
-          className="mt-3 inline-block text-sm font-bold text-amber-900 underline"
-        >
-          Completar datos de entrega
-        </Link>
-      </div>
-    );
-  }
-
-  const streetLine = [address.shippingStreet, address.shippingNumber].filter(Boolean).join(' ');
-  const apartmentLine = address.shippingApartment?.trim();
-  const localityLine = [address.shippingCity, address.shippingProvince, address.shippingPostalCode]
-    .filter(Boolean)
-    .join(', ');
+  const selectedAddress = addresses.find((address) => address.id === selectedAddressId);
 
   return (
-    <section className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-      <div className="mb-3 flex items-center justify-between gap-4">
-        <h3 className="text-sm font-bold text-gray-900">Dirección de entrega</h3>
-        <Link href="/account" className="text-xs font-semibold text-sky-700 hover:underline">
-          Editar
+    <section className="mb-6 rounded-lg border border-border bg-muted/40 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold text-foreground">{t('checkoutTitle')}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{t('checkoutSubtitle')}</p>
+        </div>
+        <Link
+          href="/account"
+          className="text-xs font-semibold text-primary underline hover:text-primary"
+        >
+          {t('manageAddresses')}
         </Link>
       </div>
 
-      <div className="space-y-1 text-sm text-gray-700">
-        <p className="font-semibold text-gray-900">
-          {address.firstName} {address.lastName}
+      {loading && (
+        <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
+          {t('loadingCheckoutAddresses')}
         </p>
-        <p>{address.phone}</p>
-        <p>{streetLine}</p>
-        {apartmentLine && <p>{apartmentLine}</p>}
-        <p>{localityLine}</p>
-        <p>{address.shippingCountry}</p>
-        {address.dni && <p>DNI: {address.dni}</p>}
-      </div>
+      )}
+
+      {!loading && error && (
+        <div
+          role="alert"
+          className="rounded-md border border-warning/25 bg-warning/10 p-3 text-sm text-warning-foreground"
+        >
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && addresses.length === 0 && (
+        <div className="rounded-md border border-warning/25 bg-warning/10 p-3">
+          <p className="text-sm text-warning-foreground">{t('noCheckoutAddresses')}</p>
+          <Link
+            href="/account"
+            className="mt-2 inline-block text-sm font-semibold text-warning-foreground underline"
+          >
+            {t('newAddress')}
+          </Link>
+        </div>
+      )}
+
+      {!loading && !error && addresses.length > 0 && (
+        <fieldset className="space-y-2">
+          <legend className="sr-only">{t('selectDeliveryAddress')}</legend>
+          {addresses.map((address) => (
+            <label
+              key={address.id}
+              className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
+                selectedAddressId === address.id
+                  ? 'border-primary bg-card ring-1 ring-primary'
+                  : 'border-border bg-card hover:border-primary'
+              }`}
+            >
+              <Radio
+                type="radio"
+                name="deliveryAddressId"
+                value={address.id}
+                checked={selectedAddressId === address.id}
+                onChange={() => onSelectedAddressChange(address.id)}
+                disabled={disabled}
+                className="mt-1 cursor-pointer accent-primary disabled:cursor-not-allowed"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
+                  {address.label}
+                  {address.isDefault && (
+                    <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-primary">
+                      {t('defaultAddress')}
+                    </span>
+                  )}
+                </span>
+                <span className="mt-1 block text-sm text-foreground">
+                  {address.shippingStreet} {address.shippingNumber}
+                  {address.shippingApartment ? `, ${address.shippingApartment}` : ''}
+                </span>
+                <span className="block text-sm text-muted-foreground">{locality(address)}</span>
+                <span className="block text-sm text-muted-foreground">
+                  {address.shippingCountry}
+                </span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+
+      {selectedAddress && profile && (
+        <div className="mt-3 border-t border-border pt-3 text-sm text-foreground">
+          <p className="font-semibold text-foreground">
+            {t('recipient')}: {[profile.firstName, profile.lastName].filter(Boolean).join(' ')}
+          </p>
+          {profile.phone && <p>{profile.phone}</p>}
+          {profile.dni && <p>DNI: {profile.dni}</p>}
+          <p className="mt-1 text-xs text-muted-foreground">{t('deliveryQuoteHint')}</p>
+        </div>
+      )}
     </section>
   );
+}
+
+function locality(address: SavedAddress) {
+  return [address.shippingCity, address.shippingProvince, address.shippingPostalCode]
+    .filter(Boolean)
+    .join(', ');
 }

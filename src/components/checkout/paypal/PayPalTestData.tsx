@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 const testCards = [{ label: 'Visa principal', number: '4012888888881881' }] as const;
 
@@ -9,6 +10,8 @@ const cvv = '123';
 
 export default function PayPalTestData() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  if (process.env.NODE_ENV !== 'development') return null;
 
   const copyToClipboard = async (value: string, field: string) => {
     try {
@@ -21,65 +24,73 @@ export default function PayPalTestData() {
   };
 
   return (
-    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-      <h3 className="text-sm font-bold text-blue-900">Datos de prueba</h3>
-      <p className="mt-1 text-xs text-blue-700">PayPal está configurado en modo Sandbox.</p>
+    <div className="rounded-xl border border-paypal/20 bg-accent p-4">
+      <h3 className="text-sm font-bold text-primary">Datos de prueba</h3>
+      <p className="mt-1 text-xs text-primary">PayPal está configurado en modo Sandbox.</p>
       <div className="mt-3 space-y-2">
         {testCards.map((card, index) => {
           const field = `card-${index}`;
           return (
             <div
               key={card.number}
-              className="flex items-center justify-between gap-3 rounded-lg border border-blue-100 bg-white px-3 py-2"
+              className="flex items-center justify-between gap-3 rounded-lg border border-paypal/20 bg-card px-3 py-2"
             >
               <div>
-                <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">
+                <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
                   {card.label}
                 </p>
-                <p className="text-sm font-semibold text-gray-800">{card.number}</p>
+                <p className="text-sm font-semibold text-foreground">{card.number}</p>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => copyToClipboard(card.number, field)}
-                className="rounded-md bg-blue-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-blue-700"
+                className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-bold text-primary-foreground hover:bg-primary/90"
               >
                 {copiedField === field ? '✓ Copiado' : 'Copiar'}
-              </button>
+              </Button>
             </div>
           );
         })}
 
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-100 bg-white px-3 py-2">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-paypal/20 bg-card px-3 py-2">
           <div>
-            <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">Fecha</p>
-            <p className="text-sm font-semibold text-gray-800">{expiration}</p>
+            <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+              Fecha
+            </p>
+            <p className="text-sm font-semibold text-foreground">{expiration}</p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             onClick={() => copyToClipboard(expiration, 'expiration')}
-            className="rounded-md bg-blue-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-blue-700"
+            className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-bold text-primary-foreground hover:bg-primary/90"
           >
             {copiedField === 'expiration' ? '✓ Copiado' : 'Copiar'}
-          </button>
+          </Button>
         </div>
 
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-100 bg-white px-3 py-2">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-paypal/20 bg-card px-3 py-2">
           <div>
-            <p className="text-[10px] font-semibold tracking-wide text-gray-400 uppercase">
+            <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
               Código de seguridad
             </p>
-            <p className="text-sm font-semibold text-gray-800">{cvv}</p>
+            <p className="text-sm font-semibold text-foreground">{cvv}</p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             onClick={() => copyToClipboard(cvv, 'cvv')}
-            className="rounded-md bg-blue-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-blue-700"
+            className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-bold text-primary-foreground hover:bg-primary/90"
           >
             {copiedField === 'cvv' ? '✓ Copiado' : 'Copiar'}
-          </button>
+          </Button>
         </div>
 
-        <div className="rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs text-gray-600">
+        <div className="rounded-lg border border-paypal/20 bg-card px-3 py-2 text-xs text-muted-foreground">
           Billing sandbox: Estados Unidos · CP 94105
         </div>
       </div>

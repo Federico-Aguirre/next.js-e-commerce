@@ -6,8 +6,6 @@ import { createBrevoIdempotencyKey, sendBrevoEmail } from '@/lib/email/brevo';
 import { Env } from '@/lib/Env';
 import { prisma } from '@/lib/prisma';
 
-export const dynamic = 'force-dynamic';
-
 const requestSchema = z.object({
   email: z.string().trim().email().max(254),
   orderNumber: z.string().trim().max(10).regex(/^\d*$/).optional().default(''),

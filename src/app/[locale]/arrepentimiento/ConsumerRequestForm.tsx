@@ -2,6 +2,9 @@
 
 import { usePathname } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -78,7 +81,7 @@ export default function ConsumerRequestForm() {
     <form onSubmit={handleSubmit} className="space-y-5">
       {status === 'success' ? (
         <div
-          className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-5"
+          className="rounded-xl border border-success/40 bg-success/10 p-5"
           role="status"
           aria-live="polite"
         >
@@ -106,7 +109,7 @@ export default function ConsumerRequestForm() {
               {es ? 'Correo electrónico de contacto' : 'Contact email'}
               <span className="text-destructive"> *</span>
             </label>
-            <input
+            <Input
               id="withdrawal-email"
               name="email"
               type="email"
@@ -115,7 +118,7 @@ export default function ConsumerRequestForm() {
               maxLength={254}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="focus-visible:ring-ring min-h-11 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2"
+              className="min-h-11 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             <p className="text-xs leading-5 text-muted-foreground">
               {es
@@ -127,7 +130,7 @@ export default function ConsumerRequestForm() {
             <label htmlFor="withdrawal-order" className="block text-sm font-medium">
               {es ? 'Número de pedido (opcional)' : 'Order number (optional)'}
             </label>
-            <input
+            <Input
               id="withdrawal-order"
               name="orderNumber"
               type="text"
@@ -137,21 +140,21 @@ export default function ConsumerRequestForm() {
               pattern="[0-9]{1,9}"
               value={orderNumber}
               onChange={(event) => setOrderNumber(event.target.value)}
-              className="focus-visible:ring-ring min-h-11 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2"
+              className="min-h-11 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div className="space-y-2">
             <label htmlFor="withdrawal-details" className="block text-sm font-medium">
               {es ? 'Información adicional (opcional)' : 'Additional information (optional)'}
             </label>
-            <textarea
+            <Textarea
               id="withdrawal-details"
               name="details"
               rows={4}
               maxLength={2000}
               value={details}
               onChange={(event) => setDetails(event.target.value)}
-              className="focus-visible:ring-ring w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2"
+              className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder={
                 es
                   ? 'Por ejemplo, producto o detalle que ayude a localizar la compra.'
@@ -160,11 +163,13 @@ export default function ConsumerRequestForm() {
             />
           </div>
           {status === 'error' && (
-            <p className="text-destructive text-sm font-medium" role="alert">
+            <p className="text-sm font-medium text-destructive" role="alert">
               {error}
             </p>
           )}
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="submit"
             disabled={status === 'submitting'}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
@@ -176,7 +181,7 @@ export default function ConsumerRequestForm() {
               : es
                 ? 'Enviar solicitud de arrepentimiento'
                 : 'Submit withdrawal request'}
-          </button>
+          </Button>
         </>
       )}
     </form>

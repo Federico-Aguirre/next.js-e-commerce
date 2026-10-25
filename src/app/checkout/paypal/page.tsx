@@ -4,30 +4,43 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import { AuthRequiredNotice } from '@/components/checkout/AuthRequiredNotice';
+import CheckoutShippingSummary from '@/components/checkout/CheckoutShippingSummary';
 import DeliveryAddressSummary from '@/components/checkout/DeliveryAddressSummary';
 import PayPalCardForm from '@/components/checkout/paypal/PayPalCardForm';
-import { TaxInclusivePrice } from '@/components/TaxInclusivePrice';
-import { useCurrency } from '@/providers/CurrencyProvider';
+import { useCheckoutShipping } from '@/components/checkout/useCheckoutShipping';
 import { useCartStore } from '@/store/useCartStore';
 
 export default function PayPalCheckoutPage() {
   const { data: session, status } = useSession();
-  const { currency } = useCurrency();
   const cartItems = useCartStore((state) => state.cart);
+  const [deliveryAddressId, setDeliveryAddressId] = useState<string | null>(null);
+  const [deliveryAddressesLoaded, setDeliveryAddressesLoaded] = useState(false);
+  const handleAddressesLoaded = useCallback((id: string | null) => {
+    setDeliveryAddressId(id);
+    setDeliveryAddressesLoaded(true);
+  }, []);
+  const handleSelectedAddressChange = useCallback((id: string) => {
+    setDeliveryAddressId(id);
+  }, []);
+  const shipping = useCheckoutShipping(
+    cartItems,
+    'USD',
+    status === 'authenticated' && deliveryAddressesLoaded && Boolean(deliveryAddressId),
+    deliveryAddressId,
+  );
 
-  const clearCart = useCartStore((state) => state.clearCart);
+  const finishCheckout = useCartStore((state) => state.finishCheckout);
 
   const [completed, setCompleted] = useState(false);
-
-  const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
 
   const handleSuccess = useCallback(() => {
     setCompleted(true);
 
-    clearCart();
+    finishCheckout();
 
     window.location.replace('/historial');
-  }, [clearCart]);
+  }, [finishCheckout]);
 
   if (status === 'loading') {
     return <div className="p-8 text-center">Cargando...</div>;
@@ -35,7 +48,11 @@ export default function PayPalCheckoutPage() {
 
   if (!session?.user) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10"
+      >
         <AuthRequiredNotice />
       </main>
     );
@@ -43,13 +60,17 @@ export default function PayPalCheckoutPage() {
 
   if (cartItems.length === 0 && !completed) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
-          <p className="mb-4 text-lg font-bold text-gray-900">Tu carrito está vacío</p>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex min-h-screen items-center justify-center bg-muted/40 px-4"
+      >
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
+          <p className="mb-4 text-lg font-bold text-foreground">Tu carrito está vacío</p>
 
           <Link
             href="/cart"
-            className="inline-flex rounded-lg bg-[#0070ba] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#005ea8]"
+            className="inline-flex rounded-lg bg-paypal px-5 py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-paypal/90"
           >
             Volver al carrito
           </Link>
@@ -59,35 +80,44 @@ export default function PayPalCheckoutPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-10">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-muted/40 px-4 py-10">
       <div className="mx-auto w-full max-w-xl">
-        <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+        <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
           <div className="mb-6 flex items-center justify-between gap-4">
-            <h1 className="text-xl font-bold text-gray-900">Pago con PayPal</h1>
+            <h1 className="text-xl font-bold text-foreground">Pago con PayPal</h1>
 
-            <Link href="/cart" className="text-sm font-semibold text-gray-500 hover:text-gray-700">
+            <Link
+              href="/cart"
+              className="text-sm font-semibold text-muted-foreground hover:text-foreground"
+            >
               ← Volver
             </Link>
           </div>
 
-          <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-600">
-                {currency === 'ARS' ? 'Total:' : 'Precio base:'}
-              </span>
+          <DeliveryAddressSummary
+            selectedAddressId={deliveryAddressId}
+            onSelectedAddressChange={handleSelectedAddressChange}
+            onAddressesLoaded={handleAddressesLoaded}
+            disabled={checkoutBusy}
+          />
+          <CheckoutShippingSummary
+            selectedQuote={shipping.selectedQuote}
+            availableQuotes={shipping.availableQuotes}
+            onSelectQuote={shipping.selectQuote}
+            loading={shipping.loading}
+            error={shipping.error}
+            onRetry={shipping.refreshQuotes}
+            disabled={checkoutBusy}
+          />
 
-              <TaxInclusivePrice
-                amount={cartTotal}
-                locale={currency === 'ARS' ? 'es-AR' : 'en-US'}
-                compact={false}
-                className="text-xl font-extrabold text-gray-900"
-              />
-            </div>
-          </div>
-
-          <PayPalCardForm cartItems={cartItems} onSuccess={handleSuccess} />
-
-          <DeliveryAddressSummary />
+          <PayPalCardForm
+            cartItems={cartItems}
+            onSuccess={handleSuccess}
+            shippingQuoteToken={shipping.selectedQuote?.quoteToken ?? null}
+            paymentTotal={shipping.selectedQuote?.paymentTotal ?? null}
+            deliveryAddressId={deliveryAddressId}
+            onPaymentBusyChange={setCheckoutBusy}
+          />
         </div>
       </div>
     </main>

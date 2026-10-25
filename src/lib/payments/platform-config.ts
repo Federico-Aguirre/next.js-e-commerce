@@ -1,19 +1,209 @@
 import 'server-only';
+import type { Prisma, StoreSubscription } from '@prisma/client';
 import Stripe from 'stripe';
 import { roundCurrencyAmount } from '@/lib/currency/currencies';
+import { prisma } from '@/lib/prisma';
 import { StoreConfig } from '@/utils/StoreConfig';
-import { paypalMerchantIsReady, type PayPalMerchantStatus } from './paypal-onboarding-status';
+import {
+  isMercadoPagoSandboxOAuthMetadata,
+  resolveMercadoPagoEnvironment,
+  resolveMercadoPagoSandboxCredentials,
+} from './mercadopago-environment';
+import { hasVerifiedPayPalConnection } from './paypal-connection-readiness';
+import {
+  calculatePlatformFeeForPlan,
+  commissionForPlan,
+  CUSTOMIZATION_RECOVERY_PLAN,
+  DEFAULT_PRO_MONTHLY_PRICE_ARS,
+  DEFAULT_RECOVERY_TARGET_ARS,
+  normalizePlanType,
+  PRO_PLAN,
+  STANDARD_COMMISSION_PERCENT,
+  STANDARD_PLAN,
+} from './plan-pricing';
 import { getStorePaymentConnection, saveStorePaymentConnection } from './store-connections';
 
-const DEFAULT_COMMISSION_PERCENT = 10;
+type PlanDb = Pick<Prisma.TransactionClient, 'storeSubscription' | 'order'>;
+type PlanState = {
+  subscription: StoreSubscription;
+  /** Plan selected by the administrator, even if its paid period has expired. */
+  planType: import('./plan-pricing').PlatformBasePlanType;
+  /** Plan whose commission applies to the next order; expired Pro falls back to Standard. */
+  feePlanType: import('./plan-pricing').PlatformBasePlanType;
+  customizationRecoveryActive: boolean;
+  proActive: boolean;
+  recoveredAmount: number;
+  reservedAmount: number;
+};
 
-export function platformCommissionPercent() {
-  const value = Number(process.env.DEVELOPER_COMMISSION_PERCENT ?? DEFAULT_COMMISSION_PERCENT);
-  return Number.isFinite(value) && value >= 0 && value <= 100 ? value : DEFAULT_COMMISSION_PERCENT;
+export type PlatformSubscriptionSummary = {
+  status: string;
+  storefrontStatus: 'OPEN' | 'CLOSING' | 'CLOSED';
+  storefrontClosedAt: Date | null;
+  planType: import('./plan-pricing').PlatformBasePlanType;
+  commissionPercent: number;
+  baseCommissionPercent: number;
+  proActive: boolean;
+  customizationRecoveryActive: boolean;
+  setupRecoveryTarget: number;
+  setupRecoveryStartedAt: Date | null;
+  monthlyPriceARS: number;
+  nextPaymentAt: Date | null;
+  recoveredAmount: number;
+  reservedAmount: number;
+  recoveryRemaining: number;
+};
+
+async function ensureStoreSubscription(db: PlanDb) {
+  return db.storeSubscription.upsert({
+    where: { id: 'default' },
+    create: {
+      id: 'default',
+      status: 'ACTIVE',
+      planType: STANDARD_PLAN,
+      commissionPercent: STANDARD_COMMISSION_PERCENT,
+      setupRecoveryTarget: DEFAULT_RECOVERY_TARGET_ARS,
+      customizationRecoveryActive: false,
+      monthlyPriceARS: DEFAULT_PRO_MONTHLY_PRICE_ARS,
+    },
+    update: {},
+  });
 }
 
-export function platformFee(amount: number) {
-  return roundCurrencyAmount(amount * (platformCommissionPercent() / 100), StoreConfig.currency);
+async function readPlanState(
+  db: PlanDb,
+  options: { excludeOrderId?: string } = {},
+): Promise<PlanState> {
+  let subscription = await ensureStoreSubscription(db);
+  const legacyRecoveryPlan = subscription.planType === CUSTOMIZATION_RECOVERY_PLAN;
+  const planType = normalizePlanType(subscription.planType);
+  const now = new Date();
+  const proActive =
+    planType === PRO_PLAN &&
+    Boolean(subscription.nextPaymentAt && subscription.nextPaymentAt.getTime() > now.getTime());
+  const feePlanType = proActive ? PRO_PLAN : STANDARD_PLAN;
+  const expectedPercent = commissionForPlan(feePlanType);
+  const customizationRecoveryActive =
+    subscription.customizationRecoveryActive || legacyRecoveryPlan;
+  // Preserve a partially paid recovery cycle when the administrator changes plans.
+  // A timestamp is created only when recovery is explicitly activated and never replaced
+  // by a normal Standard/Pro plan change.
+  const recoveryStartedAt =
+    customizationRecoveryActive && !subscription.setupRecoveryStartedAt
+      ? new Date()
+      : subscription.setupRecoveryStartedAt;
+
+  if (
+    subscription.planType !== planType ||
+    subscription.commissionPercent !== expectedPercent ||
+    subscription.customizationRecoveryActive !== customizationRecoveryActive ||
+    recoveryStartedAt !== subscription.setupRecoveryStartedAt
+  ) {
+    subscription = await db.storeSubscription.update({
+      where: { id: 'default' },
+      data: {
+        planType,
+        commissionPercent: expectedPercent,
+        customizationRecoveryActive,
+        setupRecoveryStartedAt: recoveryStartedAt,
+      },
+    });
+  }
+
+  const periodStart = subscription.setupRecoveryStartedAt ?? subscription.createdAt;
+  const pendingOrderFilter = {
+    ...(options.excludeOrderId ? { id: { not: options.excludeOrderId } } : {}),
+    status: { in: ['PENDING', 'PAYMENT_PROCESSING'] },
+    expiresAt: { gt: now },
+    platformRecoveryCycleStartedAt: periodStart,
+    platformRecoveryAmount: { gt: 0 },
+  };
+  const [paidRecovery, pendingRecovery] = await Promise.all([
+    db.order.aggregate({
+      where: {
+        status: 'PAID',
+        platformRecoveryCycleStartedAt: periodStart,
+        platformRecoveryAmount: { gt: 0 },
+      },
+      _sum: { platformRecoveryAmount: true },
+    }),
+    customizationRecoveryActive
+      ? db.order.aggregate({ where: pendingOrderFilter, _sum: { platformRecoveryAmount: true } })
+      : Promise.resolve({ _sum: { platformRecoveryAmount: null } }),
+  ]);
+
+  const recoveredAmount = Math.max(0, paidRecovery._sum.platformRecoveryAmount ?? 0);
+  const reservedAmount = Math.max(0, pendingRecovery._sum.platformRecoveryAmount ?? 0);
+
+  // Only the surcharge is disabled when the recovery target is reached. The selected
+  // base plan and its payment due date must survive this transition.
+  if (customizationRecoveryActive && recoveredAmount >= subscription.setupRecoveryTarget - 0.01) {
+    subscription = await db.storeSubscription.update({
+      where: { id: 'default' },
+      data: {
+        customizationRecoveryActive: false,
+        commissionPercent: expectedPercent,
+      },
+    });
+    return {
+      subscription,
+      planType,
+      feePlanType,
+      customizationRecoveryActive: false,
+      proActive,
+      recoveredAmount,
+      reservedAmount,
+    };
+  }
+
+  return {
+    subscription,
+    planType,
+    feePlanType,
+    customizationRecoveryActive,
+    proActive,
+    recoveredAmount,
+    reservedAmount,
+  };
+}
+
+export async function getPlatformSubscriptionSummary(): Promise<PlatformSubscriptionSummary> {
+  const state = await readPlanState(prisma);
+  const target = state.subscription.setupRecoveryTarget;
+  const baseCommissionPercent = commissionForPlan(state.feePlanType);
+  const commissionPercent = baseCommissionPercent + (state.customizationRecoveryActive ? 7 : 0);
+  return {
+    status: state.subscription.status,
+    storefrontStatus: state.subscription.storefrontStatus as 'OPEN' | 'CLOSING' | 'CLOSED',
+    storefrontClosedAt: state.subscription.storefrontClosedAt,
+    planType: state.planType,
+    commissionPercent,
+    baseCommissionPercent,
+    proActive: state.proActive,
+    customizationRecoveryActive: state.customizationRecoveryActive,
+    setupRecoveryTarget: target,
+    setupRecoveryStartedAt: state.subscription.setupRecoveryStartedAt,
+    monthlyPriceARS: state.subscription.monthlyPriceARS,
+    nextPaymentAt: state.subscription.nextPaymentAt,
+    recoveredAmount: Math.min(target, state.recoveredAmount),
+    reservedAmount: Math.min(Math.max(0, target - state.recoveredAmount), state.reservedAmount),
+    recoveryRemaining: Math.max(0, target - state.recoveredAmount - state.reservedAmount),
+  };
+}
+
+export async function platformCommissionPercent() {
+  return (await getPlatformSubscriptionSummary()).commissionPercent;
+}
+
+/** Refreshes the recovery target after a successful payment without ever failing that payment. */
+export async function refreshPlatformSubscriptionPlan() {
+  try {
+    await getPlatformSubscriptionSummary();
+  } catch (error) {
+    console.error('No se pudo actualizar el plan de la plataforma tras el pago.', {
+      error: error instanceof Error ? error.name : 'UnknownError',
+    });
+  }
 }
 
 export function commissionableProductSubtotal(items: Array<{ price: number; quantity: number }>) {
@@ -22,8 +212,76 @@ export function commissionableProductSubtotal(items: Array<{ price: number; quan
   return roundCurrencyAmount(subtotal, StoreConfig.currency);
 }
 
-export function platformFeeForProducts(items: Array<{ price: number; quantity: number }>) {
-  return platformFee(commissionableProductSubtotal(items));
+function calculatePlatformFee(subtotal: number, state: PlanState) {
+  return calculatePlatformFeeForPlan({
+    subtotal,
+    planType: state.feePlanType,
+    customizationRecoveryActive: state.customizationRecoveryActive,
+    setupRecoveryTarget: state.subscription.setupRecoveryTarget,
+    recoveredAmount: state.recoveredAmount,
+    reservedAmount: state.reservedAmount,
+  });
+}
+
+export async function platformFee(amount: number) {
+  const state = await readPlanState(prisma);
+  return calculatePlatformFee(roundCurrencyAmount(amount, StoreConfig.currency), state).feeAmount;
+}
+
+export async function platformFeeForProducts(
+  items: Array<{ price: number; quantity: number }>,
+  orderId?: string,
+) {
+  const subtotal = commissionableProductSubtotal(items);
+
+  if (!orderId) {
+    const state = await readPlanState(prisma);
+    return calculatePlatformFee(subtotal, state).feeAmount;
+  }
+
+  return prisma.$transaction(
+    async (tx) => {
+      await ensureStoreSubscription(tx);
+      await tx.storeSubscription.update({
+        where: { id: 'default' },
+        data: { updatedAt: new Date() },
+      });
+
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: {
+          id: true,
+          status: true,
+          expiresAt: true,
+          platformFeeAmount: true,
+        },
+      });
+      if (!order)
+        throw new Error('No se encontró el pedido para calcular la comisión de plataforma.');
+      if (
+        !['PENDING', 'PAYMENT_PROCESSING'].includes(order.status) ||
+        order.expiresAt <= new Date()
+      ) {
+        throw new Error('El pedido venció o dejó de estar disponible para calcular su comisión.');
+      }
+      if (order.platformFeeAmount !== null) return order.platformFeeAmount;
+
+      const state = await readPlanState(tx, { excludeOrderId: orderId });
+      const calculated = calculatePlatformFee(subtotal, state);
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          platformCommissionPercent: calculated.commissionPercent,
+          platformFeeAmount: calculated.feeAmount,
+          platformRecoveryAmount: calculated.recoveryAmount,
+          platformRecoveryCycleStartedAt:
+            calculated.recoveryAmount > 0 ? state.subscription.setupRecoveryStartedAt : null,
+        },
+      });
+      return calculated.feeAmount;
+    },
+    { maxWait: 10_000, timeout: 20_000 },
+  );
 }
 
 function connectionCanCharge(status: string | null | undefined) {
@@ -31,8 +289,20 @@ function connectionCanCharge(status: string | null | undefined) {
 }
 
 async function refreshMercadoPagoTokenIfNeeded() {
+  // This integration is intentionally sandbox-only until live marketplace OAuth
+  // and commission splitting have been implemented and explicitly validated.
+  if (resolveMercadoPagoEnvironment(process.env.MERCADOPAGO_ENVIRONMENT) !== 'sandbox') {
+    return null;
+  }
+
   const connection = await getStorePaymentConnection('MERCADOPAGO');
-  if (!connection?.accessToken || !connectionCanCharge(connection.status)) return connection;
+  if (
+    !connection?.accessToken ||
+    !connectionCanCharge(connection.status) ||
+    !isMercadoPagoSandboxOAuthMetadata(connection.metadata)
+  ) {
+    return connection;
+  }
 
   const expiresSoon =
     connection.tokenExpiresAt && connection.tokenExpiresAt.getTime() <= Date.now() + 5 * 60 * 1000;
@@ -82,30 +352,47 @@ async function refreshMercadoPagoTokenIfNeeded() {
 }
 
 export async function mercadoPagoPaymentConfig() {
-  const connection = await refreshMercadoPagoTokenIfNeeded();
-  const storedOauthToken = connectionCanCharge(connection?.status)
-    ? connection?.accessToken
-    : undefined;
-  const standaloneToken = process.env.STORE_MERCADOPAGO_ACCESS_TOKEN?.trim();
+  // In development, default to sandbox. In production, require an explicit
+  // environment so a missing variable cannot silently permit sandbox charges.
+  const configuredEnvironment =
+    process.env.MERCADOPAGO_ENVIRONMENT?.trim() ||
+    (process.env.NODE_ENV === 'production' ? 'invalid' : 'sandbox');
+  const environment = resolveMercadoPagoEnvironment(configuredEnvironment);
 
-  // El split sólo se activa con un token OAuth vigente guardado después del onboarding.
-  // No usamos tokens OAuth estáticos de entorno para evitar credenciales obsoletas.
-  const oauthToken = storedOauthToken;
-  const accessToken = oauthToken || standaloneToken;
-  const splitEnabled = Boolean(
-    oauthToken &&
-    process.env.DEVELOPER_MERCADOPAGO_CLIENT_ID?.trim() &&
-    process.env.DEVELOPER_MERCADOPAGO_CLIENT_SECRET?.trim(),
-  );
-  const standaloneEnabled = Boolean(!oauthToken && standaloneToken);
+  // Fail closed in production/unknown modes until live marketplace OAuth and
+  // the 90/10 split are separately implemented and validated end to end.
+  if (environment !== 'sandbox') {
+    return {
+      accessToken: undefined,
+      chargeEnabled: false,
+      splitEnabled: false,
+      standaloneEnabled: false,
+      externalAccountId: undefined,
+      sandbox: false,
+    };
+  }
+
+  const connection = await refreshMercadoPagoTokenIfNeeded();
+  const storedOauthToken =
+    connectionCanCharge(connection?.status) &&
+    isMercadoPagoSandboxOAuthMetadata(connection?.metadata)
+      ? connection?.accessToken
+      : undefined;
+
+  // Never silently fall back to the generic STORE_MERCADOPAGO_ACCESS_TOKEN:
+  // configure an explicit sandbox-only token if a standalone sandbox flow is needed.
+  const resolved = resolveMercadoPagoSandboxCredentials({
+    environment: configuredEnvironment,
+    oauthAccessToken: storedOauthToken,
+    oauthMetadata: connection?.metadata,
+    sandboxStandaloneAccessToken: process.env.STORE_MERCADOPAGO_SANDBOX_ACCESS_TOKEN,
+    developerClientId: process.env.DEVELOPER_MERCADOPAGO_CLIENT_ID,
+    developerClientSecret: process.env.DEVELOPER_MERCADOPAGO_CLIENT_SECRET,
+  });
 
   return {
-    accessToken,
-    chargeEnabled: Boolean(accessToken),
-    splitEnabled,
-    standaloneEnabled,
+    ...resolved,
     externalAccountId: connection?.externalAccountId,
-    sandbox: true,
   };
 }
 
@@ -115,7 +402,14 @@ export async function stripePaymentConfig() {
   const connectedAccountId = connectionCanCharge(connection?.status)
     ? connection?.externalAccountId || process.env.STORE_STRIPE_CONNECTED_ACCOUNT_ID?.trim()
     : undefined;
-  const sandboxKey = Boolean(platformSecretKey?.startsWith('sk_test_'));
+  // Live Stripe Connect is not implemented yet. Require an explicit sandbox
+  // mode and a test secret; a production build never accepts a test key by default.
+  const stripeEnvironment =
+    process.env.STRIPE_ENVIRONMENT?.trim() ||
+    (process.env.NODE_ENV === 'production' ? 'invalid' : 'sandbox');
+  const sandboxKey = Boolean(
+    stripeEnvironment === 'sandbox' && platformSecretKey?.startsWith('sk_test_'),
+  );
   let accountReady = false;
 
   if (platformSecretKey && connectedAccountId && sandboxKey) {
@@ -136,50 +430,15 @@ export async function stripePaymentConfig() {
     secretKey: sandboxKey ? platformSecretKey : undefined,
     connectedAccountId: accountReady ? connectedAccountId : undefined,
     splitEnabled: Boolean(platformSecretKey && connectedAccountId && sandboxKey && accountReady),
-    sandbox: true,
+    sandbox: sandboxKey,
   };
 }
 
-async function paypalSellerIsActive(input: {
-  clientId: string;
-  clientSecret: string;
-  platformMerchantId: string;
-  sellerMerchantId: string;
-  partnerAttributionId: string;
-}) {
-  try {
-    const tokenResponse = await fetch('https://api-m.sandbox.paypal.com/v1/oauth2/token', {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${input.clientId}:${input.clientSecret}`).toString('base64')}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'grant_type=client_credentials',
-      cache: 'no-store',
-    });
-    const tokenData = (await tokenResponse.json()) as { access_token?: string };
-    if (!tokenResponse.ok || !tokenData.access_token) return false;
-
-    const statusResponse = await fetch(
-      `https://api-m.sandbox.paypal.com/v1/customer/partners/${encodeURIComponent(input.platformMerchantId)}/merchant-integrations/${encodeURIComponent(input.sellerMerchantId)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-          'Content-Type': 'application/json',
-          'PayPal-Partner-Attribution-Id': input.partnerAttributionId,
-          'PayPal-Auth-Assertion': paypalAuthAssertion(input.clientId, input.platformMerchantId),
-        },
-        cache: 'no-store',
-      },
-    );
-    if (!statusResponse.ok) return false;
-    const status = (await statusResponse.json()) as PayPalMerchantStatus;
-    return paypalMerchantIsReady(status);
-  } catch (error) {
-    console.error('No se pudo validar el seller sandbox de PayPal.', error);
-    return false;
-  }
-}
+/**
+ * Runtime availability uses the effective server configuration and the result
+ * of onboarding. Do not poll PayPal's merchant-status endpoint on every checkout:
+ * transient API errors must not change an existing connection to REQUIRES_ACTION.
+ */
 
 export async function paypalPaymentConfig() {
   const connection = await getStorePaymentConnection('PAYPAL');
@@ -187,43 +446,29 @@ export async function paypalPaymentConfig() {
   const platformClientSecret = process.env.DEVELOPER_PAYPAL_CLIENT_SECRET?.trim();
   const platformMerchantId = process.env.DEVELOPER_PAYPAL_MERCHANT_ID?.trim();
   const partnerAttributionId = process.env.DEVELOPER_PAYPAL_PARTNER_ATTRIBUTION_ID?.trim();
-  const sellerMerchantId = connectionCanCharge(connection?.status)
+  const sellerMerchantId = hasVerifiedPayPalConnection(connection)
     ? connection?.externalAccountId || process.env.STORE_PAYPAL_MERCHANT_ID?.trim()
-    : undefined;
+    : connectionCanCharge(connection?.status)
+      ? process.env.STORE_PAYPAL_MERCHANT_ID?.trim()
+      : undefined;
+  // Live PayPal Partner payments are not enabled in this implementation.
+  // Do not assume sandbox in production when the server-side mode is missing.
+  const paypalEnvironment =
+    process.env.PAYPAL_ENVIRONMENT?.trim() ||
+    (process.env.NODE_ENV === 'production' ? 'invalid' : 'sandbox');
   const sandboxEnabled =
-    process.env.PAYPAL_ENVIRONMENT !== 'production' &&
-    process.env.NEXT_PUBLIC_PAYPAL_ENVIRONMENT !== 'production';
+    paypalEnvironment === 'sandbox' && process.env.NEXT_PUBLIC_PAYPAL_ENVIRONMENT !== 'production';
 
-  let sellerActive = false;
-  if (
-    sandboxEnabled &&
-    platformClientId &&
-    platformClientSecret &&
-    platformMerchantId &&
-    partnerAttributionId &&
-    sellerMerchantId
-  ) {
-    sellerActive = await paypalSellerIsActive({
-      clientId: platformClientId,
-      clientSecret: platformClientSecret,
-      platformMerchantId,
-      sellerMerchantId,
-      partnerAttributionId,
-    });
-
-    if (connection?.externalAccountId === sellerMerchantId && !sellerActive) {
-      await saveStorePaymentConnection({ provider: 'PAYPAL', status: 'REQUIRES_ACTION' });
-    }
-  }
-
+  // "Connected" means the server has the expected sandbox credentials and a
+  // seller account that completed onboarding. Live API rechecks are performed
+  // during onboarding, not on every page load/payment-method availability request.
   const splitEnabled = Boolean(
     sandboxEnabled &&
     platformClientId &&
     platformClientSecret &&
     platformMerchantId &&
     partnerAttributionId &&
-    sellerMerchantId &&
-    sellerActive,
+    sellerMerchantId,
   );
 
   return {
@@ -232,7 +477,7 @@ export async function paypalPaymentConfig() {
     sellerMerchantId: splitEnabled ? sellerMerchantId : undefined,
     partnerAttributionId: splitEnabled ? partnerAttributionId : undefined,
     splitEnabled,
-    sandbox: true,
+    sandbox: sandboxEnabled,
   };
 }
 

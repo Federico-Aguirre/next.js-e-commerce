@@ -1,11 +1,20 @@
 import 'server-only';
+import { resolveCartSku } from '@/lib/checkout/inventory';
+import type { CheckoutInventoryItem } from '@/lib/checkout/inventory';
+import { roundCurrencyAmount } from '@/lib/currency/currencies';
+import { convertCurrencyAmount, getLatestUsdExchangeRates } from '@/lib/currency/exchange-rates';
+import { amountInPaymentCurrency, loadPaymentConversion } from '@/lib/currency/payment-amount';
+import type { ProviderCurrency } from '@/lib/currency/payment-amount';
 import { Env } from '@/lib/Env';
 import { sameDeliveryMinute } from '@/lib/orders/delivery-estimate';
 import { sendOrderFulfillmentEmail } from '@/lib/orders/order-fulfillment-email';
 import { prisma } from '@/lib/prisma';
+import { calculateBasketTax, calculateTaxBreakdown } from '@/lib/tax/tax-calculation';
+import { getCountryTaxProfile } from '@/lib/tax/tax-rates';
 import { StoreConfig } from '@/utils/StoreConfig';
 import { fulfillmentFromProviderStatus } from './fulfillment-status';
-import type { ShippingProvider, ShippingQuote } from './types';
+import { selectCheapestDeliveryQuote, selectFasterDeliveryQuote } from './select-cheapest-quote';
+import type { CheckoutShippingOption, ShippingProvider, ShippingQuote } from './types';
 
 const ZIPNOVA_API = 'https://api.zipnova.com.ar/v2';
 const SHIPPO_API = 'https://api.goshippo.com';
@@ -22,6 +31,52 @@ const DEFAULT_ITEM = {
 };
 
 type OrderContext = NonNullable<Awaited<ReturnType<typeof loadOrderContext>>>;
+
+type ShippingQuoteContext = {
+  order: {
+    id: string;
+    total: number;
+    deliveryFirstName: string | null;
+    deliveryLastName: string | null;
+    deliveryPhone: string | null;
+    deliveryDni: string | null;
+    deliveryStreet: string | null;
+    deliveryNumber: string | null;
+    deliveryApartment: string | null;
+    deliveryCity: string | null;
+    deliveryProvince: string | null;
+    deliveryPostalCode: string | null;
+    deliveryCountry: string | null;
+    user: { email: string | null };
+  };
+  physicalItems: Array<{
+    sku: string;
+    title: string;
+    quantity: number;
+    price: number;
+    weight: number;
+    length: number;
+    width: number;
+    height: number;
+  }>;
+};
+
+export type CheckoutShippingUser = {
+  id: string;
+  deliveryAddressId?: string | null;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  dni: string | null;
+  shippingStreet: string | null;
+  shippingNumber: string | null;
+  shippingApartment: string | null;
+  shippingCity: string | null;
+  shippingProvince: string | null;
+  shippingPostalCode: string | null;
+  shippingCountry: string | null;
+};
 
 function normalizeText(value: string | null | undefined) {
   return value?.trim() || '';
@@ -120,7 +175,7 @@ async function loadOrderContext(orderId: string) {
   return { order, physicalItems };
 }
 
-function destination(context: OrderContext) {
+function destination(context: ShippingQuoteContext) {
   const { order } = context;
   return {
     name: required(
@@ -148,7 +203,7 @@ function normalizedComparable(value: string) {
     .toLowerCase();
 }
 
-function localShippingQuotes(context: OrderContext): ShippingQuote[] {
+function localShippingQuotes(context: ShippingQuoteContext): ShippingQuote[] {
   const to = destination(context);
   if (to.country !== 'AR') return [];
 
@@ -195,7 +250,7 @@ function localShippingQuotes(context: OrderContext): ShippingQuote[] {
   return quotes;
 }
 
-function aggregateParcel(context: OrderContext) {
+function aggregateParcel(context: ShippingQuoteContext) {
   const units = context.physicalItems.flatMap((item) =>
     Array.from({ length: item.quantity }, () => item),
   );
@@ -259,7 +314,7 @@ async function zipnovaOriginId() {
   return originId;
 }
 
-function zipnovaItems(context: OrderContext) {
+function zipnovaItems(context: ShippingQuoteContext) {
   return context.physicalItems.flatMap((item) =>
     Array.from({ length: item.quantity }, () => ({
       sku: item.sku,
@@ -273,7 +328,7 @@ function zipnovaItems(context: OrderContext) {
   );
 }
 
-async function quoteZipnova(context: OrderContext): Promise<ShippingQuote[]> {
+async function quoteZipnova(context: ShippingQuoteContext): Promise<ShippingQuote[]> {
   const to = destination(context);
   const response = await fetch(`${ZIPNOVA_API}/shipments/quote`, {
     method: 'POST',
@@ -372,7 +427,7 @@ function shippoOrigin() {
   };
 }
 
-function shippoCustoms(context: OrderContext) {
+function shippoCustoms(context: ShippingQuoteContext) {
   return {
     contents_type: 'MERCHANDISE',
     non_delivery_option: 'RETURN',
@@ -390,7 +445,7 @@ function shippoCustoms(context: OrderContext) {
   };
 }
 
-async function quoteShippo(context: OrderContext): Promise<ShippingQuote[]> {
+async function quoteShippo(context: ShippingQuoteContext): Promise<ShippingQuote[]> {
   const to = destination(context);
   const parcel = aggregateParcel(context);
   const response = await fetch(`${SHIPPO_API}/shipments/`, {
@@ -447,27 +502,240 @@ async function quoteShippo(context: OrderContext): Promise<ShippingQuote[]> {
     .sort((a: ShippingQuote, b: ShippingQuote) => a.amount - b.amount);
 }
 
+async function quoteShippingContext(context: ShippingQuoteContext) {
+  const provider = providerForCountry(destination(context).country);
+  const localQuotes = localShippingQuotes(context);
+  let providerQuotes: ShippingQuote[] = [];
+
+  try {
+    providerQuotes =
+      provider === 'ZIPNOVA' ? await quoteZipnova(context) : await quoteShippo(context);
+  } catch (error) {
+    if (localQuotes.length === 0) throw error;
+  }
+
+  const quotes = [...localQuotes, ...providerQuotes].sort(
+    (a, b) => a.amount - b.amount || a.carrier.localeCompare(b.carrier),
+  );
+  if (quotes.length === 0) throw new Error(`No se obtuvieron tarifas de ${provider}.`);
+  return { success: true as const, provider, quotes };
+}
+
 export async function quoteOrderShipping(orderId: string) {
   try {
     const context = await loadOrderContext(orderId);
-    const provider = providerForCountry(destination(context).country);
-    const localQuotes = localShippingQuotes(context);
-    let providerQuotes: ShippingQuote[] = [];
-
-    try {
-      providerQuotes =
-        provider === 'ZIPNOVA' ? await quoteZipnova(context) : await quoteShippo(context);
-    } catch (error) {
-      if (localQuotes.length === 0) throw error;
-    }
-
-    const quotes = [...localQuotes, ...providerQuotes].sort((a, b) => a.amount - b.amount);
-    if (quotes.length === 0) throw new Error(`No se obtuvieron tarifas de ${provider}.`);
-    return { success: true as const, provider, quotes };
+    return await quoteShippingContext(context);
   } catch (error) {
     return {
       success: false as const,
       error: error instanceof Error ? error.message : 'Error de envío.',
+    };
+  }
+}
+
+/** Quotes shipping before the order is created, using catalog data from the database. */
+export async function quoteCheckoutShipping(
+  user: CheckoutShippingUser,
+  cartItems: CheckoutInventoryItem[],
+  paymentCurrency: ProviderCurrency,
+): Promise<
+  | { success: true; provider: ShippingProvider; quotes: CheckoutShippingOption[] }
+  | { success: false; error: string }
+> {
+  try {
+    const taxProfile = await getCountryTaxProfile(user.shippingCountry || 'Argentina');
+    if (!taxProfile || taxProfile.status !== 'standard' || taxProfile.rate === null) {
+      throw new Error(
+        `No se puede confirmar el impuesto para ${user.shippingCountry || 'el destino seleccionado'}. Completá una dirección de entrega válida antes de pagar.`,
+      );
+    }
+
+    const resolvedItems = await prisma.$transaction(async (tx) => {
+      const grouped = new Map<
+        string,
+        {
+          skuId: string;
+          articleId: number;
+          title: string;
+          price: number;
+          quantity: number;
+          weight: number;
+          length: number;
+          width: number;
+          height: number;
+        }
+      >();
+
+      for (const item of cartItems) {
+        const quantity = Number(item.quantity);
+        if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 99) {
+          throw new Error(`Cantidad inválida para \"${item.title}\".`);
+        }
+        const sku = await resolveCartSku(tx, item);
+        if (!sku) {
+          throw new Error(
+            `No pudimos identificar el talle ${item.size || 'N/A'} de \"${item.title}\". Quitá el producto del carrito y volvé a agregarlo.`,
+          );
+        }
+        const existing = grouped.get(sku.id);
+        if (existing) {
+          existing.quantity = Math.max(existing.quantity, quantity);
+        } else {
+          grouped.set(sku.id, {
+            skuId: sku.id,
+            articleId: sku.articleId,
+            title: sku.variant.product.name,
+            price: Number(sku.variant.product.price),
+            quantity,
+            weight: sku.shippingWeightGrams ?? DEFAULT_ITEM.weight,
+            length: sku.shippingLengthCm ?? DEFAULT_ITEM.length,
+            width: sku.shippingWidthCm ?? DEFAULT_ITEM.width,
+            height: sku.shippingHeightCm ?? DEFAULT_ITEM.height,
+          });
+        }
+      }
+      return Array.from(grouped.values());
+    });
+
+    if (resolvedItems.length === 0) throw new Error('El carrito está vacío.');
+    const productLines = resolvedItems.map((item) => ({
+      productId: String(item.articleId),
+      title: item.title,
+      price: item.price,
+      quantity: item.quantity,
+    }));
+    const basketTax = calculateBasketTax(
+      productLines,
+      taxProfile.rate,
+      StoreConfig.currency,
+      taxProfile.calculationMethod,
+    );
+    const paymentConversion = await loadPaymentConversion(paymentCurrency);
+    const productPaymentTotal = roundCurrencyAmount(
+      resolvedItems.reduce((sum, item) => {
+        const grossUnitPrice = calculateTaxBreakdown(
+          item.price,
+          taxProfile.rate,
+          StoreConfig.currency,
+          taxProfile.calculationMethod,
+        ).total;
+        return sum + amountInPaymentCurrency(grossUnitPrice, paymentConversion) * item.quantity;
+      }, 0),
+      paymentCurrency,
+    );
+
+    const context: ShippingQuoteContext = {
+      order: {
+        id: `checkout-preview-${user.id}`,
+        total: basketTax.total,
+        deliveryFirstName: user.firstName,
+        deliveryLastName: user.lastName,
+        deliveryPhone: user.phone,
+        deliveryDni: user.dni,
+        deliveryStreet: user.shippingStreet,
+        deliveryNumber: user.shippingNumber,
+        deliveryApartment: user.shippingApartment,
+        deliveryCity: user.shippingCity,
+        deliveryProvince: user.shippingProvince,
+        deliveryPostalCode: user.shippingPostalCode,
+        deliveryCountry: user.shippingCountry,
+        user: { email: user.email },
+      },
+      physicalItems: resolvedItems.map((item) => ({
+        sku: String(item.articleId),
+        title: item.title,
+        quantity: item.quantity,
+        price: item.price,
+        weight: item.weight,
+        length: item.length,
+        width: item.width,
+        height: item.height,
+      })),
+    };
+    const quoteResult = await quoteShippingContext(context);
+    let exchangeRates = paymentConversion.rates;
+    if (
+      quoteResult.quotes.some((quote) => quote.currency !== StoreConfig.currency) &&
+      !exchangeRates
+    ) {
+      exchangeRates = (await getLatestUsdExchangeRates()).rates;
+    }
+
+    const quotes: CheckoutShippingOption[] = quoteResult.quotes.map((quote) => {
+      const shippingAmount =
+        quote.currency === StoreConfig.currency
+          ? roundCurrencyAmount(quote.amount, StoreConfig.currency)
+          : convertCurrencyAmount(
+              quote.amount,
+              quote.currency,
+              StoreConfig.currency,
+              exchangeRates!,
+            );
+      const paymentShippingAmount =
+        quote.currency === paymentCurrency
+          ? roundCurrencyAmount(quote.amount, paymentCurrency)
+          : amountInPaymentCurrency(shippingAmount, paymentConversion);
+      const totalInStoreCurrency = roundCurrencyAmount(
+        basketTax.total + shippingAmount,
+        StoreConfig.currency,
+      );
+      const paymentTotal = roundCurrencyAmount(
+        productPaymentTotal + paymentShippingAmount,
+        paymentCurrency,
+      );
+      return {
+        ...quote,
+        subtotal: basketTax.subtotal,
+        taxAmount: basketTax.taxAmount,
+        taxRate: taxProfile.rate!,
+        taxCalculationMethod: taxProfile.calculationMethod,
+        taxName: taxProfile.taxName || 'Impuesto',
+        taxCountry: taxProfile.countryCode,
+        productTotal: basketTax.total,
+        shippingAmount,
+        totalInStoreCurrency,
+        paymentShippingAmount,
+        paymentTotal,
+        paymentCurrency,
+        paymentExchangeRate: paymentConversion.exchangeRate,
+        storeCurrency: StoreConfig.currency,
+        quoteToken: '',
+      };
+    });
+
+    // The store, not the customer, chooses the least expensive home-delivery service.
+    const cheapestQuote = selectCheapestDeliveryQuote(quotes);
+    if (!cheapestQuote) {
+      throw new Error(
+        'No hay una tarifa de entrega a domicilio disponible para esta dirección. Revisá la dirección o la configuración logística.',
+      );
+    }
+
+    const fasterQuote = selectFasterDeliveryQuote(quotes, cheapestQuote);
+    const checkoutQuotes: CheckoutShippingOption[] = [
+      {
+        ...cheapestQuote,
+        meta: { ...cheapestQuote.meta, checkoutChoice: 'cheapest' },
+      },
+      ...(fasterQuote
+        ? [
+            {
+              ...fasterQuote,
+              meta: { ...fasterQuote.meta, checkoutChoice: 'faster' },
+            },
+          ]
+        : []),
+    ];
+
+    return {
+      success: true as const,
+      provider: cheapestQuote.provider,
+      quotes: checkoutQuotes,
+    };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : 'No se pudo cotizar el envío.',
     };
   }
 }
@@ -624,20 +892,51 @@ async function notifyShippingStatusChange(
 }
 
 export async function createOrderShipping(orderId: string, quote: ShippingQuote) {
+  let claimAcquired = false;
+  let remoteRequestStarted = false;
+  let providerCreated = false;
+  let previousShippingStatus: string | null = null;
+
   try {
     const context = await loadOrderContext(orderId);
     if (context.order.shippingExternalId) throw new Error('El pedido ya tiene un envío creado.');
+    if (context.order.shippingStatus === 'CREATING') {
+      throw new Error(
+        'La creación anterior sigue sin resolverse. Revisá el proveedor antes de reintentar.',
+      );
+    }
     const expectedProvider = providerForCountry(destination(context).country);
     if (quote.provider !== 'LOCAL' && quote.provider !== expectedProvider) {
       throw new Error('Proveedor de envío inválido para el destino.');
     }
 
+    previousShippingStatus = context.order.shippingStatus;
+    const claim = await prisma.order.updateMany({
+      where: {
+        id: orderId,
+        status: 'PAID',
+        shippingExternalId: null,
+        shippingStatus: previousShippingStatus,
+      },
+      data: { shippingStatus: 'CREATING', shippingError: null },
+    });
+    if (claim.count !== 1) {
+      throw new Error('Ya hay una creación de envío en curso o el pedido cambió de estado.');
+    }
+    claimAcquired = true;
+
+    remoteRequestStarted = quote.provider !== 'LOCAL';
     const created =
       quote.provider === 'LOCAL'
         ? createLocal(context, quote)
         : quote.provider === 'ZIPNOVA'
           ? await createZipnova(context, quote)
           : await createShippo(context, quote);
+    providerCreated = quote.provider !== 'LOCAL';
+
+    if (!created.externalId || created.externalId === 'undefined') {
+      throw new Error('El proveedor no devolvió un identificador de envío válido.');
+    }
 
     const estimatedDeliveryAt = created.estimatedDeliveryAt
       ? new Date(created.estimatedDeliveryAt)
@@ -647,8 +946,13 @@ export async function createOrderShipping(orderId: string, quote: ShippingQuote)
       estimatedDeliveryAt && !Number.isNaN(estimatedDeliveryAt.getTime())
         ? estimatedDeliveryAt
         : null;
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
+    const saved = await prisma.order.updateMany({
+      where: {
+        id: orderId,
+        status: 'PAID',
+        shippingExternalId: null,
+        shippingStatus: 'CREATING',
+      },
       data: {
         shippingProvider: quote.provider,
         shippingMode: Env.SHIPPING_MODE,
@@ -669,8 +973,19 @@ export async function createOrderShipping(orderId: string, quote: ShippingQuote)
             ? context.order.fulfillmentStatus
             : providerFulfillmentStatus,
       },
+    });
+    if (saved.count !== 1) {
+      throw new Error(
+        'El proveedor creó el envío, pero no se pudo vincular al pedido. Revisá el proveedor antes de reintentar.',
+      );
+    }
+
+    const updatedOrder = await prisma.order.findUnique({
+      where: { id: orderId },
       select: { fulfillmentStatus: true, estimatedDeliveryAt: true, updatedAt: true },
     });
+    if (!updatedOrder) throw new Error('No se pudo recuperar el pedido después de crear el envío.');
+
     await notifyShippingStatusChange(
       orderId,
       context.order.fulfillmentStatus,
@@ -680,9 +995,26 @@ export async function createOrderShipping(orderId: string, quote: ShippingQuote)
     return { success: true as const };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo crear el envío.';
-    await prisma.order
-      .update({ where: { id: orderId }, data: { shippingError: message } })
-      .catch(() => null);
+    const providerOutcomeUnknown =
+      remoteRequestStarted &&
+      (error instanceof TypeError ||
+        /fetch failed|timeout|socket|ECONNRESET|ETIMEDOUT|EAI_AGAIN|\b5\d{2}\b/i.test(message));
+    if (claimAcquired) {
+      await prisma.order
+        .updateMany({
+          where: {
+            id: orderId,
+            status: 'PAID',
+            shippingExternalId: null,
+            shippingStatus: 'CREATING',
+          },
+          data:
+            providerCreated || providerOutcomeUnknown
+              ? { shippingError: message }
+              : { shippingStatus: previousShippingStatus, shippingError: message },
+        })
+        .catch(() => undefined);
+    }
     return { success: false as const, error: message };
   }
 }
@@ -691,6 +1023,7 @@ async function refreshShippo(externalId: string) {
   const response = await fetch(`${SHIPPO_API}/transactions/${encodeURIComponent(externalId)}`, {
     headers: shippoHeaders(),
     cache: 'no-store',
+    signal: AbortSignal.timeout(8_000),
   });
   const data = (await response.json()) as any;
   if (!response.ok) throw new Error(apiError(data, `Shippo respondió ${response.status}.`));
@@ -707,6 +1040,7 @@ async function refreshZipnova(externalId: string) {
   const response = await fetch(`${ZIPNOVA_API}/shipments/${encodeURIComponent(externalId)}`, {
     headers: { Authorization: zipnovaAuth(), Accept: 'application/json' },
     cache: 'no-store',
+    signal: AbortSignal.timeout(8_000),
   });
   const data = (await response.json()) as any;
   if (!response.ok) throw new Error(apiError(data, `Zipnova respondió ${response.status}.`));

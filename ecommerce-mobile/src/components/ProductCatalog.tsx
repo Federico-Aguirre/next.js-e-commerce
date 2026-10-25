@@ -3,7 +3,7 @@ import { View, Text, Image, FlatList, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import SearchBar from '@/components/SearchBar';
 import WishlistButton from '@/components/WishlistButton';
-import { Product } from '@/types/products';
+import { Product } from '@/types/product';
 
 interface ProductCatalogProps {
   initialProducts?: Product[];

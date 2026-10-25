@@ -29,6 +29,12 @@ next-env.d.ts
 pglite-data/
 /local
 
+# Database backups contain customer and order data; never commit them.
+/backups/
+/ecommerce-db-backups/
+*.dump
+*.dump.sha256
+
 # Testing, Coverage, and Storybook
 /coverage/
 /vitest-test-results/
@@ -84,11 +90,15 @@ certificates
 .bashrc
 main.py
 
-# Keep the canonical agent guide and situational project skills versionable.
+# Keep the canonical agent guide, the operational runbook, and situational skills versionable.
 ai
 !ai/
 ai/*
 !ai/agents.md
+!ai/doc/
+ai/doc/*
+!ai/doc/operations-backup-restore.md
+!ai/doc/security-credentials-session.md
 !ai/skills/
 ai/skills/*
 !ai/skills/payment-integrations/

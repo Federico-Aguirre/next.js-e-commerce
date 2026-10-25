@@ -91,7 +91,19 @@ export type DashboardData = {
   recentOrders: DashboardOrder[];
   subscription: {
     status: string;
+    storefrontStatus: 'OPEN' | 'CLOSING' | 'CLOSED';
+    storefrontClosedAt: string | null;
+    planType: 'STANDARD' | 'PRO';
     nextPaymentAt: string | null;
     commissionPercent: number;
-  } | null;
+    baseCommissionPercent: number;
+    proActive: boolean;
+    customizationRecoveryActive: boolean;
+    setupRecoveryTarget: number;
+    setupRecoveryStartedAt: string | null;
+    monthlyPriceARS: number;
+    recoveredAmount: number;
+    reservedAmount: number;
+    recoveryRemaining: number;
+  };
 };

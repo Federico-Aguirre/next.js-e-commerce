@@ -1,70 +1,65 @@
 import createMiddleware from 'next-intl/middleware';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { routing } from '@/lib/I18nRouting';
+import { buildAllowedCorsOrigins, getCorsHeadersForOrigin } from '@/lib/security/cors';
 
 const intlMiddleware = createMiddleware(routing);
 
 function getAllowedOrigins() {
-  const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-  const siteOrigins = [
-    process.env.NEXTAUTH_URL,
-    process.env.NEXT_PUBLIC_SITE_URL,
-    process.env.NEXT_PUBLIC_APP_URL,
-  ]
-    .filter((origin): origin is string => Boolean(origin))
-    .map((origin) => {
-      try {
-        return new URL(origin).origin;
-      } catch {
-        return '';
-      }
-    })
-    .filter(Boolean);
-  const developmentOrigins =
-    process.env.NODE_ENV === 'production'
-      ? []
-      : ['http://localhost:3001', 'http://127.0.0.1:3001', 'http://localhost:8081'];
-
-  return new Set([...configuredOrigins, ...siteOrigins, ...developmentOrigins]);
+  return buildAllowedCorsOrigins({
+    configuredOrigins: process.env.CORS_ALLOWED_ORIGINS,
+    siteUrls: [
+      process.env.NEXTAUTH_URL,
+      process.env.NEXT_PUBLIC_SITE_URL,
+      process.env.NEXT_PUBLIC_APP_URL,
+    ],
+    nodeEnv: process.env.NODE_ENV,
+  });
 }
 
-function corsHeadersFor(request: NextRequest) {
-  const origin = request.headers.get('origin');
-  if (!origin || !getAllowedOrigins().has(origin)) return null;
+function attachCorsHeaders(response: NextResponse, headers: Record<string, string> | null) {
+  response.headers.set('Vary', 'Origin');
 
-  return {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers':
-      'Content-Type, Authorization, X-Requested-With, Accept, ngrok-skip-browser-warning',
-    Vary: 'Origin',
-  };
+  if (!headers) return response;
+
+  Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+  return response;
 }
 
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith('/api')) {
-    const corsHeaders = corsHeadersFor(request);
+  if (pathname === '/api' || pathname.startsWith('/api/')) {
+    const origin = request.headers.get('origin');
+    const corsHeaders = getCorsHeadersForOrigin(origin, getAllowedOrigins());
+
+    // Reject an explicitly supplied but untrusted Origin before an API handler runs.
+    // Requests without Origin (webhooks/native clients/server-to-server) do not use CORS.
+    if (origin && !corsHeaders) {
+      return NextResponse.json(
+        { error: 'Forbidden origin' },
+        {
+          status: 403,
+          headers: { Vary: 'Origin', 'Cache-Control': 'no-store' },
+        },
+      );
+    }
 
     if (request.method === 'OPTIONS') {
-      // Cross-origin browser clients must be explicitly listed in CORS_ALLOWED_ORIGINS.
       return new NextResponse(null, {
-        status: corsHeaders ? 204 : request.headers.get('origin') ? 403 : 204,
-        headers: corsHeaders ?? { Vary: 'Origin' },
+        status: 204,
+        headers: corsHeaders ?? { Vary: 'Origin', 'Cache-Control': 'no-store' },
       });
     }
 
-    const response = NextResponse.next();
-    if (corsHeaders) {
-      Object.entries(corsHeaders).forEach(([key, value]) => response.headers.set(key, value));
-    }
-    return response;
+    return attachCorsHeaders(NextResponse.next(), corsHeaders);
   }
+
+  // Pass the original visible path to the root server layout. It is used to show
+  // the closed-store page everywhere except admin, account and in-flight order routes.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nova-pathname', pathname);
+  const requestWithPath = new NextRequest(request, { headers: requestHeaders });
 
   // History lives under [locale], but next-intl's as-needed canonicalization
   // can loop /historial -> /en/historial -> /historial on the default locale.
@@ -79,11 +74,11 @@ export default async function middleware(request: NextRequest) {
 
     const internalUrl = request.nextUrl.clone();
     internalUrl.pathname = '/en/historial';
-    return NextResponse.rewrite(internalUrl);
+    return NextResponse.rewrite(internalUrl, { request: { headers: requestHeaders } });
   }
 
   if (pathname === '/en/historial') {
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   if (
@@ -92,10 +87,10 @@ export default async function middleware(request: NextRequest) {
     pathname === '/checkout' ||
     pathname.startsWith('/checkout/')
   ) {
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  return intlMiddleware(request);
+  return intlMiddleware(requestWithPath);
 }
 
 export const config = {

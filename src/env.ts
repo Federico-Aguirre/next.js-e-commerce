@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
-  NEXTAUTH_SECRET: z.string().min(10),
+  NEXTAUTH_SECRET: z.string().min(32),
   NEXT_PUBLIC_SITE_URL: z.string().url(),
 
   // Variables para monitoreo con Better Stack / Logtail (opcionales)

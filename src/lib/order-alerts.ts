@@ -110,6 +110,66 @@ export async function sendPaidOrderAlert(orderId: string) {
   }
 }
 
+export async function sendPaymentReviewAlert(
+  orderId: string,
+  reason:
+    | 'amount_or_currency_mismatch'
+    | 'reservation_expired'
+    | 'previously_failed'
+    | 'partial_refund'
+    | 'chargeback',
+) {
+  if (!Env.TELEGRAM_BOT_TOKEN || !Env.TELEGRAM_CHAT_ID) {
+    return false;
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      orderNumber: true,
+      total: true,
+      currency: true,
+      status: true,
+    },
+  });
+
+  if (!order || order.status !== 'PAYMENT_REVIEW') {
+    return false;
+  }
+
+  const reasons: Record<typeof reason, string> = {
+    amount_or_currency_mismatch: 'El importe o la moneda no coincide con la reserva.',
+    reservation_expired: 'El pago llegó cuando la reserva ya había vencido.',
+    previously_failed: 'El proveedor confirma el pago, pero el pedido ya figuraba como fallido.',
+    partial_refund: 'Mercado Pago informa un reembolso parcial.',
+    chargeback: 'Mercado Pago informa un contracargo.',
+  };
+
+  try {
+    return await sendTelegramMessage(
+      [
+        '🚨 Pago de Mercado Pago requiere revisión manual',
+        'Pedido: #' + String(order.orderNumber).padStart(6, '0'),
+        'Total del pedido: ' +
+          new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: order.currency,
+            currencyDisplay: 'code',
+          }).format(order.total),
+        'Motivo: ' + reasons[reason],
+        'No despachar el pedido hasta resolver la revisión.',
+      ].join('\n'),
+    );
+  } catch (error) {
+    console.error('[ORDER ALERT] Mercado Pago payment-review alert failed.', {
+      orderId,
+      error: error instanceof Error ? error.name : 'UnknownError',
+    });
+    return false;
+  }
+}
+
 export async function sendLowStockAlerts() {
   const settings = await prisma.inventoryAlertSettings.findUnique({ where: { id: 'default' } });
   const threshold = settings?.threshold ?? 5;

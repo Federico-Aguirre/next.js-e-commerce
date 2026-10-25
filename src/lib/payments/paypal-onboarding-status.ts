@@ -4,6 +4,7 @@ import {
   getStorePaymentConnection,
   saveStorePaymentConnection,
 } from '@/lib/payments/store-connections';
+import { hasVerifiedPayPalConnection } from './paypal-connection-readiness';
 
 export type PayPalMerchantStatus = {
   merchant_id?: string;
@@ -49,6 +50,15 @@ export function paypalMerchantIsReady(status: PayPalMerchantStatus) {
 export async function reconcilePendingPayPalConnection() {
   const connection = await getStorePaymentConnection('PAYPAL');
   if (!connection || connection.status === 'ACTIVE') return connection?.status ?? null;
+
+  // A live status lookup used to downgrade previously verified sandbox accounts
+  // on transient provider failures. Restore these from the persisted successful
+  // onboarding evidence rather than making every dashboard visit revalidate them.
+  if (connection.status === 'REQUIRES_ACTION' && hasVerifiedPayPalConnection(connection)) {
+    await saveStorePaymentConnection({ provider: 'PAYPAL', status: 'ACTIVE' });
+    return 'ACTIVE';
+  }
+
   if (connection.status !== 'PENDING' && connection.status !== 'REQUIRES_ACTION') {
     return connection.status;
   }

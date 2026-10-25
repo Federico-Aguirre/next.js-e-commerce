@@ -1,168 +1,37 @@
-import { getServerSession } from 'next-auth/next';
 import { NextResponse } from 'next/server';
-import { authOptions } from '@/lib/auth-options';
-import { sendLowStockAlerts, sendPaidOrderAlert } from '@/lib/order-alerts';
+import { getAuthenticatedUser } from '@/lib/auth/request-user';
 import { prisma } from '@/lib/prisma';
-import { StoreConfig } from '@/utils/StoreConfig';
 
-type OrderItemInput = {
-  id?: string;
-  title: string;
-  price: number;
-  quantity: number;
-  image?: string;
-  size?: string;
-  colorName?: string;
-};
-
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-
-    const { userId, paymentId, total, items } = body as {
-      userId: string;
-      paymentId: string;
-      total: number;
-      items: OrderItemInput[];
-    };
-
-    if (!userId || !items || items.length === 0) {
-      return NextResponse.json(
-        {
-          message: 'Datos incompletos',
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    const orderUser = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!orderUser) {
-      return NextResponse.json({ message: 'Usuario no encontrado' }, { status: 404 });
-    }
-
-    const fechaExpiracion = new Date();
-
-    fechaExpiracion.setDate(fechaExpiracion.getDate() + 7);
-
-    const nuevaOrden = await prisma.order.create({
-      data: {
-        id: paymentId,
-        userId,
-        total: Number(total),
-        currency: StoreConfig.currency,
-        status: 'PAID',
-        paymentProvider: 'MERCADOPAGO',
-        paymentExternalId: paymentId,
-        expiresAt: fechaExpiracion,
-        deliveryFirstName: orderUser.firstName,
-        deliveryLastName: orderUser.lastName,
-        deliveryPhone: orderUser.phone,
-        deliveryDni: orderUser.dni,
-        deliveryStreet: orderUser.shippingStreet,
-        deliveryNumber: orderUser.shippingNumber,
-        deliveryApartment: orderUser.shippingApartment,
-        deliveryCity: orderUser.shippingCity,
-        deliveryProvince: orderUser.shippingProvince,
-        deliveryPostalCode: orderUser.shippingPostalCode,
-        deliveryCountry: orderUser.shippingCountry,
-
-        items: {
-          create: items.map((item: OrderItemInput) => ({
-            productId: item.id || 'manual-id',
-
-            title: item.title,
-            price: Number(item.price),
-            quantity: Number(item.quantity),
-            image: item.image || '',
-            size: item.size || 'M',
-            colorName: item.colorName || 'Único',
-          })),
-        },
-      } as any,
-
-      include: {
-        items: true,
-      },
-    });
-
-    void sendPaidOrderAlert(nuevaOrden.id);
-    await sendLowStockAlerts();
-
-    return NextResponse.json(nuevaOrden, {
-      status: 201,
-    });
-  } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : 'Unknown error';
-
-    console.error('❌ Error al guardar la orden en Aiven:', error);
-
-    return NextResponse.json(
-      {
-        message: 'Internal Server Error',
-        error: errMsg,
-      },
-      {
-        status: 500,
-      },
-    );
-  }
+function privateNoStoreJson(body: unknown, init: ResponseInit = {}) {
+  const headers = new Headers(init.headers);
+  headers.set('Cache-Control', 'private, no-store, max-age=0');
+  return NextResponse.json(body, { ...init, headers });
 }
 
-// 🔒 SOPORTE HÍBRIDO: WEB (COOKIES) Y MOBILE (HEADERS)
+export async function POST() {
+  return privateNoStoreJson(
+    {
+      message:
+        'Este endpoint legado está deshabilitado. La orden debe originarse en checkout y confirmarse contra el proveedor de pago.',
+    },
+    { status: 410 },
+  );
+}
+
 export async function GET(request: Request) {
   try {
     // 1. Intentar obtener datos desde la sesión Web
     //    (cookies NextAuth)
-    const session = await getServerSession(authOptions);
-
-    let userId = session?.user?.id;
-
-    let userEmail = session?.user?.email;
-
-    // 2. Si viene de la App Móvil,
-    //    leer los encabezados HTTP
-    if (!userId && !userEmail) {
-      userId = request.headers.get('x-user-id') || undefined;
-
-      userEmail = request.headers.get('x-user-email') || undefined;
-    }
-
-    // 3. Si no hay ni sesión web ni headers móviles
-    if (!userId && !userEmail) {
-      return NextResponse.json(
-        {
-          message: 'Iniciá sesión para ver tu historial',
-        },
-        {
-          status: 401,
-        },
+    const authenticatedUser = await getAuthenticatedUser(request);
+    if (!authenticatedUser) {
+      return privateNoStoreJson(
+        { message: 'Iniciá sesión para ver tu historial' },
+        { status: 401 },
       );
     }
 
-    // 4. Buscar órdenes asociadas por ID
-    //    o por Email como respaldo
     const ordenes = await prisma.order.findMany({
-      where: {
-        OR: [
-          ...(userId ? [{ userId }] : []),
-
-          ...(userEmail
-            ? [
-                {
-                  user: {
-                    email: userEmail,
-                  },
-                },
-              ]
-            : []),
-        ],
-      },
-
+      where: { userId: authenticatedUser.id },
       include: {
         items: true,
         user: {
@@ -180,10 +49,7 @@ export async function GET(request: Request) {
           },
         },
       },
-
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     });
 
     const ordenesPagadas = ordenes
@@ -214,11 +80,11 @@ export async function GET(request: Request) {
         user: undefined,
       }));
 
-    return NextResponse.json(ordenesPagadas);
+    return privateNoStoreJson(ordenesPagadas);
   } catch (error: unknown) {
     console.error('❌ Error al traer historial desde Aiven:', error);
 
-    return NextResponse.json(
+    return privateNoStoreJson(
       {
         message: 'Error al traer el historial',
       },

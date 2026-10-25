@@ -61,10 +61,13 @@ export default async function ProductPage(props: ProductPageProps) {
         product={product}
         locale={localeCode}
         addToCartLabel={t('product.addToCart')}
+        buyNowLabel={t('product.buyNow')}
         quantityLabel={t('product.quantity')}
         sizeLabel={t('product.size')}
         selectSizeLabel={t('product.selectSize')}
         sizeRequiredLabel={t('product.sizeRequired')}
+        colorLabel={t('product.color')}
+        addedToCartLabel={t('product.addedToCart')}
       />
 
       <ProductReviewsSection
@@ -74,7 +77,7 @@ export default async function ProductPage(props: ProductPageProps) {
         prefixLocaleInCallback
       />
 
-      <section className="border-border border-t pt-10">
+      <section className="border-t border-border pt-10">
         <div className="max-w-3xl">
           <p className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
             {t('product.detailsEyebrow')}
